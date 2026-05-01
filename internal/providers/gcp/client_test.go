@@ -352,3 +352,88 @@ func TestTokenSource_Refresh(t *testing.T) {
 		t.Errorf("token was not cached")
 	}
 }
+
+func TestMetadataTokenSource_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Metadata-Flavor") != "Google" {
+			t.Errorf("missing Metadata-Flavor header")
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(tokenResponse{
+			AccessToken: "metadata-token",
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+		})
+	}))
+	defer server.Close()
+
+	mts := &metadataTokenSource{httpClient: server.Client()}
+	// Override the metadata URL to point to our test server.
+	origURL := metadataURL
+	defer func() { _ = origURL }() // keep reference
+
+	// Use the test server's transport to redirect requests.
+	mts.httpClient.Transport = &testTransport{serverURL: server.URL}
+
+	token, err := mts.Token()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "metadata-token" {
+		t.Errorf("expected metadata-token, got %s", token)
+	}
+}
+
+func TestMetadataTokenSource_CachedToken(t *testing.T) {
+	mts := &metadataTokenSource{
+		cachedToken: "cached-metadata-token",
+		tokenExpiry: time.Now().Add(1 * time.Hour),
+	}
+
+	token, err := mts.Token()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "cached-metadata-token" {
+		t.Errorf("expected cached-metadata-token, got %s", token)
+	}
+}
+
+func TestMetadataTokenSource_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("service unavailable"))
+	}))
+	defer server.Close()
+
+	mts := &metadataTokenSource{httpClient: server.Client()}
+	mts.httpClient.Transport = &testTransport{serverURL: server.URL}
+
+	_, err := mts.Token()
+	if err == nil {
+		t.Fatal("expected error for 503 response")
+	}
+}
+
+func TestNewMetadataTokenSource_SetsMetadataField(t *testing.T) {
+	ts := newMetadataTokenSource(&http.Client{})
+	if ts.metadataSource == nil {
+		t.Fatal("expected metadataSource to be set")
+	}
+}
+
+func TestTokenSource_DelegatesToMetadata(t *testing.T) {
+	mts := &metadataTokenSource{
+		cachedToken: "delegated-token",
+		tokenExpiry: time.Now().Add(1 * time.Hour),
+	}
+	ts := &tokenSource{metadataSource: mts}
+
+	token, err := ts.Token()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "delegated-token" {
+		t.Errorf("expected delegated-token, got %s", token)
+	}
+}

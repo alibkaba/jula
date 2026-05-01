@@ -75,3 +75,23 @@ func TestHandleRun_AllValid_WiringCheck(t *testing.T) {
 		t.Fatal("expected extraction error without GCP credentials")
 	}
 }
+
+func TestHandleRun_InvalidTimeout(t *testing.T) {
+	err := handleRun([]string{
+		"-provider", "gcp",
+		"-framework", "soc2",
+		"-target", "local",
+		"-path", "/tmp",
+		"-timeout", "not-a-duration",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid timeout")
+	}
+}
+
+func TestHandleRun_BadFlagParsing(t *testing.T) {
+	err := handleRun([]string{"--unknown-flag"})
+	if err == nil {
+		t.Fatal("expected error for unknown flag")
+	}
+}

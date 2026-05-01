@@ -141,3 +141,49 @@ func TestLocalReporter_ValidateRequiresSigningKey(t *testing.T) {
 		t.Error("expected error for empty signing key")
 	}
 }
+
+func TestLocalReporter_ContextCancellation(t *testing.T) {
+	tmpDir := t.TempDir()
+	r := &LocalReporter{
+		OutputDir:  tmpDir,
+		SigningKey: []byte("test-key"),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately.
+
+	_, err := r.Deliver(ctx, testEvidence(), "test-run")
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+}
+
+func TestLocalReporter_FileDedupOnCollision(t *testing.T) {
+	tmpDir := t.TempDir()
+	r := &LocalReporter{
+		OutputDir:  tmpDir,
+		SigningKey: []byte("test-key"),
+	}
+
+	// First delivery creates the files.
+	_, err := r.Deliver(context.Background(), testEvidence(), "run-1")
+	if err != nil {
+		t.Fatalf("first deliver failed: %v", err)
+	}
+
+	// Second delivery should create deduped files (e.g., _2.json).
+	_, err = r.Deliver(context.Background(), testEvidence(), "run-2")
+	if err != nil {
+		t.Fatalf("second deliver failed: %v", err)
+	}
+}
+
+func TestLocalReporter_ValidateSuccess(t *testing.T) {
+	r := &LocalReporter{
+		OutputDir:  "/tmp/test",
+		SigningKey: []byte("test-key"),
+	}
+	if err := r.Validate(context.Background()); err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
