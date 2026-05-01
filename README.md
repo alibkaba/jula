@@ -8,7 +8,17 @@ A high-performance, open-source CLI tool that programmatically extracts infrastr
 
 Modern compliance platforms charge massive premiums for onboarding, API mapping, and implementation. The **Jula Evidence Collector** is designed to disrupt that model by commoditizing the most complex part of compliance: automated, cryptographically signed evidence gathering.
 
-By pairing this containerized evidence collector with standard document management and ticketing tools, engineering teams can achieve SOC 2 compliance (with additional frameworks planned for the future) without paying a SaaS middleman, enduring lengthy implementations, or accepting vendor lock-in.
+By pairing this containerized evidence collector with standard document management and ticketing tools, engineering teams can achieve continuous compliance without paying a SaaS middleman, enduring lengthy implementations, or accepting vendor lock-in.
+
+### Supported Frameworks
+
+*   **MVP Focus:** SOC 2 (Type II)
+*   **Roadmap (Later Date):**
+    *   CIS GCP Foundations Benchmark
+    *   NIST (800-53 / CSF)
+    *   HIPAA Security Rule
+    *   PCI-DSS
+    *   ISO 27001
 
 ## Quick Start
 ```bash

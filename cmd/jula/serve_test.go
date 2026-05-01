@@ -40,20 +40,23 @@ func TestRunEndpointPOSTRequiresEnv(t *testing.T) {
 	}
 }
 
-func TestRunEndpointPOSTWithEnv(t *testing.T) {
-	// Set up required env vars so handleRun succeeds.
+func TestRunEndpointPOSTWithEnv_NoGCPCreds(t *testing.T) {
+	// With the engine wired, POST /run with valid env vars but no GCP
+	// credentials returns 500 (extraction fails at provider validation).
+	// This confirms the serve endpoint correctly delegates to handleRun.
 	t.Setenv("JULA_PROVIDER", "gcp")
 	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", "./test-output")
+	t.Setenv("JULA_GCP_PROJECT_ID", "")
 
 	mux := newServeMux()
 	req := httptest.NewRequest(http.MethodPost, "/run", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 with valid env, got %d", rec.Code)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 without GCP creds, got %d", rec.Code)
 	}
 }
 

@@ -31,36 +31,41 @@ func (p *GCPProvider) Name() string {
 
 // Validate ensures all required GCP environment variables are present
 // and initializes the authenticated HTTP client.
+// Supports two authentication modes:
+//   1. Service account JSON key file (JULA_GCP_CREDENTIALS_JSON) for local dev.
+//   2. GCP metadata server (Application Default Credentials) for Cloud Run.
 func (p *GCPProvider) Validate() error {
 	p.projectID = os.Getenv("JULA_GCP_PROJECT_ID")
 	if p.projectID == "" {
 		return fmt.Errorf("JULA_GCP_PROJECT_ID is required")
 	}
 
-	credsPath := os.Getenv("JULA_GCP_CREDENTIALS_JSON")
-	if credsPath == "" {
-		return fmt.Errorf("JULA_GCP_CREDENTIALS_JSON is required")
-	}
-
-	credsData, err := os.ReadFile(credsPath)
-	if err != nil {
-		return fmt.Errorf("reading credentials file: %w", err)
-	}
-
-	var key serviceAccountKey
-	if err := json.Unmarshal(credsData, &key); err != nil {
-		return fmt.Errorf("parsing credentials JSON: %w", err)
-	}
-
 	if p.httpClient == nil {
 		p.httpClient = &http.Client{}
 	}
 
-	ts, err := newTokenSource(&key, p.httpClient)
-	if err != nil {
-		return fmt.Errorf("initializing token source: %w", err)
+	credsPath := os.Getenv("JULA_GCP_CREDENTIALS_JSON")
+	if credsPath != "" {
+		// Mode 1: Explicit JSON key file (local development).
+		credsData, err := os.ReadFile(credsPath)
+		if err != nil {
+			return fmt.Errorf("reading credentials file: %w", err)
+		}
+
+		var key serviceAccountKey
+		if err := json.Unmarshal(credsData, &key); err != nil {
+			return fmt.Errorf("parsing credentials JSON: %w", err)
+		}
+
+		ts, err := newTokenSource(&key, p.httpClient)
+		if err != nil {
+			return fmt.Errorf("initializing token source: %w", err)
+		}
+		p.tokenSource = ts
+	} else {
+		// Mode 2: GCP metadata server / Application Default Credentials (Cloud Run).
+		p.tokenSource = newMetadataTokenSource(p.httpClient)
 	}
-	p.tokenSource = ts
 
 	if p.baseURL == "" {
 		p.baseURL = "https://compute.googleapis.com"

@@ -40,13 +40,14 @@ type tokenResponse struct {
 
 // tokenSource manages OAuth2 access tokens for GCP API calls.
 type tokenSource struct {
-	key          *serviceAccountKey
-	privateKey   *rsa.PrivateKey
-	scopes       []string
-	cachedToken  string
-	tokenExpiry  time.Time
-	httpClient   *http.Client
-	tokenURL     string
+	key            *serviceAccountKey
+	privateKey     *rsa.PrivateKey
+	scopes         []string
+	cachedToken    string
+	tokenExpiry    time.Time
+	httpClient     *http.Client
+	tokenURL       string
+	metadataSource *metadataTokenSource
 }
 
 // newTokenSource creates a token source from a parsed service account key.
@@ -82,6 +83,10 @@ func newTokenSource(key *serviceAccountKey, httpClient *http.Client) (*tokenSour
 
 // Token returns a valid access token, refreshing if necessary.
 func (ts *tokenSource) Token() (string, error) {
+	// Delegate to metadata server if configured (Cloud Run).
+	if ts.metadataSource != nil {
+		return ts.metadataSource.Token()
+	}
 	if ts.cachedToken != "" && time.Now().Before(ts.tokenExpiry) {
 		return ts.cachedToken, nil
 	}
@@ -157,4 +162,60 @@ func (ts *tokenSource) refresh() (string, error) {
 	ts.tokenExpiry = now.Add(time.Duration(tokenResp.ExpiresIn)*time.Second - 5*time.Minute)
 
 	return ts.cachedToken, nil
+}
+
+// metadataTokenSource fetches access tokens from the GCP metadata server.
+// Used on Cloud Run where the container's service account identity provides tokens.
+type metadataTokenSource struct {
+	httpClient  *http.Client
+	cachedToken string
+	tokenExpiry time.Time
+}
+
+const metadataURL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+
+// newMetadataTokenSource creates a token source backed by the GCP metadata server.
+func newMetadataTokenSource(httpClient *http.Client) *tokenSource {
+	mts := &metadataTokenSource{httpClient: httpClient}
+	return &tokenSource{
+		metadataSource: mts,
+	}
+}
+
+// Token returns a valid access token from the metadata server, caching it.
+func (mts *metadataTokenSource) Token() (string, error) {
+	if mts.cachedToken != "" && time.Now().Before(mts.tokenExpiry) {
+		return mts.cachedToken, nil
+	}
+
+	req, err := http.NewRequest(http.MethodGet, metadataURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating metadata request: %w", err)
+	}
+	req.Header.Set("Metadata-Flavor", "Google")
+
+	resp, err := mts.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("metadata server request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading metadata response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("metadata server returned HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp tokenResponse
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return "", fmt.Errorf("parsing metadata token response: %w", err)
+	}
+
+	mts.cachedToken = tokenResp.AccessToken
+	mts.tokenExpiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn)*time.Second - 5*time.Minute)
+
+	return mts.cachedToken, nil
 }

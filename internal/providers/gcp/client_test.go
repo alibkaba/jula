@@ -75,14 +75,20 @@ func TestGCPProvider_Validate_MissingProjectID(t *testing.T) {
 	}
 }
 
-func TestGCPProvider_Validate_MissingCredentials(t *testing.T) {
+func TestGCPProvider_Validate_MetadataFallback(t *testing.T) {
 	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
 	t.Setenv("JULA_GCP_CREDENTIALS_JSON", "")
 
 	p := &GCPProvider{}
 	err := p.Validate()
-	if err == nil {
-		t.Fatal("expected error for missing credentials path")
+	if err != nil {
+		t.Fatalf("expected no error with metadata fallback, got: %v", err)
+	}
+	if p.tokenSource == nil {
+		t.Fatal("expected token source to be initialized")
+	}
+	if p.tokenSource.metadataSource == nil {
+		t.Fatal("expected metadata source to be configured")
 	}
 }
 

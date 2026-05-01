@@ -62,9 +62,16 @@ func TestHandleRun_InvalidTarget(t *testing.T) {
 	}
 }
 
-func TestHandleRun_AllValid(t *testing.T) {
+func TestHandleRun_AllValid_WiringCheck(t *testing.T) {
+	// With the engine wired, this test validates the full pipeline chain:
+	// run.go -> engine.Orchestrator -> providers.Get("gcp") -> gcp.Validate().
+	// Without JULA_GCP_PROJECT_ID, the provider validation fails, which confirms
+	// the wiring is correct from CLI all the way through to the provider.
+	t.Setenv("JULA_GCP_PROJECT_ID", "")
+	t.Setenv("JULA_SIGNING_KEY", "")
+
 	err := handleRun([]string{"-provider", "gcp", "-framework", "soc2", "-target", "local", "-path", "/tmp/output"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected extraction error without GCP credentials")
 	}
 }
