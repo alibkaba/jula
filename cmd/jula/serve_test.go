@@ -1,35 +1,10 @@
 package main
 
 import (
-	"net/http"
 	"net/http/httptest"
+	"net/http"
 	"testing"
 )
-
-// newServeMux mirrors the handler setup in handleServe for testability.
-func newServeMux() *http.ServeMux {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
-	})
-
-	mux.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		if err := handleRun([]string{}); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"completed"}`))
-	})
-
-	return mux
-}
 
 func TestHealthEndpoint(t *testing.T) {
 	mux := newServeMux()
