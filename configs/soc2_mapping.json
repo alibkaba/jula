@@ -1,0 +1,94 @@
+{
+  "framework": "soc2",
+  "version": "2024.1",
+  "rules": [
+    {
+      "id": "soc2-cc2.1-audit-logging",
+      "description": "Cloud Audit Logging enablement satisfies CC2.1 Quality Information",
+      "finding_id": "gcp.audit_logging.enabled",
+      "criteria": ["CC2.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc7.2-audit-logging",
+      "description": "Cloud Audit Logging enablement satisfies CC7.2 Anomaly Detection",
+      "finding_id": "gcp.audit_logging.enabled",
+      "criteria": ["CC7.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-c1.1-storage-encryption",
+      "description": "GCS bucket encryption satisfies C1.1 Confidential Data Protection",
+      "finding_id": "gcp.storage.encryption_enabled",
+      "criteria": ["C1.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc6.1-sa-key-rotation",
+      "description": "Service account key rotation satisfies CC6.1 Logical Access Security",
+      "finding_id": "gcp.iam.service_account_key_rotation",
+      "criteria": ["CC6.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc5.2-branch-protection",
+      "description": "Branch protection rules satisfy CC5.2 Technology General Controls",
+      "finding_id": "github.branch_protection.enforced",
+      "criteria": ["CC5.2", "CC8.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc8.1-peer-review",
+      "description": "PR peer review satisfies CC8.1 Change Authorization",
+      "finding_id": "github.pull_requests.peer_reviewed",
+      "criteria": ["CC8.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-c1.1-s3-encryption",
+      "description": "S3 encryption satisfies C1.1 Confidential Data Protection",
+      "finding_id": "aws.s3.encryption_enabled",
+      "criteria": ["C1.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc7.2-guardduty",
+      "description": "GuardDuty enablement satisfies CC7.2 Anomaly Detection",
+      "finding_id": "aws.guardduty.enabled",
+      "criteria": ["CC7.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc2.1-asset-inventory",
+      "description": "AWS Config recorder satisfies CC2.1 Quality Information",
+      "finding_id": "aws.config.recorder_enabled",
+      "criteria": ["CC2.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-c1.1-kms-rotation",
+      "description": "KMS key rotation satisfies C1.1",
+      "finding_id": "aws.kms.key_rotation_enabled",
+      "criteria": ["C1.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-a1.2-rds-backup",
+      "description": "RDS automated backups satisfy A1.2",
+      "finding_id": "aws.rds.backup_enabled",
+      "criteria": ["A1.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    }
+  ]
+}
