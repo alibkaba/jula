@@ -27,3 +27,4 @@ COPY --from=builder /jula /jula
 COPY --from=builder /build/configs /configs
 
 ENTRYPOINT ["/jula"]
+CMD ["serve"]

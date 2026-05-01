@@ -43,6 +43,11 @@ func main() {
 			slog.Error("validate failed", "error", err)
 			os.Exit(1)
 		}
+	case "serve":
+		if err := handleServe(os.Args[2:]); err != nil {
+			slog.Error("serve failed", "error", err)
+			os.Exit(1)
+		}
 	case "version":
 		fmt.Printf("jula %s\n", version)
 	default:
@@ -79,6 +84,7 @@ Commands:
   map         Apply framework mapping to previously extracted findings
   deliver     Upload mapped evidence to cloud storage
   run         Full pipeline: extract -> map -> deliver
+  serve       Start HTTP server for Cloud Run deployment
   validate    Validate configuration without executing
   version     Print binary version and build metadata`)
 }
