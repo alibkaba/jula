@@ -20,6 +20,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # No shell, no OS, no attack surface.
 FROM scratch
 
+# Copy CA certificates so the binary can verify TLS connections.
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 # Copy the static binary from the build stage.
 COPY --from=builder /jula /jula
 
