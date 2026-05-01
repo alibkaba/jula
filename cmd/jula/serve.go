@@ -8,15 +8,9 @@ import (
 	"time"
 )
 
-// handleServe starts a lightweight HTTP server for Cloud Run.
-// POST /run triggers the full evidence collection pipeline.
-// GET  /health returns 200 OK for liveness probes.
-func handleServe(args []string) error {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
+// newServeMux creates the HTTP handler for the serve command.
+// Extracted for testability.
+func newServeMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +39,19 @@ func handleServe(args []string) error {
 		fmt.Fprintf(w, `{"status":"completed","duration":"%s"}`, duration)
 	})
 
+	return mux
+}
+
+// handleServe starts a lightweight HTTP server for Cloud Run.
+// POST /run triggers the full evidence collection pipeline.
+// GET  /health returns 200 OK for liveness probes.
+func handleServe(args []string) error {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	mux := newServeMux()
 	slog.Info("serve: starting HTTP server", "port", port)
 	return http.ListenAndServe(":"+port, mux)
 }
