@@ -12,6 +12,7 @@ env:
   ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
   REPOSITORY: jula-evidence-collector
   IMAGE_NAME: jula
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
