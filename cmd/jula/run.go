@@ -128,7 +128,7 @@ func handleRun(args []string) error {
 	slog.Info("run: mapping complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	signingKeyHex := os.Getenv("JULA_SIGNING_KEY")
+	signingKeyHex := strings.TrimSpace(os.Getenv("JULA_SIGNING_KEY"))
 	signingKey, err := hex.DecodeString(signingKeyHex)
 	if err != nil {
 		return fmt.Errorf("decoding JULA_SIGNING_KEY (expected hex): %w", err)
