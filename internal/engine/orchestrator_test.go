@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -227,5 +228,127 @@ func TestExtract_ContextCancellation(t *testing.T) {
 	_, err := o.Extract(ctx)
 	if err == nil {
 		t.Fatal("expected error when context is cancelled")
+	}
+}
+
+// ─── Exception Tests ────────────────────────────────────────────────────
+
+func TestApplyExceptions_ActiveException(t *testing.T) {
+	o := &Orchestrator{
+		exceptions: []types.Exception{
+			{
+				ResourceARN: "projects/test/firewalls/allow-all",
+				Check:       "firewall_ingress_unrestricted",
+				Reason:      "Approved by CISO",
+				ExpiresAt:   time.Now().Add(24 * time.Hour), // Expires tomorrow.
+			},
+		},
+	}
+
+	findings := []types.Finding{
+		{ID: "f1", ResourceARN: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
+		{ID: "f2", ResourceARN: "projects/test/sql/instance1", Check: "sql_backup_enabled", Status: "PASS"},
+	}
+
+	result := o.ApplyExceptions(findings, time.Now())
+
+	if result[0].Status != "EXCEPTED" {
+		t.Errorf("expected EXCEPTED, got %s", result[0].Status)
+	}
+	if result[1].Status != "PASS" {
+		t.Errorf("expected PASS to remain unchanged, got %s", result[1].Status)
+	}
+}
+
+func TestApplyExceptions_ExpiredException(t *testing.T) {
+	o := &Orchestrator{
+		exceptions: []types.Exception{
+			{
+				ResourceARN: "projects/test/firewalls/allow-all",
+				Check:       "firewall_ingress_unrestricted",
+				Reason:      "Expired exception",
+				ExpiresAt:   time.Now().Add(-24 * time.Hour), // Expired yesterday.
+			},
+		},
+	}
+
+	findings := []types.Finding{
+		{ID: "f1", ResourceARN: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
+	}
+
+	result := o.ApplyExceptions(findings, time.Now())
+
+	if result[0].Status != "FAIL" {
+		t.Errorf("expected FAIL (expired exception), got %s", result[0].Status)
+	}
+}
+
+func TestApplyExceptions_NoMatch(t *testing.T) {
+	o := &Orchestrator{
+		exceptions: []types.Exception{
+			{
+				ResourceARN: "projects/test/firewalls/other-rule",
+				Check:       "firewall_ingress_unrestricted",
+				Reason:      "Wrong resource",
+				ExpiresAt:   time.Now().Add(24 * time.Hour),
+			},
+		},
+	}
+
+	findings := []types.Finding{
+		{ID: "f1", ResourceARN: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
+	}
+
+	result := o.ApplyExceptions(findings, time.Now())
+
+	if result[0].Status != "FAIL" {
+		t.Errorf("expected FAIL (no matching exception), got %s", result[0].Status)
+	}
+}
+
+func TestApplyExceptions_NoExceptionsLoaded(t *testing.T) {
+	o := &Orchestrator{}
+
+	findings := []types.Finding{
+		{ID: "f1", Status: "FAIL"},
+	}
+
+	result := o.ApplyExceptions(findings, time.Now())
+
+	if result[0].Status != "FAIL" {
+		t.Errorf("expected FAIL when no exceptions loaded, got %s", result[0].Status)
+	}
+}
+
+func TestLoadExceptions_ValidFile(t *testing.T) {
+	tmpFile := t.TempDir() + "/exceptions.json"
+	data := `[{"resource_arn":"test","check":"c","reason":"r","approved_by":"a","expires_at":"2099-01-01T00:00:00Z"}]`
+	if err := os.WriteFile(tmpFile, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	o := New(RunConfig{ExceptionsPath: tmpFile})
+	if err := o.LoadExceptions(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(o.exceptions) != 1 {
+		t.Fatalf("expected 1 exception, got %d", len(o.exceptions))
+	}
+}
+
+func TestLoadExceptions_MissingFile(t *testing.T) {
+	o := New(RunConfig{ExceptionsPath: "/nonexistent/exceptions.json"})
+	if err := o.LoadExceptions(); err != nil {
+		t.Fatalf("missing file should not error, got: %v", err)
+	}
+	if len(o.exceptions) != 0 {
+		t.Fatalf("expected 0 exceptions for missing file, got %d", len(o.exceptions))
+	}
+}
+
+func TestLoadExceptions_EmptyPath(t *testing.T) {
+	o := New(RunConfig{})
+	if err := o.LoadExceptions(); err != nil {
+		t.Fatalf("empty path should be no-op, got: %v", err)
 	}
 }

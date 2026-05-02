@@ -2,8 +2,10 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -13,23 +15,81 @@ import (
 
 // RunConfig holds the validated configuration for a pipeline execution.
 type RunConfig struct {
-	Providers   []string
-	Framework   string
-	Target      string
-	Path        string
-	Concurrency int
-	Timeout     time.Duration
-	RunID       string
+	Providers      []string
+	Framework      string
+	Target         string
+	Path           string
+	Concurrency    int
+	Timeout        time.Duration
+	RunID          string
+	ExceptionsPath string // Path to exceptions.json (optional).
 }
 
 // Orchestrator manages the execution of the evidence collection pipeline.
 type Orchestrator struct {
-	cfg RunConfig
+	cfg        RunConfig
+	exceptions []types.Exception
 }
 
 // New creates a new Orchestrator with the given configuration.
 func New(cfg RunConfig) *Orchestrator {
 	return &Orchestrator{cfg: cfg}
+}
+
+// LoadExceptions reads and parses the exceptions file. If no path is
+// configured, this is a no-op.
+func (o *Orchestrator) LoadExceptions() error {
+	if o.cfg.ExceptionsPath == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(o.cfg.ExceptionsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("exceptions: file not found, skipping", "path", o.cfg.ExceptionsPath)
+			return nil
+		}
+		return fmt.Errorf("reading exceptions file: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &o.exceptions); err != nil {
+		return fmt.Errorf("parsing exceptions file: %w", err)
+	}
+
+	slog.Info("exceptions: loaded", "count", len(o.exceptions))
+	return nil
+}
+
+// ApplyExceptions cross-references findings against loaded exceptions.
+// A FAIL finding that matches an active (non-expired) exception has its
+// status changed to EXCEPTED. Expired exceptions are ignored.
+func (o *Orchestrator) ApplyExceptions(findings []types.Finding, now time.Time) []types.Finding {
+	if len(o.exceptions) == 0 {
+		return findings
+	}
+
+	for i := range findings {
+		if findings[i].Status != "FAIL" {
+			continue
+		}
+		for _, exc := range o.exceptions {
+			if !exc.IsActive(now) {
+				continue
+			}
+			if findings[i].ResourceARN == exc.ResourceARN && findings[i].Check == exc.Check {
+				slog.Info("exceptions: applied",
+					"resource", exc.ResourceARN,
+					"check", exc.Check,
+					"reason", exc.Reason,
+					"expires_at", exc.ExpiresAt,
+				)
+				findings[i].Status = "EXCEPTED"
+				break
+			}
+		}
+	}
+
+	return findings
 }
 
 // Extract runs all configured providers concurrently with bounded concurrency.

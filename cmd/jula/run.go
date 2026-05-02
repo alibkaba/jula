@@ -85,16 +85,27 @@ func handleRun(args []string) error {
 		"run_id", runID,
 	)
 
+	// --- Step 0: Exceptions ---
+	exceptionsPath := "/configs/exceptions.json"
+	if _, err := os.Stat(exceptionsPath); os.IsNotExist(err) {
+		exceptionsPath = "configs/exceptions.json"
+	}
+
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Providers:   providers,
-		Framework:   *frameworkFlag,
-		Target:      *targetFlag,
-		Path:        *pathFlag,
-		Concurrency: *concurrencyFlag,
-		Timeout:     timeout,
-		RunID:       runID,
+		Providers:      providers,
+		Framework:      *frameworkFlag,
+		Target:         *targetFlag,
+		Path:           *pathFlag,
+		Concurrency:    *concurrencyFlag,
+		Timeout:        timeout,
+		RunID:          runID,
+		ExceptionsPath: exceptionsPath,
 	})
+
+	if err := orch.LoadExceptions(); err != nil {
+		return fmt.Errorf("loading exceptions: %w", err)
+	}
 
 	ctx := context.Background()
 	findings, err := orch.Extract(ctx)
@@ -102,6 +113,9 @@ func handleRun(args []string) error {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
 	slog.Info("run: extraction complete", "findings_count", len(findings))
+
+	// --- Step 1.5: Apply Exceptions ---
+	findings = orch.ApplyExceptions(findings, time.Now())
 
 	// --- Step 2: Map ---
 	var mapper mappers.Mapper
@@ -164,12 +178,41 @@ func handleRun(args []string) error {
 		return fmt.Errorf("delivery failed: %w", err)
 	}
 
-	slog.Info("run: pipeline complete",
+	// --- Step 4: Structured Audit Summary ---
+	passed, failed, excepted, errored := 0, 0, 0, 0
+	for _, f := range findings {
+		switch f.Status {
+		case "PASS":
+			passed++
+		case "FAIL":
+			failed++
+		case "EXCEPTED":
+			excepted++
+		case "ERROR":
+			errored++
+		}
+	}
+
+	overallStatus := "PASS"
+	if failed > 0 || errored > 0 {
+		overallStatus = "FAIL"
+	}
+
+	slog.Info("audit_execution_summary",
 		"run_id", runID,
+		"timestamp", time.Now().UTC().Format(time.RFC3339),
+		"environment", os.Getenv("JULA_GCP_PROJECT_ID"),
+		"framework", *frameworkFlag,
+		"overall_status", overallStatus,
+		"total_controls_checked", len(findings),
+		"passed", passed,
+		"failed", failed,
+		"excepted", excepted,
+		"errored", errored,
 		"evidence_files", len(manifest.EvidenceFiles),
+		"evidence_location", *pathFlag,
 		"signature", manifest.Signature[:16]+"...",
 	)
 
 	return nil
 }
-

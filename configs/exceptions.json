@@ -1,0 +1,9 @@
+[
+  {
+    "resource_arn": "projects/your-project/global/firewalls/allow-ssh-from-office",
+    "check": "firewall_ingress_unrestricted",
+    "reason": "Approved by CISO: Office IP range is restricted at the network perimeter. Ticket: SEC-1234",
+    "approved_by": "security-team",
+    "expires_at": "2026-07-01T00:00:00Z"
+  }
+]
