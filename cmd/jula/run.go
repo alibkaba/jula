@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -140,6 +141,15 @@ func handleRun(args []string) error {
 		rep = &reporter.LocalReporter{
 			OutputDir:  *pathFlag,
 			SigningKey: signingKey,
+		}
+	case "gcs":
+		bucketName := reporter.ParseBucketName(*pathFlag)
+		tokenProvider := reporter.NewMetadataTokenProvider(&http.Client{})
+		rep = &reporter.GCSReporter{
+			BucketName:    bucketName,
+			SigningKey:    signingKey,
+			HTTPClient:    &http.Client{},
+			TokenProvider: tokenProvider,
 		}
 	default:
 		return fmt.Errorf("reporter not implemented for target: %s", *targetFlag)
