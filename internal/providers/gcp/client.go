@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -16,6 +17,7 @@ type GCPProvider struct {
 	projectID   string
 	tokenSource *tokenSource
 	httpClient  *http.Client
+	policy      *Policy
 	// baseURL allows overriding API endpoints for testing.
 	baseURL string
 }
@@ -71,6 +73,25 @@ func (p *GCPProvider) Validate() error {
 		p.baseURL = "https://compute.googleapis.com"
 	}
 
+	// Load policy configuration.
+	policyPath := os.Getenv("JULA_GCP_POLICY_PATH")
+	if policyPath == "" {
+		policyPath = "/configs/gcp_policy.json"
+	}
+	policy, err := LoadPolicy(policyPath)
+	if err != nil {
+		slog.Warn("gcp: policy file not found, using defaults", "path", policyPath, "error", err)
+		policy = &Policy{
+			Policies: PolicySettings{
+				KMSRotationMaxDays:      90,
+				FirewallProhibitedPorts: []int{22, 23, 3389, 3306, 5432, 1433, 27017, 6379},
+				SQLRequirePrivateIP:     true,
+				SQLRequireBackups:       true,
+			},
+		}
+	}
+	p.policy = policy
+
 	return nil
 }
 
@@ -86,6 +107,9 @@ func (p *GCPProvider) Extract(ctx context.Context, runID string) ([]types.Findin
 		{"audit_logging", p.extractAuditLogging},
 		{"storage_encryption", p.extractStorageEncryption},
 		{"iam_service_account_keys", p.extractServiceAccountKeys},
+		{"compute_firewalls", p.extractComputeFirewalls},
+		{"cloud_sql", p.extractCloudSQL},
+		{"kms_key_rotation", p.extractKMSKeyRotation},
 	}
 
 	for _, ext := range extractors {

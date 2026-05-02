@@ -19,6 +19,7 @@ func newTestProvider(t *testing.T) *GCPProvider {
 	return &GCPProvider{
 		projectID:  "test-project",
 		httpClient: &http.Client{},
+		policy:     defaultTestPolicy(),
 		tokenSource: &tokenSource{
 			cachedToken: "test-token",
 			tokenExpiry: time.Now().Add(1 * time.Hour),
@@ -277,5 +278,286 @@ func TestExtractServiceAccountKeys_ExpiredKey(t *testing.T) {
 	}
 	if findings[0].Status != "FAIL" {
 		t.Errorf("expected FAIL for expired key, got %s", findings[0].Status)
+	}
+}
+
+// --- Compute Firewalls Tests ---
+
+func TestExtractComputeFirewalls_Pass_NoViolation(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{
+				{
+					"name":         "allow-https",
+					"direction":    "INGRESS",
+					"sourceRanges": []string{"0.0.0.0/0"},
+					"allowed": []map[string]any{
+						{"IPProtocol": "tcp", "ports": []string{"443"}},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractComputeFirewalls(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS, got %s (count: %d)", findings[0].Status, len(findings))
+	}
+}
+
+func TestExtractComputeFirewalls_Fail_SSHOpen(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{
+				{
+					"name":         "allow-ssh-all",
+					"direction":    "INGRESS",
+					"sourceRanges": []string{"0.0.0.0/0"},
+					"allowed": []map[string]any{
+						{"IPProtocol": "tcp", "ports": []string{"22"}},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractComputeFirewalls(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "FAIL" {
+		t.Errorf("expected FAIL, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractComputeFirewalls_Exception(t *testing.T) {
+	p := newTestProvider(t)
+	p.policy.Exceptions = []Exception{
+		{
+			ID:        "EXC-001",
+			FindingID: "gcp.compute.firewall_ingress",
+			Resource:  "bastion-ssh",
+			Reason:    "Approved bastion",
+			Expires:   "2099-12-31",
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{
+				{
+					"name":         "bastion-ssh",
+					"direction":    "INGRESS",
+					"sourceRanges": []string{"0.0.0.0/0"},
+					"allowed": []map[string]any{
+						{"IPProtocol": "tcp", "ports": []string{"22"}},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractComputeFirewalls(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "EXCEPTION" {
+		t.Errorf("expected EXCEPTION, got %s", findings[0].Status)
+	}
+}
+
+// --- Cloud SQL Tests ---
+
+func TestExtractCloudSQL_NoInstances(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractCloudSQL(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS for no instances, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractCloudSQL_Fail_NoBackup(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{
+				{
+					"name": "prod-db",
+					"settings": map[string]any{
+						"backupConfiguration": map[string]any{"enabled": false},
+						"ipConfiguration":     map[string]any{"ipv4Enabled": false},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractCloudSQL(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "FAIL" {
+		t.Errorf("expected FAIL for disabled backup, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractCloudSQL_Fail_PublicIP(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"items": []map[string]any{
+				{
+					"name": "dev-db",
+					"settings": map[string]any{
+						"backupConfiguration": map[string]any{"enabled": true},
+						"ipConfiguration":     map[string]any{"ipv4Enabled": true},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractCloudSQL(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "FAIL" {
+		t.Errorf("expected FAIL for public IP, got %s", findings[0].Status)
+	}
+}
+
+// --- KMS Key Rotation Tests ---
+
+func TestExtractKMSKeyRotation_NoKeys(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Return empty locations so no keys are found.
+		json.NewEncoder(w).Encode(map[string]any{"locations": []any{}})
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractKMSKeyRotation(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS for no KMS keys, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractKMSKeyRotation_PassGoodRotation(t *testing.T) {
+	p := newTestProvider(t)
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch callCount {
+		case 1:
+			json.NewEncoder(w).Encode(map[string]any{
+				"locations": []map[string]any{
+					{"name": "projects/test-project/locations/us-central1"},
+				},
+			})
+		case 2:
+			json.NewEncoder(w).Encode(map[string]any{
+				"keyRings": []map[string]any{
+					{"name": "projects/test-project/locations/us-central1/keyRings/my-ring"},
+				},
+			})
+		case 3:
+			json.NewEncoder(w).Encode(map[string]any{
+				"cryptoKeys": []map[string]any{
+					{
+						"name":           "projects/test-project/locations/us-central1/keyRings/my-ring/cryptoKeys/my-key",
+						"purpose":        "ENCRYPT_DECRYPT",
+						"rotationPeriod": "7776000s",
+					},
+				},
+			})
+		}
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractKMSKeyRotation(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS for good rotation, got %s (count: %d)", findings[0].Status, len(findings))
+	}
+}
+
+func TestExtractKMSKeyRotation_FailNoRotation(t *testing.T) {
+	p := newTestProvider(t)
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch callCount {
+		case 1:
+			json.NewEncoder(w).Encode(map[string]any{
+				"locations": []map[string]any{
+					{"name": "projects/test-project/locations/global"},
+				},
+			})
+		case 2:
+			json.NewEncoder(w).Encode(map[string]any{
+				"keyRings": []map[string]any{
+					{"name": "projects/test-project/locations/global/keyRings/default"},
+				},
+			})
+		case 3:
+			json.NewEncoder(w).Encode(map[string]any{
+				"cryptoKeys": []map[string]any{
+					{
+						"name":    "projects/test-project/locations/global/keyRings/default/cryptoKeys/stale-key",
+						"purpose": "ENCRYPT_DECRYPT",
+					},
+				},
+			})
+		}
+	}))
+	defer server.Close()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractKMSKeyRotation(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 1 || findings[0].Status != "FAIL" {
+		t.Errorf("expected FAIL for no rotation, got %s", findings[0].Status)
 	}
 }

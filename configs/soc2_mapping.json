@@ -89,6 +89,38 @@
       "criteria": ["A1.2"],
       "control_type": "AUTOMATED",
       "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc6.6-compute-firewalls",
+      "description": "Compute Engine firewall ingress rules satisfy CC6.6 Boundary Protection",
+      "finding_id": "gcp.compute.firewall_ingress",
+      "criteria": ["CC6.6"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc6.1-sql-private",
+      "description": "Cloud SQL private IP configuration satisfies CC6.1 Logical Access Security",
+      "finding_id": "gcp.sql.secure_config",
+      "criteria": ["CC6.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-a1.2-sql-backup",
+      "description": "Cloud SQL automated backup satisfies A1.2 System Recovery",
+      "finding_id": "gcp.sql.secure_config",
+      "criteria": ["A1.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc6.1-kms-rotation",
+      "description": "KMS key rotation policy satisfies CC6.1 Cryptographic Controls",
+      "finding_id": "gcp.kms.key_rotation",
+      "criteria": ["CC6.1"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
     }
   ]
 }

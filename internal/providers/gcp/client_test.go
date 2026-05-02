@@ -15,6 +15,18 @@ import (
 	"time"
 )
 
+// defaultTestPolicy returns a Policy with safe defaults for unit tests.
+func defaultTestPolicy() *Policy {
+	return &Policy{
+		Policies: PolicySettings{
+			KMSRotationMaxDays:      90,
+			FirewallProhibitedPorts: []int{22, 3389},
+			SQLRequirePrivateIP:     true,
+			SQLRequireBackups:       true,
+		},
+	}
+}
+
 // generateTestKeyJSON creates a temporary service account JSON key file for testing.
 func generateTestKeyJSON(t *testing.T) string {
 	t.Helper()
@@ -174,6 +186,7 @@ func TestGCPProvider_Extract_RunsAllExtractors(t *testing.T) {
 	p := &GCPProvider{
 		projectID:  "test-project",
 		httpClient: server.Client(),
+		policy:     defaultTestPolicy(),
 		tokenSource: &tokenSource{
 			cachedToken: "test-token",
 			tokenExpiry: time.Now().Add(1 * time.Hour),
@@ -197,6 +210,7 @@ func TestGCPProvider_Extract_ContextCancelled(t *testing.T) {
 	p := &GCPProvider{
 		projectID:  "test-project",
 		httpClient: &http.Client{},
+		policy:     defaultTestPolicy(),
 		tokenSource: &tokenSource{
 			cachedToken: "test-token",
 			tokenExpiry: time.Now().Add(1 * time.Hour),
