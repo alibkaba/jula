@@ -42,3 +42,11 @@ evidence-output-*
 
 # Vendor directory
 vendor/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+terraform.tfvars
+!terraform.tfvars.example

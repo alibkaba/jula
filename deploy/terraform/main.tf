@@ -1,0 +1,228 @@
+# ──────────────────────────────────────────────────────────────
+# Jula Evidence Collector – Infrastructure
+# ──────────────────────────────────────────────────────────────
+
+terraform {
+  required_version = ">= 1.5"
+
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+# ──────────────────────────────────────────────────────────────
+# 1. Enable Required APIs
+# ──────────────────────────────────────────────────────────────
+
+locals {
+  required_apis = [
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "secretmanager.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "storage.googleapis.com",
+    "iam.googleapis.com",
+    "compute.googleapis.com",
+    "sqladmin.googleapis.com",
+    "cloudkms.googleapis.com",
+  ]
+}
+
+resource "google_project_service" "apis" {
+  for_each = toset(local.required_apis)
+
+  project                    = var.project_id
+  service                    = each.value
+  disable_dependent_services = false
+  disable_on_destroy         = false
+}
+
+# ──────────────────────────────────────────────────────────────
+# 2. Service Account
+# ──────────────────────────────────────────────────────────────
+
+resource "google_service_account" "jula_runner" {
+  account_id   = var.service_account_id
+  display_name = "Jula Evidence Collector Runner"
+  project      = var.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
+# ──────────────────────────────────────────────────────────────
+# 3. IAM Bindings
+# ──────────────────────────────────────────────────────────────
+
+locals {
+  project_roles = [
+    "roles/compute.viewer",
+    "roles/cloudsql.viewer",
+    "roles/cloudkms.viewer",
+  ]
+}
+
+resource "google_project_iam_member" "jula_runner" {
+  for_each = toset(local.project_roles)
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+# ──────────────────────────────────────────────────────────────
+# 4. Evidence Storage Bucket
+# ──────────────────────────────────────────────────────────────
+
+resource "google_storage_bucket" "evidence" {
+  name     = var.evidence_bucket_name
+  project  = var.project_id
+  location = var.region
+
+  uniform_bucket_level_access = true
+
+  versioning {
+    enabled = true
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_storage_bucket_iam_member" "jula_runner_storage" {
+  bucket = google_storage_bucket.evidence.name
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+# ──────────────────────────────────────────────────────────────
+# 5. Secret Manager – Signing Key
+# ──────────────────────────────────────────────────────────────
+
+resource "google_secret_manager_secret" "signing_key" {
+  secret_id = var.signing_key_secret_id
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_iam_member" "jula_runner_secret" {
+  secret_id = google_secret_manager_secret.signing_key.secret_id
+  project   = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+# ──────────────────────────────────────────────────────────────
+# 6. Cloud Run Service
+# ──────────────────────────────────────────────────────────────
+
+resource "google_cloud_run_v2_service" "jula" {
+  name     = "jula-evidence-collector"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    service_account                  = google_service_account.jula_runner.email
+    timeout                          = "300s"
+    max_instance_request_concurrency = 80
+
+    scaling {
+      max_instance_count = 1
+    }
+
+    containers {
+      image = var.docker_image
+
+      ports {
+        container_port = 8080
+        name           = "http1"
+      }
+
+      resources {
+        cpu_idle          = true
+        startup_cpu_boost = true
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+      }
+
+      env {
+        name  = "JULA_GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "JULA_OUTPUT_TARGET"
+        value = "gcs"
+      }
+      env {
+        name  = "JULA_OUTPUT_PATH"
+        value = "gs://${google_storage_bucket.evidence.name}"
+      }
+      env {
+        name  = "JULA_FRAMEWORK"
+        value = "soc2"
+      }
+      env {
+        name  = "JULA_PROVIDER"
+        value = "gcp"
+      }
+      env {
+        name = "JULA_SIGNING_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.signing_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+# ──────────────────────────────────────────────────────────────
+# 7. Cloud Scheduler (Weekly Trigger)
+# ──────────────────────────────────────────────────────────────
+
+resource "google_cloud_scheduler_job" "jula_trigger" {
+  name      = "jula-weekly-collection"
+  project   = var.project_id
+  region    = var.region
+  schedule  = var.scheduler_cron
+  time_zone = var.scheduler_timezone
+
+  attempt_deadline = "180s"
+
+  retry_config {
+    retry_count          = 0
+    max_retry_duration   = "0s"
+    min_backoff_duration = "5s"
+    max_backoff_duration = "3600s"
+    max_doublings        = 5
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.jula.uri}/run"
+
+    oidc_token {
+      service_account_email = google_service_account.jula_runner.email
+      audience              = "${google_cloud_run_v2_service.jula.uri}/run"
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
