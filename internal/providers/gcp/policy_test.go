@@ -173,3 +173,49 @@ func TestPolicy_IsProhibitedPort(t *testing.T) {
 		t.Error("expected port 443 to not be prohibited")
 	}
 }
+
+func TestLoadPolicy_PathTraversal(t *testing.T) {
+	// Attempt to load a path that traverses outside the project tree.
+	// filepath.Clean will normalize this, but the file should not exist
+	// and LoadPolicy must return an error rather than silently succeeding.
+	_, err := LoadPolicy("../../etc/passwd")
+	if err == nil {
+		t.Fatal("expected error when loading a path traversal target")
+	}
+}
+
+func TestLoadPolicy_CleanPath(t *testing.T) {
+	// Write a valid config into a temp directory with a nested structure.
+	content := `{
+		"provider": "gcp",
+		"version": "1.0",
+		"policies": {
+			"kms_rotation_max_days": 90,
+			"firewall_prohibited_ports": [22],
+			"sql_require_private_ip": true,
+			"sql_require_backups": true
+		},
+		"exceptions": []
+	}`
+
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "configs")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(subDir, "gcp_policy.json")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use a dirty path with redundant traversal: configs/../configs/gcp_policy.json
+	dirtyPath := filepath.Join(tmpDir, "configs", "..", "configs", "gcp_policy.json")
+
+	policy, err := LoadPolicy(dirtyPath)
+	if err != nil {
+		t.Fatalf("expected clean path normalization to succeed, got: %v", err)
+	}
+	if policy.Policies.KMSRotationMaxDays != 90 {
+		t.Errorf("expected 90 days, got %d", policy.Policies.KMSRotationMaxDays)
+	}
+}

@@ -202,3 +202,42 @@ func writeTestConfig(t *testing.T) string {
 	}
 	return configPath
 }
+
+func TestSOC2Mapper_LoadRules_PathTraversal(t *testing.T) {
+	mapper := &SOC2Mapper{}
+
+	// Attempt to load a path that traverses outside the project tree.
+	// filepath.Clean will normalize this, but the file should not exist
+	// and LoadRules must return an error rather than silently succeeding.
+	err := mapper.LoadRules("../../etc/passwd")
+	if err == nil {
+		t.Fatal("expected error when loading a path traversal target")
+	}
+}
+
+func TestSOC2Mapper_LoadRules_CleanPath(t *testing.T) {
+	// Write a valid config into a temp directory.
+	config := `{
+		"framework": "soc2",
+		"version": "test",
+		"rules": []
+	}`
+
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "configs")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(subDir, "soc2_mapping.json")
+	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use a dirty path with redundant traversal: configs/../configs/soc2_mapping.json
+	dirtyPath := filepath.Join(tmpDir, "configs", "..", "configs", "soc2_mapping.json")
+
+	mapper := &SOC2Mapper{}
+	if err := mapper.LoadRules(dirtyPath); err != nil {
+		t.Fatalf("expected clean path normalization to succeed, got: %v", err)
+	}
+}

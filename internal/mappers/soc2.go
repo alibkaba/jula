@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
@@ -39,7 +40,7 @@ func (m *SOC2Mapper) Framework() string {
 
 // LoadRules reads and parses the SOC 2 mapping configuration from a JSON file.
 func (m *SOC2Mapper) LoadRules(configPath string) error {
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(filepath.Clean(configPath))
 	if err != nil {
 		return fmt.Errorf("reading mapping config: %w", err)
 	}

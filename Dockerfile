@@ -1,5 +1,5 @@
 # Build stage: compile the static Go binary.
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /build
 
@@ -28,6 +28,8 @@ COPY --from=builder /jula /jula
 
 # Copy the mapping configs (required at runtime).
 COPY --from=builder /build/configs /configs
+
+USER 65532:65532
 
 ENTRYPOINT ["/jula"]
 CMD ["serve"]

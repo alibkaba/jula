@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -37,7 +38,7 @@ type Exception struct {
 
 // LoadPolicy reads and parses a GCP policy configuration file.
 func LoadPolicy(path string) (*Policy, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("reading policy file %s: %w", path, err)
 	}
