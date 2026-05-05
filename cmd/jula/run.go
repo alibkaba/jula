@@ -54,6 +54,9 @@ func handleRun(args []string) error {
 	if !isValidFramework(*frameworkFlag) {
 		return fmt.Errorf("unknown framework: %q", *frameworkFlag)
 	}
+	if *frameworkFlag != "soc2" {
+		return fmt.Errorf("mapper not implemented for framework: %s", *frameworkFlag)
+	}
 
 	// Validate target.
 	if *targetFlag == "" {
@@ -61,6 +64,9 @@ func handleRun(args []string) error {
 	}
 	if !isValidTarget(*targetFlag) {
 		return fmt.Errorf("unknown target: %q", *targetFlag)
+	}
+	if *targetFlag == "s3" {
+		return fmt.Errorf("reporter not implemented for target: s3")
 	}
 
 	// Validate path.
@@ -72,6 +78,18 @@ func handleRun(args []string) error {
 	timeout, err := time.ParseDuration(*timeoutFlag)
 	if err != nil {
 		return fmt.Errorf("parsing timeout: %w", err)
+	}
+
+	// Validate signing key early.
+	signingKeyStr := os.Getenv("JULA_SIGNING_KEY")
+	block, _ := pem.Decode([]byte(signingKeyStr))
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM block containing the signing key")
+	}
+
+	signingKey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
 	}
 
 	// Generate a unique run ID.
@@ -145,17 +163,6 @@ func handleRun(args []string) error {
 	slog.Info("run: mapping complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	signingKeyStr := os.Getenv("JULA_SIGNING_KEY")
-	block, _ := pem.Decode([]byte(signingKeyStr))
-	if block == nil {
-		return fmt.Errorf("failed to decode PEM block containing the signing key")
-	}
-
-	signingKey, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
-	}
-
 	var rep reporter.Reporter
 	switch *targetFlag {
 	case "local":

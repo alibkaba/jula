@@ -16,6 +16,7 @@ type metadataTokenProvider struct {
 	httpClient  *http.Client
 	cachedToken string
 	tokenExpiry time.Time
+	baseURL     string
 }
 
 type metadataTokenResponse struct {
@@ -35,7 +36,12 @@ func (p *metadataTokenProvider) Token() (string, error) {
 		return p.cachedToken, nil
 	}
 
-	req, err := http.NewRequest(http.MethodGet, metadataTokenURL, nil)
+	url := metadataTokenURL
+	if p.baseURL != "" {
+		url = p.baseURL
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("creating metadata request: %w", err)
 	}

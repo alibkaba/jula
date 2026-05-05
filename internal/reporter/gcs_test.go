@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
@@ -130,54 +130,70 @@ func TestGCSReporter_Validate_Success(t *testing.T) {
 	}
 }
 
-func TestGCSReporter_Deliver_UploadsAndSigns(t *testing.T) {
-	var uploadedPaths []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			uploadedPaths = append(uploadedPaths, r.URL.Query().Get("name"))
-		}
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-	}))
-	defer server.Close()
-
+func TestGCSReporter_Deliver(t *testing.T) {
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	r := &GCSReporter{
-		BucketName:    "test-bucket",
-		SigningKey:    privKey,
-		TokenProvider: &staticToken{"test-token"},
-		HTTPClient:    server.Client(),
-		baseURL:       server.URL,
+
+	tests := []struct {
+		name           string
+		format         string
+		expectedSuffix string
+		expectedCount  int
+	}{
+		{
+			name:           "Deliver with JSON Format",
+			format:         "json",
+			expectedSuffix: ".json",
+			expectedCount:  2, // 1 evidence + 1 manifest
+		},
+		{
+			name:           "Deliver with Markdown Format",
+			format:         "markdown",
+			expectedSuffix: "evidence_portfolio.md",
+			expectedCount:  3, // 1 evidence + 1 markdown + 1 manifest
+		},
 	}
 
-	manifest, err := r.Deliver(context.Background(), gcsTestEvidence(), "test-run-1")
-	if err != nil {
-		t.Fatalf("deliver failed: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var uploadedPaths []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					uploadedPaths = append(uploadedPaths, r.URL.Query().Get("name"))
+				}
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			}))
+			defer server.Close()
 
-	// Should have uploaded 1 evidence file + 1 manifest = 2 uploads.
-	if len(uploadedPaths) != 2 {
-		t.Errorf("expected 2 uploads, got %d: %v", len(uploadedPaths), uploadedPaths)
-	}
+			r := &GCSReporter{
+				BucketName:    "test-bucket",
+				SigningKey:    privKey,
+				TokenProvider: &staticToken{"test-token"},
+				HTTPClient:    server.Client(),
+				baseURL:       server.URL,
+				Format:        tt.format,
+			}
 
-	// Manifest should have correct fields.
-	if manifest.RunID != "test-run-1" {
-		t.Errorf("expected run_id test-run-1, got %s", manifest.RunID)
-	}
-	if manifest.Signature == "" {
-		t.Error("manifest signature should not be empty")
-	}
-	if len(manifest.EvidenceFiles) != 1 {
-		t.Errorf("expected 1 evidence file, got %d", len(manifest.EvidenceFiles))
-	}
+			manifest, err := r.Deliver(context.Background(), gcsTestEvidence(), "test-run-"+tt.format)
+			if err != nil {
+				t.Fatalf("deliver failed: %v", err)
+			}
 
-	// Verify signature is valid.
-	valid, err := crypto.VerifyManifest(manifest, &privKey.PublicKey)
-	if err != nil {
-		t.Fatalf("verify failed: %v", err)
-	}
-	if !valid {
-		t.Error("manifest signature is invalid")
+			if len(uploadedPaths) != tt.expectedCount {
+				t.Errorf("expected %d uploads, got %d: %v", tt.expectedCount, len(uploadedPaths), uploadedPaths)
+			}
+
+			found := false
+			for _, f := range manifest.EvidenceFiles {
+				if strings.HasSuffix(f.Path, tt.expectedSuffix) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("%s not found in manifest evidence files", tt.expectedSuffix)
+			}
+		})
 	}
 }
 

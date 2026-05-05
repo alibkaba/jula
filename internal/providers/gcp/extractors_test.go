@@ -561,3 +561,183 @@ func TestExtractKMSKeyRotation_FailNoRotation(t *testing.T) {
 		t.Errorf("expected FAIL for no rotation, got %s", findings[0].Status)
 	}
 }
+
+// --- Specific Requested Tests ---
+
+func TestExtractAuditLogging_Pass(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"auditConfigs": []map[string]any{
+				{
+					"service": "allServices",
+					"auditLogConfigs": []map[string]any{
+						{"logType": "ADMIN_READ"},
+					},
+				},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t)
+	p.httpClient = server.Client()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractAuditLogging(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) == 0 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractAuditLogging_Fail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"auditConfigs": []map[string]any{
+				{
+					"service":         "someOtherService",
+					"auditLogConfigs": []map[string]any{},
+				},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t)
+	p.httpClient = server.Client()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractAuditLogging(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) == 0 || findings[0].Status != "FAIL" {
+		t.Errorf("expected FAIL, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractStorageEncryption_Pass(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"name": "secure-bucket",
+					"encryption": map[string]any{
+						"defaultKmsKeyName": "projects/p/locations/l/keyRings/r/cryptoKeys/k",
+					},
+				},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t)
+	p.httpClient = server.Client()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractStorageEncryption(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) == 0 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractStorageEncryption_NoCMEK(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"name": "basic-bucket",
+				},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t)
+	p.httpClient = server.Client()
+
+	findings, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractStorageEncryption(context.Background(), "test-run")
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// GCS is encrypted by default, so PASS is expected even without CMEK.
+	if len(findings) == 0 || findings[0].Status != "PASS" {
+		t.Errorf("expected PASS for NoCMEK, got %s", findings[0].Status)
+	}
+}
+
+func TestExtractServiceAccountKeys_KeyListError(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			resp := map[string]any{
+				"accounts": []map[string]any{
+					{"email": "error@test-project.iam.gserviceaccount.com", "uniqueId": "456"},
+				},
+			}
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t)
+	p.httpClient = server.Client()
+
+	_, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractServiceAccountKeys(context.Background(), "test-run")
+	})
+	if err == nil {
+		t.Fatal("expected error for failed key listing")
+	}
+}
+
+func TestExtractKMSKeyRotation_LocationError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	p := newTestProvider(t)
+	p.httpClient = server.Client()
+
+	_, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractKMSKeyRotation(context.Background(), "test-run")
+	})
+	if err == nil {
+		t.Fatal("expected error for failed location listing")
+	}
+}
+
+func TestToRawPayload(t *testing.T) {
+	input := map[string]string{"foo": "bar"}
+	output := toRawPayload(input)
+	if output["foo"] != "bar" {
+		t.Errorf("expected bar, got %v", output["foo"])
+	}
+
+	// Test unmarshalable input (e.g. channel)
+	if toRawPayload(make(chan int)) != nil {
+		t.Error("expected nil for unmarshalable input")
+	}
+}
