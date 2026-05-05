@@ -22,16 +22,6 @@ func readBody(resp *http.Response) ([]byte, error) {
 
 // --- Extractor: Audit Logging ---
 
-// auditConfigResponse represents the GCP IAM policy audit config response.
-type auditConfigResponse struct {
-	AuditConfigs []struct {
-		Service         string `json:"service"`
-		AuditLogConfigs []struct {
-			LogType string `json:"logType"`
-		} `json:"auditLogConfigs"`
-	} `json:"auditConfigs"`
-}
-
 // extractAuditLogging checks whether Cloud Audit Logging is enabled for the project.
 // Maps to SOC 2 CC2.1 (Quality Information) and CC7.2 (Anomaly Detection).
 func (p *GCPProvider) extractAuditLogging(ctx context.Context, runID string) ([]types.Finding, error) {
@@ -68,17 +58,27 @@ func (p *GCPProvider) extractAuditLogging(ctx context.Context, runID string) ([]
 		return nil, fmt.Errorf("audit logging API returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
-	var policy auditConfigResponse
-	if err := json.Unmarshal(body, &policy); err != nil {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, fmt.Errorf("parsing audit config response: %w", err)
 	}
 
 	// Check if audit logging is configured for all services.
 	status := "FAIL"
-	for _, cfg := range policy.AuditConfigs {
-		if cfg.Service == "allServices" && len(cfg.AuditLogConfigs) > 0 {
-			status = "PASS"
-			break
+	if configs, ok := payload["auditConfigs"].([]any); ok {
+		for _, c := range configs {
+			cfg, ok := c.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			service, _ := cfg["service"].(string)
+			logConfigs, _ := cfg["auditLogConfigs"].([]any)
+
+			if service == "allServices" && len(logConfigs) > 0 {
+				status = "PASS"
+				break
+			}
 		}
 	}
 
@@ -89,7 +89,7 @@ func (p *GCPProvider) extractAuditLogging(ctx context.Context, runID string) ([]
 			Resource:    "audit_logging",
 			Check:       "enabled",
 			Status:      status,
-			RawPayload:  toRawPayload(policy),
+			RawPayload:  toRawPayload(payload),
 			ResourceARN: fmt.Sprintf("projects/%s", p.projectID),
 			Timestamp:   time.Now().UTC(),
 			RunID:       runID,
@@ -98,16 +98,6 @@ func (p *GCPProvider) extractAuditLogging(ctx context.Context, runID string) ([]
 }
 
 // --- Extractor: Cloud Storage Encryption ---
-
-// bucketsListResponse represents the GCS bucket listing response.
-type bucketsListResponse struct {
-	Items []struct {
-		Name       string `json:"name"`
-		Encryption *struct {
-			DefaultKmsKeyName string `json:"defaultKmsKeyName"`
-		} `json:"encryption,omitempty"`
-	} `json:"items"`
-}
 
 // extractStorageEncryption checks whether GCS buckets have encryption configured.
 // Maps to SOC 2 C1.1 (Confidential Data Protection).
@@ -122,31 +112,42 @@ func (p *GCPProvider) extractStorageEncryption(ctx context.Context, runID string
 		return nil, fmt.Errorf("storage encryption check failed: %w", err)
 	}
 
-	var buckets bucketsListResponse
-	if err := json.Unmarshal(body, &buckets); err != nil {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, fmt.Errorf("parsing bucket list: %w", err)
 	}
 
 	var findings []types.Finding
-	for _, bucket := range buckets.Items {
-		// GCS always encrypts data at rest by default (Google-managed keys).
-		// A CMEK (Customer-Managed Encryption Key) is the stronger posture.
-		status := "PASS"
-		if bucket.Encryption != nil && bucket.Encryption.DefaultKmsKeyName != "" {
-			status = "PASS" // CMEK configured, strongest posture.
-		}
+	if items, ok := payload["items"].([]any); ok {
+		for _, it := range items {
+			bucket, ok := it.(map[string]any)
+			if !ok {
+				continue
+			}
 
-		findings = append(findings, types.Finding{
-			ID:          "gcp.storage.encryption_enabled",
-			Provider:    "gcp",
-			Resource:    "storage",
-			Check:       "encryption_enabled",
-			Status:      status,
-			RawPayload:  toRawPayload(bucket),
-			ResourceARN: fmt.Sprintf("gs://%s", bucket.Name),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
-		})
+			name, _ := bucket["name"].(string)
+
+			// GCS always encrypts data at rest by default (Google-managed keys).
+			// A CMEK (Customer-Managed Encryption Key) is the stronger posture.
+			status := "PASS"
+			if encryption, ok := bucket["encryption"].(map[string]any); ok {
+				if kmsKey, ok := encryption["defaultKmsKeyName"].(string); ok && kmsKey != "" {
+					status = "PASS" // CMEK configured, strongest posture.
+				}
+			}
+
+			findings = append(findings, types.Finding{
+				ID:          "gcp.storage.encryption_enabled",
+				Provider:    "gcp",
+				Resource:    "storage",
+				Check:       "encryption_enabled",
+				Status:      status,
+				RawPayload:  toRawPayload(bucket),
+				ResourceARN: fmt.Sprintf("gs://%s", name),
+				Timestamp:   time.Now().UTC(),
+				RunID:       runID,
+			})
+		}
 	}
 
 	return findings, nil
