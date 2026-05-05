@@ -221,9 +221,17 @@ resource "google_cloud_scheduler_job" "jula_trigger" {
 
     oidc_token {
       service_account_email = google_service_account.jula_runner.email
-      audience              = "${google_cloud_run_v2_service.jula.uri}/run"
+      audience              = google_cloud_run_v2_service.jula.uri
     }
   }
 
   depends_on = [google_project_service.apis]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.jula.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.jula_runner.email}"
 }

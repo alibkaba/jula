@@ -71,20 +71,9 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 			}
 
-			fileName := ev.Finding.ID + ".json"
+			// Use runID to guarantee unique filenames and prevent overwriting
+			fileName := fmt.Sprintf("%s_%s.json", ev.Finding.ID, runID)
 			filePath := filepath.Join(dirPath, fileName)
-
-			// Do not overwrite existing files (immutability constraint).
-			if _, err := os.Stat(filePath); err == nil {
-				counter := 2
-				for {
-					filePath = filepath.Join(dirPath, fmt.Sprintf("%s_%d.json", ev.Finding.ID, counter))
-					if _, err := os.Stat(filePath); os.IsNotExist(err) {
-						break
-					}
-					counter++
-				}
-			}
 
 			data, err := json.MarshalIndent(ev, "", "  ")
 			if err != nil {
