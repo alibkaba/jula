@@ -19,6 +19,7 @@ import (
 type LocalReporter struct {
 	OutputDir  string
 	SigningKey *ecdsa.PrivateKey
+	Format     string
 }
 
 // Name returns the reporter identifier.
@@ -98,6 +99,24 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				"criteria", criterion,
 			)
 		}
+	}
+
+	// Optional: Generate Markdown evidence portfolio.
+	if r.Format == "markdown" {
+		report, err := FormatMarkdownReport(evidence)
+		if err != nil {
+			return nil, fmt.Errorf("generating markdown report: %w", err)
+		}
+
+		reportPath := filepath.Join(r.OutputDir, runDate, "evidence_portfolio.md")
+		if err := os.WriteFile(reportPath, []byte(report), 0644); err != nil {
+			return nil, fmt.Errorf("writing markdown report: %w", err)
+		}
+
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   filepath.Join(runDate, "evidence_portfolio.md"),
+			SHA256: crypto.HashFile([]byte(report)),
+		})
 	}
 
 	// Populate manifest metadata.

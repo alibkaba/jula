@@ -29,6 +29,7 @@ func handleRun(args []string) error {
 	pathFlag := runCmd.String("path", os.Getenv("JULA_OUTPUT_PATH"), "Target path or bucket URI")
 	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent provider goroutines")
 	timeoutFlag := runCmd.String("timeout", "5m", "Per-provider timeout duration")
+	formatFlag := runCmd.String("format", os.Getenv("JULA_OUTPUT_FORMAT"), "Output format (json, markdown)")
 
 	if err := runCmd.Parse(args); err != nil {
 		return fmt.Errorf("parsing run flags: %w", err)
@@ -161,6 +162,7 @@ func handleRun(args []string) error {
 		rep = &reporter.LocalReporter{
 			OutputDir:  *pathFlag,
 			SigningKey: signingKey,
+			Format:     *formatFlag,
 		}
 	case "gcs":
 		bucketName := reporter.ParseBucketName(*pathFlag)
@@ -170,6 +172,7 @@ func handleRun(args []string) error {
 			SigningKey:    signingKey,
 			HTTPClient:    &http.Client{},
 			TokenProvider: tokenProvider,
+			Format:        *formatFlag,
 		}
 	default:
 		return fmt.Errorf("reporter not implemented for target: %s", *targetFlag)
