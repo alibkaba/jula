@@ -1,7 +1,8 @@
 package crypto
 
 import (
-	"crypto/hmac"
+	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,12 +11,12 @@ import (
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
-// SignManifest computes the HMAC-SHA256 signature for a Manifest.
-// The key MUST come from the JULA_SIGNING_KEY environment variable.
+// SignManifest computes the ECDSA signature for a Manifest.
+// The privateKey MUST come from a securely managed source.
 // The Signature field is excluded from the signing input by zeroing it first.
-func SignManifest(manifest *types.Manifest, key []byte) error {
-	if len(key) == 0 {
-		return fmt.Errorf("signing key is empty")
+func SignManifest(manifest *types.Manifest, privateKey *ecdsa.PrivateKey) error {
+	if privateKey == nil {
+		return fmt.Errorf("private key is nil")
 	}
 
 	// Zero the signature before computing so it is excluded from the hash.
@@ -26,20 +27,33 @@ func SignManifest(manifest *types.Manifest, key []byte) error {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
-	mac := hmac.New(sha256.New, key)
-	mac.Write(canonical)
-	manifest.Signature = hex.EncodeToString(mac.Sum(nil))
+	hash := sha256.Sum256(canonical)
+	sigBytes, err := ecdsa.SignASN1(rand.Reader, privateKey, hash[:])
+	if err != nil {
+		return fmt.Errorf("failed to sign manifest: %w", err)
+	}
+
+	manifest.Signature = hex.EncodeToString(sigBytes)
 
 	return nil
 }
 
-// VerifyManifest verifies the HMAC-SHA256 signature of a Manifest.
-func VerifyManifest(manifest *types.Manifest, key []byte) (bool, error) {
-	if len(key) == 0 {
-		return false, fmt.Errorf("signing key is empty")
+// VerifyManifest verifies the ECDSA signature of a Manifest.
+func VerifyManifest(manifest *types.Manifest, publicKey *ecdsa.PublicKey) (bool, error) {
+	if publicKey == nil {
+		return false, fmt.Errorf("public key is nil")
 	}
 
 	originalSig := manifest.Signature
+	if originalSig == "" {
+		return false, fmt.Errorf("signature is empty")
+	}
+
+	sigBytes, err := hex.DecodeString(originalSig)
+	if err != nil {
+		return false, fmt.Errorf("failed to decode signature: %w", err)
+	}
+
 	manifest.Signature = ""
 
 	canonical, err := json.Marshal(manifest)
@@ -48,13 +62,10 @@ func VerifyManifest(manifest *types.Manifest, key []byte) (bool, error) {
 		return false, fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
-	mac := hmac.New(sha256.New, key)
-	mac.Write(canonical)
-	expectedSig := hex.EncodeToString(mac.Sum(nil))
-
+	hash := sha256.Sum256(canonical)
 	manifest.Signature = originalSig
 
-	return hmac.Equal([]byte(originalSig), []byte(expectedSig)), nil
+	return ecdsa.VerifyASN1(publicKey, hash[:], sigBytes), nil
 }
 
 // HashFile computes the SHA-256 hash of a file's content.

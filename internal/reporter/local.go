@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -17,7 +18,7 @@ import (
 // Intended for development, testing, and local validation.
 type LocalReporter struct {
 	OutputDir  string
-	SigningKey []byte
+	SigningKey *ecdsa.PrivateKey
 }
 
 // Name returns the reporter identifier.
@@ -30,7 +31,7 @@ func (r *LocalReporter) Validate(ctx context.Context) error {
 	if r.OutputDir == "" {
 		return fmt.Errorf("output directory is required")
 	}
-	if len(r.SigningKey) == 0 {
+	if r.SigningKey == nil {
 		return fmt.Errorf("JULA_SIGNING_KEY is required for manifest signing")
 	}
 	return nil

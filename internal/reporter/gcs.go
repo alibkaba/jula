@@ -3,6 +3,7 @@ package reporter
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,7 +26,7 @@ type TokenProvider interface {
 // GCSReporter writes evidence artifacts to a Google Cloud Storage bucket.
 type GCSReporter struct {
 	BucketName    string
-	SigningKey    []byte
+	SigningKey    *ecdsa.PrivateKey
 	HTTPClient    *http.Client
 	TokenProvider TokenProvider
 	// baseURL allows overriding the GCS API endpoint for testing.
@@ -45,7 +46,7 @@ func (r *GCSReporter) Validate(ctx context.Context) error {
 	if r.BucketName == "" {
 		return fmt.Errorf("bucket name is required")
 	}
-	if len(r.SigningKey) == 0 {
+	if r.SigningKey == nil {
 		return fmt.Errorf("JULA_SIGNING_KEY is required for manifest signing")
 	}
 	if r.TokenProvider == nil {

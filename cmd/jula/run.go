@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -143,10 +144,15 @@ func handleRun(args []string) error {
 	slog.Info("run: mapping complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	signingKeyHex := strings.TrimSpace(os.Getenv("JULA_SIGNING_KEY"))
-	signingKey, err := hex.DecodeString(signingKeyHex)
+	signingKeyStr := os.Getenv("JULA_SIGNING_KEY")
+	block, _ := pem.Decode([]byte(signingKeyStr))
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM block containing the signing key")
+	}
+
+	signingKey, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
-		return fmt.Errorf("decoding JULA_SIGNING_KEY (expected hex): %w", err)
+		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
 	}
 
 	var rep reporter.Reporter
