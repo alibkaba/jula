@@ -199,7 +199,7 @@ resource "google_cloud_run_v2_service" "jula" {
 # ──────────────────────────────────────────────────────────────
 
 resource "google_cloud_scheduler_job" "jula_trigger" {
-  name      = "jula-weekly-collection"
+  name      = "jula-daily-evidence-collection"
   project   = var.project_id
   region    = var.region
   schedule  = var.scheduler_cron
