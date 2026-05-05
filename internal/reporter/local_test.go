@@ -2,6 +2,9 @@ package reporter
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -48,10 +51,11 @@ func testEvidence() []types.Evidence {
 }
 
 func TestLocalReporter_DeliverCreatesCorrectStructure(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpDir := t.TempDir()
 	reporter := &LocalReporter{
 		OutputDir:  tmpDir,
-		SigningKey: []byte("test-key"),
+		SigningKey: privKey,
 	}
 
 	manifest, err := reporter.Deliver(context.Background(), testEvidence(), "test-run")
@@ -71,7 +75,7 @@ func TestLocalReporter_DeliverCreatesCorrectStructure(t *testing.T) {
 	}
 
 	// Verify the manifest signature is valid.
-	valid, err := crypto.VerifyManifest(manifest, []byte("test-key"))
+	valid, err := crypto.VerifyManifest(manifest, &privKey.PublicKey)
 	if err != nil {
 		t.Fatalf("verify failed: %v", err)
 	}
@@ -100,10 +104,11 @@ func TestLocalReporter_DeliverCreatesCorrectStructure(t *testing.T) {
 }
 
 func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpDir := t.TempDir()
 	reporter := &LocalReporter{
 		OutputDir:  tmpDir,
-		SigningKey: []byte("test-key"),
+		SigningKey: privKey,
 	}
 
 	if _, err := reporter.Deliver(context.Background(), testEvidence(), "test-run"); err != nil {
@@ -129,7 +134,8 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 }
 
 func TestLocalReporter_ValidateRequiresOutputDir(t *testing.T) {
-	reporter := &LocalReporter{SigningKey: []byte("key")}
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	reporter := &LocalReporter{SigningKey: privKey}
 	if err := reporter.Validate(context.Background()); err == nil {
 		t.Error("expected error for empty output dir")
 	}
@@ -143,10 +149,11 @@ func TestLocalReporter_ValidateRequiresSigningKey(t *testing.T) {
 }
 
 func TestLocalReporter_ContextCancellation(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpDir := t.TempDir()
 	r := &LocalReporter{
 		OutputDir:  tmpDir,
-		SigningKey: []byte("test-key"),
+		SigningKey: privKey,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -160,9 +167,10 @@ func TestLocalReporter_ContextCancellation(t *testing.T) {
 
 
 func TestLocalReporter_ValidateSuccess(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &LocalReporter{
 		OutputDir:  "/tmp/test",
-		SigningKey: []byte("test-key"),
+		SigningKey: privKey,
 	}
 	if err := r.Validate(context.Background()); err != nil {
 		t.Errorf("expected no error, got: %v", err)

@@ -2,6 +2,9 @@ package reporter
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -45,7 +48,8 @@ func TestGCSReporter_Name(t *testing.T) {
 }
 
 func TestGCSReporter_Validate_MissingBucket(t *testing.T) {
-	r := &GCSReporter{SigningKey: []byte("key"), TokenProvider: &staticToken{"tok"}}
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	r := &GCSReporter{SigningKey: privKey, TokenProvider: &staticToken{"tok"}}
 	if err := r.Validate(context.Background()); err == nil {
 		t.Error("expected error for missing bucket")
 	}
@@ -59,7 +63,8 @@ func TestGCSReporter_Validate_MissingSigningKey(t *testing.T) {
 }
 
 func TestGCSReporter_Validate_MissingTokenProvider(t *testing.T) {
-	r := &GCSReporter{BucketName: "test-bucket", SigningKey: []byte("key")}
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	r := &GCSReporter{BucketName: "test-bucket", SigningKey: privKey}
 	if err := r.Validate(context.Background()); err == nil {
 		t.Error("expected error for missing token provider")
 	}
@@ -71,9 +76,10 @@ func TestGCSReporter_Validate_BucketNotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "nonexistent-bucket",
-		SigningKey:    []byte("key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"tok"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
@@ -90,9 +96,10 @@ func TestGCSReporter_Validate_Forbidden(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "locked-bucket",
-		SigningKey:    []byte("key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"tok"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
@@ -110,9 +117,10 @@ func TestGCSReporter_Validate_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "test-bucket",
-		SigningKey:    []byte("key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"tok"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
@@ -133,9 +141,10 @@ func TestGCSReporter_Deliver_UploadsAndSigns(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "test-bucket",
-		SigningKey:    []byte("test-signing-key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"test-token"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
@@ -163,7 +172,7 @@ func TestGCSReporter_Deliver_UploadsAndSigns(t *testing.T) {
 	}
 
 	// Verify signature is valid.
-	valid, err := crypto.VerifyManifest(manifest, []byte("test-signing-key"))
+	valid, err := crypto.VerifyManifest(manifest, &privKey.PublicKey)
 	if err != nil {
 		t.Fatalf("verify failed: %v", err)
 	}
@@ -178,9 +187,10 @@ func TestGCSReporter_Deliver_ContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "test-bucket",
-		SigningKey:    []byte("key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"tok"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
@@ -206,9 +216,10 @@ func TestGCSReporter_Deliver_UploadFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "test-bucket",
-		SigningKey:    []byte("key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"tok"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
@@ -230,9 +241,10 @@ func TestGCSReporter_Deliver_AuthorizationHeader(t *testing.T) {
 	}))
 	defer server.Close()
 
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	r := &GCSReporter{
 		BucketName:    "test-bucket",
-		SigningKey:    []byte("key"),
+		SigningKey:    privKey,
 		TokenProvider: &staticToken{"my-secret-token"},
 		HTTPClient:    server.Client(),
 		baseURL:       server.URL,
