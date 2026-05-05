@@ -121,7 +121,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 
 		for _, criterion := range criteria {
-			objectName := fmt.Sprintf("%s/%s/%s/%s.json", runDate, ev.Framework, criterion, ev.Finding.ID)
+			objectName := fmt.Sprintf("%s/%s/%s/%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, runID)
 
 			if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 				return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)

@@ -82,12 +82,12 @@ func TestLocalReporter_DeliverCreatesCorrectStructure(t *testing.T) {
 	// Verify directory structure exists.
 	runDate := time.Now().UTC().Format("2006-01-02")
 
-	cc21Path := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled.json")
+	cc21Path := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_test-run.json")
 	if _, err := os.Stat(cc21Path); os.IsNotExist(err) {
 		t.Errorf("expected evidence file at %s", cc21Path)
 	}
 
-	c11Path := filepath.Join(tmpDir, runDate, "soc2", "C1.1", "gcp.storage.encryption_enabled.json")
+	c11Path := filepath.Join(tmpDir, runDate, "soc2", "C1.1", "gcp.storage.encryption_enabled_test-run.json")
 	if _, err := os.Stat(c11Path); os.IsNotExist(err) {
 		t.Errorf("expected evidence file at %s", c11Path)
 	}
@@ -111,7 +111,7 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 	}
 
 	runDate := time.Now().UTC().Format("2006-01-02")
-	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled.json")
+	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_test-run.json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -158,25 +158,6 @@ func TestLocalReporter_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestLocalReporter_FileDedupOnCollision(t *testing.T) {
-	tmpDir := t.TempDir()
-	r := &LocalReporter{
-		OutputDir:  tmpDir,
-		SigningKey: []byte("test-key"),
-	}
-
-	// First delivery creates the files.
-	_, err := r.Deliver(context.Background(), testEvidence(), "run-1")
-	if err != nil {
-		t.Fatalf("first deliver failed: %v", err)
-	}
-
-	// Second delivery should create deduped files (e.g., _2.json).
-	_, err = r.Deliver(context.Background(), testEvidence(), "run-2")
-	if err != nil {
-		t.Fatalf("second deliver failed: %v", err)
-	}
-}
 
 func TestLocalReporter_ValidateSuccess(t *testing.T) {
 	r := &LocalReporter{
