@@ -41,7 +41,7 @@ variable "signing_key_secret_id" {
 variable "scheduler_cron" {
   description = "Cron expression for the Cloud Scheduler trigger."
   type        = string
-  default     = "0 2 * * 1" # Every Monday at 2:00 AM UTC.
+  default     = "0 3 * * *" # Every day at 3:00 AM UTC.
 }
 
 variable "scheduler_timezone" {
