@@ -4,17 +4,34 @@
 
 A high-performance, open-source CLI tool that programmatically extracts infrastructure state to generate continuous compliance telemetry. 
 
-## Zero-Friction Compliance
+## The Philosophy: Attestation Engineering vs. Traditional GRC
 
-Modern compliance platforms charge massive premiums for onboarding, API mapping, and implementation. The **Jula Evidence Collector** is designed to disrupt that model by commoditizing the most complex part of compliance: automated, cryptographically signed evidence gathering.
+Modern compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. The **Jula Evidence Collector** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
 
-By pairing this containerized evidence collector with standard document management and ticketing tools, engineering teams can achieve continuous compliance without paying a SaaS middleman, enduring lengthy implementations, or accepting vendor lock-in.
+Of the five core pillars of traditional Governance, Risk, and Compliance (GRC), we deliberately built Jula to attack only two.
+
+### 🎯 What We Attack (The Revenue Blockers)
+We focus exclusively on the two pillars that drain engineering sprint velocity and directly block you from passing audits to close enterprise deals. You don't need another shiny dashboard; you need cryptographic proof of your infrastructure. By programmatically extracting evidence directly from your APIs, we create an "Operational Buffer" that keeps auditors out of your CI/CD pipeline.
+
+1. **IT Risk & Compliance (ITRM):** Mapping technical controls directly to frameworks like SOC 2.
+2. **Audit Management:** Programmatically gathering, hashing, and storing cryptographic evidence.
+
+### 🛑 What We Intentionally Ignore (Bring Your Own Tools)
+Why pay a massive premium for redundant software? Traditional GRCs justify $30k+ annual contracts by bundling the remaining three pillars, forcing you to migrate workflows into their proprietary systems. We intentionally leave these out to eliminate software overhead, allowing you to leverage the tools your organization already pays for:
+
+* **Policy Management:** You don't need a specialized SaaS platform to host an Information Security Policy. Write it in Google Workspace, Notion, or Confluence, and use their native version history and access controls.
+* **Third-Party Risk (TPRM):** Standardized intake forms routed through existing IT ticketing (Jira/Zendesk) are vastly superior and less noisy than "continuous dark web vendor scanning."
+* **Enterprise Risk (ERM):** Formal financial risk modeling is overkill for scaling startups. That risk tracking belongs at the board level.
+
+By pairing this containerized evidence collector with your existing tooling, you eliminate redundant SaaS overhead. Stop wasting time organizing policies in a vendor's portal, and start generating the actual evidence required to pass your audit and close enterprise deals.
+
+---
 
 ### Supported Frameworks
 
 *   **MVP Focus:** SOC 2 (Type II)
 *   **Roadmap (Later Date):**
-    *   CIS GCP Foundations Benchmark
+    *   CIS GCP / AWS / Azure Foundations Benchmark
     *   NIST (800-53 / CSF)
     *   HIPAA Security Rule
     *   PCI-DSS
