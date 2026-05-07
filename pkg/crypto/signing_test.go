@@ -109,3 +109,43 @@ func TestHashFile_ProducesCorrectSHA256(t *testing.T) {
 		t.Errorf("SHA-256 mismatch\ngot:  %s\nwant: %s", got, expected)
 	}
 }
+
+func TestSignManifest_NilKey(t *testing.T) {
+	m := testManifest()
+	err := SignManifest(m, nil)
+	if err == nil {
+		t.Error("expected error when signing with nil private key")
+	}
+}
+
+func TestVerifyManifest_NilKey(t *testing.T) {
+	m := testManifest()
+	m.Signature = "deadbeef"
+
+	_, err := VerifyManifest(m, nil)
+	if err == nil {
+		t.Error("expected error when verifying with nil public key")
+	}
+}
+
+func TestVerifyManifest_EmptySignature(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	m := testManifest()
+	m.Signature = ""
+
+	_, err := VerifyManifest(m, &privKey.PublicKey)
+	if err == nil {
+		t.Error("expected error when signature is empty")
+	}
+}
+
+func TestVerifyManifest_MalformedSignature(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	m := testManifest()
+	m.Signature = "not-valid-hex-!@#$"
+
+	_, err := VerifyManifest(m, &privKey.PublicKey)
+	if err == nil {
+		t.Error("expected error when signature is not valid hex")
+	}
+}
