@@ -35,6 +35,31 @@ go run cmd/jula/main.go
     * **Google Cloud (GCP):** Fully configured, rigorously tested, and actively deployed in production.
     * **AWS & Azure:** The core extraction engine supports these environments, but native API providers are currently in development. We welcome community collaboration from teams looking to implement and validate the AWS or Azure pathways.
 
+## Directory Structure
+
+```
+jula-evidence-collector/
+├── cmd/jula/                  # CLI entrypoint, command parsing, and flag validation.
+├── internal/                  # Core domain logic (engine, providers, mappers, reporter).
+│   ├── engine/                #   Orchestrator: concurrent extraction pipeline.
+│   ├── providers/             #   Cloud API extractors (GCP) and BYOE FileDrop.
+│   ├── mappers/               #   SOC 2 policy evaluation and criteria mapping.
+│   └── reporter/              #   Output formatting (stdout, GCS upload).
+├── pkg/                       # Shared libraries (crypto, types) importable by external tools.
+├── configs/                   # Declarative rules: mapping configs, policies, and JSON schemas.
+│   └── schemas/               #   BYOE validation schemas (e.g., vulnerability scans).
+├── frameworks/                # Public compliance framework documentation and control status.
+│   └── soc2/                  #   SOC 2 TSC control-by-control coverage tracking.
+├── blueprints/remediation/    # Parameterized Terraform blueprints for fixing violations.
+├── docs/                      # Supplementary documentation, guides, and client resources.
+├── deploy/terraform/          # Internal IaC for deploying Jula itself (Cloud Run, Scheduler).
+├── scripts/                   # Build, test, and CI/CD helper scripts.
+├── Dockerfile                 # Multi-stage build: golang:alpine → scratch (zero attack surface).
+└── LICENSE                    # Business Source License (BSL 1.1).
+```
+
+Each major directory contains its own `README.md` with localized context for contributors and evaluators. Start with [`internal/README.md`](internal/README.md) for the Go engine, [`configs/README.md`](configs/README.md) for the declarative rule system, or [`deploy/terraform/README.md`](deploy/terraform/README.md) for infrastructure operations.
+
 ## Supported SOC 2 Trust Services Criteria (TSC)
 
 Jula Evidence Collector is designed to programmatically fulfill the evidentiary requirements for specific SOC 2 Trust Services Criteria.
