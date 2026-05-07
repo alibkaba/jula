@@ -39,8 +39,7 @@ terraform apply
 
 | File | Purpose | Edit? |
 | :--- | :--- | :--- |
-| `terraform.tfvars.example` | Template with placeholder values | No, copy it |
-| `terraform.tfvars` | **Your actual config (created from the template)** | **Yes, this is the only file you edit** |
+| `terraform.tfvars.example` | Template with placeholder values | No, copy it to create your config |
 | `main.tf` | Resource definitions (Cloud Run, GCS, IAM, Scheduler) | No |
 | `variables.tf` | Variable declarations and defaults | No |
 | `outputs.tf` | Post-deploy outputs (service URL, bucket name) | No |

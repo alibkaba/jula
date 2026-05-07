@@ -51,9 +51,7 @@ jula-evidence-collector/
 ├── frameworks/                # Public compliance framework documentation and control status.
 │   └── soc2/                  #   SOC 2 TSC control-by-control coverage tracking.
 ├── blueprints/remediation/    # Parameterized Terraform blueprints for fixing violations.
-├── docs/                      # Supplementary documentation, guides, and client resources.
 ├── deploy/terraform/          # Internal IaC for deploying Jula itself (Cloud Run, Scheduler).
-├── scripts/                   # Build, test, and CI/CD helper scripts.
 ├── Dockerfile                 # Multi-stage build: golang:alpine → scratch (zero attack surface).
 └── LICENSE                    # Business Source License (BSL 1.1).
 ```
