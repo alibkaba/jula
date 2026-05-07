@@ -31,6 +31,39 @@ go run cmd/jula/main.go
 2. **The Providers:** Isolated modules that handle API authentication and state extraction.
 3. **The Mappers:** Configuration files that map the raw telemetry from Providers to specific compliance frameworks.
 4. **The Reporters:** Deliver signed, cryptographically verifiable evidence directly to the client's own cloud storage vault (S3, GCS, Azure Blob), giving auditors direct access without a SaaS middleman.
-5. **Cloud Agnosticism:** Compiles to a standard Docker container capable of executing natively in AWS (ECS Fargate), GCP (Cloud Run), or Azure (Container Instances).
+5. **Deployment & Compatibility:** The architecture is fundamentally cloud-agnostic and compiles to a standard Docker container.
+    * **Google Cloud (GCP):** Fully configured, rigorously tested, and actively deployed in production.
+    * **AWS & Azure:** The core extraction engine supports these environments, but native API providers are currently in development. We welcome community collaboration from teams looking to implement and validate the AWS or Azure pathways.
+
+## Supported SOC 2 Trust Services Criteria (TSC)
+
+Jula Evidence Collector is designed to programmatically fulfill the evidentiary requirements for specific SOC 2 Trust Services Criteria.
+
+### Scope
+
+Our current implementation strictly targets the following criteria categories:
+
+* **Security (Common Criteria)**
+* **Confidentiality**
+* **Availability**
+
+> **Note:** Privacy and Processing Integrity are currently **out of scope** for automated collection and are not supported.
+
+### How We Map Controls
+
+We utilize two distinct architectural patterns to gather evidence across diverse environments without relying on brittle third-party APIs:
+
+1. **Native Infrastructure Extraction (Specific Values):** For cloud-native controls (e.g., IAM, Encryption at Rest, Firewalls), Jula directly queries AWS, GCP, and Azure APIs. We parse the telemetry to generate deterministic, pass/fail state evaluations.
+2. **Bring Your Own Evidence (BYOE) / FileDrop:** For tools lacking native APIs, procedural controls, or HR policies, Jula watches a designated cloud storage bucket (S3/GCS) and processes files in two ways:
+    * **Data Parsing:** Ingests standardized JSON (like vulnerability scans), validates the schema, and evaluates the specific values.
+    * **Cryptographic Hashing:** Treats PDFs, CSVs, and Text files (like HR Handbooks, NDAs, or Access Matrices) as opaque artifacts. Jula generates a SHA-256 hash and timestamp to cryptographically prove the document's existence and maintenance cadence without ever reading sensitive internal text.
+
+### Detailed Control Mappings
+
+For a granular, control-by-control breakdown of our coverage, please refer to our dedicated framework documentation:
+
+* [SOC 2 TSC Control Status](frameworks/soc2/README.md)
+
 ## Licensing
+
 This project is licensed under the Business Source License (BSL 1.1). See the [LICENSE](LICENSE) file for details.
