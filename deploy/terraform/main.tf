@@ -223,6 +223,14 @@ resource "google_cloud_run_v2_service" "jula" {
         value = "gcs"
       }
       env {
+        name  = "JULA_OUTPUT_FORMAT"
+        value = "markdown"
+      }
+      env {
+        name  = "JULA_CONSOLIDATED_ONLY"
+        value = "true"
+      }
+      env {
         name  = "JULA_OUTPUT_PATH"
         value = "gs://${google_storage_bucket.evidence.name}"
       }
