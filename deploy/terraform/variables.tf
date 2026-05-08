@@ -41,13 +41,31 @@ variable "signing_key_secret_id" {
 variable "aik_client_id_secret_id" {
   description = "Secret Manager secret ID for the Aikido Client ID."
   type        = string
-  default     = "aikido-client-id"
+  default     = "jula-aikido-client-id"
 }
 
 variable "aik_secret_key_secret_id" {
   description = "Secret Manager secret ID for the Aikido Secret Key."
   type        = string
-  default     = "aikido-secret-key"
+  default     = "jula-aikido-secret-key"
+}
+
+variable "github_token_secret_id" {
+  description = "Secret Manager secret ID for the GitHub PAT."
+  type        = string
+  default     = "jula-github-token"
+}
+
+variable "filedrop_bucket_name" {
+  description = "Name of the GCS bucket for bringing your own evidence (BYOE)."
+  type        = string
+  default     = "jula-evidence-byoe-494603"
+}
+
+variable "filedrop_prefix" {
+  description = "Prefix within the BYOE bucket to scan for policies."
+  type        = string
+  default     = "evidence/byoe/"
 }
 
 variable "scheduler_cron" {

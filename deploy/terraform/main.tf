@@ -103,6 +103,25 @@ resource "google_storage_bucket_iam_member" "jula_runner_storage" {
 }
 
 # ──────────────────────────────────────────────────────────────
+# 4.5 FileDrop (BYOE) Storage Bucket
+# ──────────────────────────────────────────────────────────────
+
+resource "google_storage_bucket" "filedrop" {
+  name     = var.filedrop_bucket_name
+  project  = var.project_id
+  location = var.region
+
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+}
+
+resource "google_storage_bucket_iam_member" "jula_runner_filedrop" {
+  bucket = google_storage_bucket.filedrop.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+# ──────────────────────────────────────────────────────────────
 # 5. Secret Manager – Secrets
 # ──────────────────────────────────────────────────────────────
 
@@ -124,37 +143,37 @@ resource "google_secret_manager_secret_iam_member" "jula_runner_secret" {
   member    = "serviceAccount:${google_service_account.jula_runner.email}"
 }
 
-resource "google_secret_manager_secret" "aik_client_id" {
+data "google_secret_manager_secret" "aik_client_id" {
   secret_id = var.aik_client_id_secret_id
   project   = var.project_id
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret_iam_member" "jula_runner_aik_client_id" {
-  secret_id = google_secret_manager_secret.aik_client_id.secret_id
+  secret_id = data.google_secret_manager_secret.aik_client_id.secret_id
   project   = var.project_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.jula_runner.email}"
 }
 
-resource "google_secret_manager_secret" "aik_secret_key" {
+data "google_secret_manager_secret" "aik_secret_key" {
   secret_id = var.aik_secret_key_secret_id
   project   = var.project_id
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret_iam_member" "jula_runner_aik_secret_key" {
-  secret_id = google_secret_manager_secret.aik_secret_key.secret_id
+  secret_id = data.google_secret_manager_secret.aik_secret_key.secret_id
+  project   = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+data "google_secret_manager_secret" "github_token" {
+  secret_id = var.github_token_secret_id
+  project   = var.project_id
+}
+
+resource "google_secret_manager_secret_iam_member" "jula_runner_github_token" {
+  secret_id = data.google_secret_manager_secret.github_token.secret_id
   project   = var.project_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.jula_runner.email}"
@@ -213,7 +232,28 @@ resource "google_cloud_run_v2_service" "jula" {
       }
       env {
         name  = "JULA_PROVIDER"
-        value = "gcp,aikido"
+        value = "gcp,aikido,github,filedrop"
+      }
+      env {
+        name  = "JULA_FILEDROP_BUCKET"
+        value = google_storage_bucket.filedrop.name
+      }
+      env {
+        name  = "JULA_FILEDROP_PREFIX"
+        value = var.filedrop_prefix
+      }
+      env {
+        name  = "GITHUB_REPO"
+        value = "alibkaba/jula-evidence-collector"
+      }
+      env {
+        name = "GITHUB_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = data.google_secret_manager_secret.github_token.secret_id
+            version = "latest"
+          }
+        }
       }
       env {
         name = "JULA_SIGNING_KEY"
@@ -228,7 +268,7 @@ resource "google_cloud_run_v2_service" "jula" {
         name = "AIK_CLIENT_ID"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.aik_client_id.secret_id
+            secret  = data.google_secret_manager_secret.aik_client_id.secret_id
             version = "latest"
           }
         }
@@ -237,7 +277,7 @@ resource "google_cloud_run_v2_service" "jula" {
         name = "AIK_SECRET_KEY"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.aik_secret_key.secret_id
+            secret  = data.google_secret_manager_secret.aik_secret_key.secret_id
             version = "latest"
           }
         }
