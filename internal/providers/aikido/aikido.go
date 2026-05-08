@@ -81,6 +81,14 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 			rawPayload = map[string]any{"raw": issue}
 		}
 
+		var issueID string
+		switch v := rawPayload["id"].(type) {
+		case float64:
+			issueID = fmt.Sprintf("%.0f", v)
+		default:
+			issueID = fmt.Sprintf("%v", v)
+		}
+
 		finding := types.Finding{
 			ID:          "aikido.open_vulnerability",
 			Provider:    providerName,
@@ -88,7 +96,7 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 			Check:       "open_vulnerability",
 			Status:      status,
 			RawPayload:  rawPayload,
-			ResourceARN: fmt.Sprintf("aikido:issue:%v", rawPayload["id"]),
+			ResourceARN: fmt.Sprintf("aikido:issue:%s", issueID),
 			Timestamp:   time.Now().UTC(),
 			RunID:       runID,
 		}

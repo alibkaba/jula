@@ -123,7 +123,12 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 
 		for _, criterion := range criteria {
-			objectName := fmt.Sprintf("%s/%s/%s/%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, runID)
+			safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
+			safeResource = strings.ReplaceAll(safeResource, "/", "-")
+			if safeResource == "" {
+				safeResource = "global"
+			}
+			objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
 
 			if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 				return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)

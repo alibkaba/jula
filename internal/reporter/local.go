@@ -74,7 +74,12 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 			}
 
 			// Use runID to guarantee unique filenames and prevent overwriting
-			fileName := fmt.Sprintf("%s_%s.json", ev.Finding.ID, runID)
+			safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
+			safeResource = strings.ReplaceAll(safeResource, "/", "-")
+			if safeResource == "" {
+				safeResource = "global"
+			}
+			fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
 			filePath := filepath.Join(dirPath, fileName)
 
 			data, err := json.MarshalIndent(ev, "", "  ")
