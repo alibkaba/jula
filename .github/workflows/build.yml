@@ -18,6 +18,9 @@ jobs:
   test:
     name: Lint, Test & Coverage
     runs-on: ubuntu-latest
+    # Explicitly set permissions for least privilege
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 

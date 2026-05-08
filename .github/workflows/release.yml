@@ -3,7 +3,7 @@ name: Release Binaries and Docker Image
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -27,7 +27,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
           check-latest: true
 
       - name: Build Binary
@@ -76,5 +76,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ id.meta.outputs.tags }}
-          labels: ${{ id.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
