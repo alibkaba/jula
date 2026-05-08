@@ -101,6 +101,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for release-please to see git history
       - uses: google-github-actions/release-please-action@v4
         with:
           release-type: go

@@ -4,7 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-collector/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-collector?logo=go)](https://go.dev/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-collector)
-[![License](https://img.shields.io/github/license/alibkaba/jula-evidence-collector)](https://github.com/alibkaba/jula-evidence-collector/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE)
 
 **Primary Language:** Go (Golang)
 
