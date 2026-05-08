@@ -135,7 +135,7 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 	}
 
 	runDate := time.Now().UTC().Format("2006-01-02")
-	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_test-run.json")
+	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_global_test-run.json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
