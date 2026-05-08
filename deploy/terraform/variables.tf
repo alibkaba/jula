@@ -38,6 +38,18 @@ variable "signing_key_secret_id" {
   default     = "jula-signing-key"
 }
 
+variable "aik_client_id_secret_id" {
+  description = "Secret Manager secret ID for the Aikido Client ID."
+  type        = string
+  default     = "aikido-client-id"
+}
+
+variable "aik_secret_key_secret_id" {
+  description = "Secret Manager secret ID for the Aikido Secret Key."
+  type        = string
+  default     = "aikido-secret-key"
+}
+
 variable "scheduler_cron" {
   description = "Cron expression for the Cloud Scheduler trigger."
   type        = string

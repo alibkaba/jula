@@ -16,7 +16,8 @@ import (
 	"github.com/alibkaba/jula-evidence-collector/internal/mappers"
 	"github.com/alibkaba/jula-evidence-collector/internal/reporter"
 
-	// Import the GCP provider so its init() registers it.
+	// Import the providers so their init() registers them.
+	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/aikido"
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 )
 

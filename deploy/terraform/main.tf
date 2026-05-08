@@ -103,7 +103,7 @@ resource "google_storage_bucket_iam_member" "jula_runner_storage" {
 }
 
 # ──────────────────────────────────────────────────────────────
-# 5. Secret Manager – Signing Key
+# 5. Secret Manager – Secrets
 # ──────────────────────────────────────────────────────────────
 
 resource "google_secret_manager_secret" "signing_key" {
@@ -119,6 +119,42 @@ resource "google_secret_manager_secret" "signing_key" {
 
 resource "google_secret_manager_secret_iam_member" "jula_runner_secret" {
   secret_id = google_secret_manager_secret.signing_key.secret_id
+  project   = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+resource "google_secret_manager_secret" "aik_client_id" {
+  secret_id = var.aik_client_id_secret_id
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_iam_member" "jula_runner_aik_client_id" {
+  secret_id = google_secret_manager_secret.aik_client_id.secret_id
+  project   = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+resource "google_secret_manager_secret" "aik_secret_key" {
+  secret_id = var.aik_secret_key_secret_id
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_iam_member" "jula_runner_aik_secret_key" {
+  secret_id = google_secret_manager_secret.aik_secret_key.secret_id
   project   = var.project_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.jula_runner.email}"
@@ -177,13 +213,31 @@ resource "google_cloud_run_v2_service" "jula" {
       }
       env {
         name  = "JULA_PROVIDER"
-        value = "gcp"
+        value = "gcp,aikido"
       }
       env {
         name = "JULA_SIGNING_KEY"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.signing_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "AIK_CLIENT_ID"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.aik_client_id.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "AIK_SECRET_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.aik_secret_key.secret_id
             version = "latest"
           }
         }

@@ -49,7 +49,7 @@ func handleExtract(args []string) error {
 
 func isValidProvider(name string) bool {
 	switch name {
-	case "aws", "gcp", "github", "filedrop":
+	case "aws", "gcp", "github", "filedrop", "aikido":
 		return true
 	default:
 		return false
