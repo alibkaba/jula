@@ -25,11 +25,12 @@ type TokenProvider interface {
 
 // GCSReporter writes evidence artifacts to a Google Cloud Storage bucket.
 type GCSReporter struct {
-	BucketName    string
-	SigningKey    *ecdsa.PrivateKey
-	HTTPClient    *http.Client
-	TokenProvider TokenProvider
-	Format        string
+	BucketName       string
+	SigningKey       *ecdsa.PrivateKey
+	HTTPClient       *http.Client
+	TokenProvider    TokenProvider
+	Format           string
+	ConsolidatedOnly bool
 	// baseURL allows overriding the GCS API endpoint for testing.
 	baseURL string
 }
@@ -117,34 +118,63 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			criteria = []string{"unmapped"}
 		}
 
-		data, err := json.MarshalIndent(ev, "", "  ")
+		if !r.ConsolidatedOnly {
+			data, err := json.MarshalIndent(ev, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("marshalling evidence: %w", err)
+			}
+
+			for _, criterion := range criteria {
+				safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
+				safeResource = strings.ReplaceAll(safeResource, "/", "-")
+				if safeResource == "" {
+					safeResource = "global"
+				}
+				objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
+
+				if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
+					return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
+				}
+
+				manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+					Path:   objectName,
+					SHA256: crypto.HashFile(data),
+				})
+
+				slog.Debug("gcs: uploaded evidence",
+					"object", objectName,
+					"finding_id", ev.Finding.ID,
+					"criteria", criterion,
+				)
+			}
+		}
+	}
+
+	// Generate a consolidated JSON file for each framework
+	for f := range frameworkSet {
+		var frameworkEvidence []types.Evidence
+		for _, ev := range evidence {
+			if ev.Framework == f {
+				frameworkEvidence = append(frameworkEvidence, ev)
+			}
+		}
+
+		aggregateData, err := json.MarshalIndent(frameworkEvidence, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("marshalling evidence: %w", err)
+			return nil, fmt.Errorf("marshalling aggregate evidence: %w", err)
 		}
 
-		for _, criterion := range criteria {
-			safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
-			safeResource = strings.ReplaceAll(safeResource, "/", "-")
-			if safeResource == "" {
-				safeResource = "global"
-			}
-			objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
-
-			if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
-				return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
-			}
-
-			manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-				Path:   objectName,
-				SHA256: crypto.HashFile(data),
-			})
-
-			slog.Debug("gcs: uploaded evidence",
-				"object", objectName,
-				"finding_id", ev.Finding.ID,
-				"criteria", criterion,
-			)
+		objectName := fmt.Sprintf("%s/%s/all_controls.json", runDate, f)
+		if err := r.uploadObject(ctx, objectName, aggregateData, "application/json"); err != nil {
+			return nil, fmt.Errorf("uploading aggregate evidence %s: %w", objectName, err)
 		}
+
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   objectName,
+			SHA256: crypto.HashFile(aggregateData),
+		})
+
+		slog.Debug("gcs: uploaded consolidated framework evidence", "object", objectName)
 	}
 
 	// Optional: Generate Markdown evidence portfolio.

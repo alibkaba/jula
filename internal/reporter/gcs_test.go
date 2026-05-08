@@ -143,13 +143,13 @@ func TestGCSReporter_Deliver(t *testing.T) {
 			name:           "Deliver with JSON Format",
 			format:         "json",
 			expectedSuffix: ".json",
-			expectedCount:  2, // 1 evidence + 1 manifest
+			expectedCount:  3, // 1 individual + 1 consolidated + 1 manifest
 		},
 		{
 			name:           "Deliver with Markdown Format",
 			format:         "markdown",
 			expectedSuffix: "evidence_portfolio.md",
-			expectedCount:  3, // 1 evidence + 1 markdown + 1 manifest
+			expectedCount:  4, // 1 individual + 1 consolidated + 1 markdown + 1 manifest
 		},
 	}
 

@@ -18,9 +18,10 @@ import (
 // LocalReporter writes evidence artifacts to the local filesystem.
 // Intended for development, testing, and local validation.
 type LocalReporter struct {
-	OutputDir  string
-	SigningKey *ecdsa.PrivateKey
-	Format     string
+	OutputDir        string
+	SigningKey       *ecdsa.PrivateKey
+	Format           string
+	ConsolidatedOnly bool
 }
 
 // Name returns the reporter identifier.
@@ -62,49 +63,83 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		providerSet[ev.Finding.Provider] = true
 		frameworkSet[ev.Framework] = true
 
-		// Write evidence to each criteria directory it maps to.
-		criteria := ev.Criteria
-		if len(criteria) == 0 {
-			criteria = []string{"unmapped"}
+		if !r.ConsolidatedOnly {
+			// Write evidence to each criteria directory it maps to.
+			criteria := ev.Criteria
+			if len(criteria) == 0 {
+				criteria = []string{"unmapped"}
+			}
+
+			for _, criterion := range criteria {
+				dirPath := filepath.Join(r.OutputDir, runDate, ev.Framework, criterion)
+				if err := os.MkdirAll(dirPath, 0755); err != nil {
+					return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
+				}
+
+				// Use runID to guarantee unique filenames and prevent overwriting
+				safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
+				safeResource = strings.ReplaceAll(safeResource, "/", "-")
+				if safeResource == "" {
+					safeResource = "global"
+				}
+				fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
+				filePath := filepath.Join(dirPath, fileName)
+
+				data, err := json.MarshalIndent(ev, "", "  ")
+				if err != nil {
+					return nil, fmt.Errorf("marshalling evidence: %w", err)
+				}
+
+				if err := os.WriteFile(filePath, data, 0644); err != nil {
+					return nil, fmt.Errorf("writing evidence file: %w", err)
+				}
+
+				// Compute file hash for manifest.
+				relativePath := filepath.Join(runDate, ev.Framework, criterion, fileName)
+				manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+					Path:   relativePath,
+					SHA256: crypto.HashFile(data),
+				})
+
+				slog.Debug("reporter: wrote evidence file",
+					"path", filePath,
+					"finding_id", ev.Finding.ID,
+					"criteria", criterion,
+				)
+			}
+		}
+	}
+
+	// Generate a consolidated JSON file for each framework
+	for f := range frameworkSet {
+		var frameworkEvidence []types.Evidence
+		for _, ev := range evidence {
+			if ev.Framework == f {
+				frameworkEvidence = append(frameworkEvidence, ev)
+			}
 		}
 
-		for _, criterion := range criteria {
-			dirPath := filepath.Join(r.OutputDir, runDate, ev.Framework, criterion)
-			if err := os.MkdirAll(dirPath, 0755); err != nil {
-				return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
-			}
-
-			// Use runID to guarantee unique filenames and prevent overwriting
-			safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
-			safeResource = strings.ReplaceAll(safeResource, "/", "-")
-			if safeResource == "" {
-				safeResource = "global"
-			}
-			fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
-			filePath := filepath.Join(dirPath, fileName)
-
-			data, err := json.MarshalIndent(ev, "", "  ")
-			if err != nil {
-				return nil, fmt.Errorf("marshalling evidence: %w", err)
-			}
-
-			if err := os.WriteFile(filePath, data, 0644); err != nil {
-				return nil, fmt.Errorf("writing evidence file: %w", err)
-			}
-
-			// Compute file hash for manifest.
-			relativePath := filepath.Join(runDate, ev.Framework, criterion, fileName)
-			manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-				Path:   relativePath,
-				SHA256: crypto.HashFile(data),
-			})
-
-			slog.Debug("reporter: wrote evidence file",
-				"path", filePath,
-				"finding_id", ev.Finding.ID,
-				"criteria", criterion,
-			)
+		frameworkDir := filepath.Join(r.OutputDir, runDate, f)
+		if err := os.MkdirAll(frameworkDir, 0755); err != nil {
+			return nil, fmt.Errorf("creating framework directory %s: %w", frameworkDir, err)
 		}
+
+		aggregatePath := filepath.Join(frameworkDir, "all_controls.json")
+		aggregateData, err := json.MarshalIndent(frameworkEvidence, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshalling aggregate evidence: %w", err)
+		}
+
+		if err := os.WriteFile(aggregatePath, aggregateData, 0644); err != nil {
+			return nil, fmt.Errorf("writing aggregate evidence file: %w", err)
+		}
+
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   filepath.Join(runDate, f, "all_controls.json"),
+			SHA256: crypto.HashFile(aggregateData),
+		})
+
+		slog.Debug("reporter: wrote consolidated framework evidence", "path", aggregatePath)
 	}
 
 	// Optional: Generate Markdown evidence portfolio.
