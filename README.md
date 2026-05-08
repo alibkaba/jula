@@ -1,5 +1,11 @@
 # Jula Evidence Collector
 
+[![CI/CD Pipeline](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-collector/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-collector?logo=go)](https://go.dev/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-collector)
+[![License](https://img.shields.io/github/license/alibkaba/jula-evidence-collector)](https://github.com/alibkaba/jula-evidence-collector/blob/main/LICENSE)
+
 **Primary Language:** Go (Golang)
 
 A high-performance, open-source CLI tool that programmatically extracts infrastructure state to generate continuous compliance telemetry. 
