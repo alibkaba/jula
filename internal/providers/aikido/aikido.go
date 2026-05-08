@@ -80,11 +80,8 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 			rawPayload = map[string]any{"raw": issue}
 		}
 
-		findingID := fmt.Sprintf("aikido-issue-%v", rawPayload["id"])
-		resourceARN := fmt.Sprintf("aikido:issue:%v", rawPayload["id"])
-
 		finding := types.Finding{
-			ID:          findingID,
+			ID:          "aikido.open_vulnerability",
 			Provider:    providerName,
 			Resource:    "aikido_issue",
 			Check:       "open_vulnerability",
@@ -97,10 +94,9 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 		findings = append(findings, finding)
 	}
 
-	// If no issues, we still want to record a PASS for the check
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          fmt.Sprintf("aikido-clean-%s", runID),
+			ID:          "aikido.open_vulnerability",
 			Provider:    providerName,
 			Resource:    "aikido_workspace",
 			Check:       "open_vulnerability",

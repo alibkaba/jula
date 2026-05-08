@@ -121,6 +121,14 @@
       "criteria": ["CC6.1"],
       "control_type": "AUTOMATED",
       "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc7.1-vulnerability-management",
+      "description": "Aikido open vulnerability check satisfies CC7.1 Vulnerability Management",
+      "finding_id": "aikido.open_vulnerability",
+      "criteria": ["CC7.1", "CC7.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
     }
   ]
 }
