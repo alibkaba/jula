@@ -87,7 +87,7 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 			Check:       "open_vulnerability",
 			Status:      status,
 			RawPayload:  rawPayload,
-			ResourceARN: resourceARN,
+			ResourceARN: fmt.Sprintf("aikido:issue:%v", rawPayload["id"]),
 			Timestamp:   time.Now().UTC(),
 			RunID:       runID,
 		}

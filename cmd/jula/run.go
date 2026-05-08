@@ -14,11 +14,14 @@ import (
 
 	"github.com/alibkaba/jula-evidence-collector/internal/engine"
 	"github.com/alibkaba/jula-evidence-collector/internal/mappers"
+	"github.com/alibkaba/jula-evidence-collector/internal/providers"
 	"github.com/alibkaba/jula-evidence-collector/internal/reporter"
 
 	// Import the providers so their init() registers them.
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/aikido"
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
+	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/github"
+	"github.com/alibkaba/jula-evidence-collector/internal/providers/filedrop"
 )
 
 func handleRun(args []string) error {
@@ -40,8 +43,8 @@ func handleRun(args []string) error {
 	if *providerFlag == "" {
 		return fmt.Errorf("provider is required: use -provider or set JULA_PROVIDER")
 	}
-	providers := strings.Split(*providerFlag, ",")
-	for _, p := range providers {
+	providersList := strings.Split(*providerFlag, ",")
+	for _, p := range providersList {
 		p = strings.TrimSpace(p)
 		if !isValidProvider(p) {
 			return fmt.Errorf("unknown provider: %q", p)
@@ -97,7 +100,7 @@ func handleRun(args []string) error {
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
 
 	slog.Info("run: full pipeline starting",
-		"providers", providers,
+		"providers", providersList,
 		"framework", *frameworkFlag,
 		"target", *targetFlag,
 		"path", *pathFlag,
@@ -106,15 +109,43 @@ func handleRun(args []string) error {
 		"run_id", runID,
 	)
 
-	// --- Step 0: Exceptions ---
+	// --- Step 0: Exceptions & Runtime Configs ---
 	exceptionsPath := "/configs/exceptions.json"
 	if _, err := os.Stat(exceptionsPath); os.IsNotExist(err) {
 		exceptionsPath = "configs/exceptions.json"
 	}
 
+	hasFiledrop := false
+	for _, p := range providersList {
+		if p == "filedrop" {
+			hasFiledrop = true
+			break
+		}
+	}
+
+	if hasFiledrop {
+		bucket := os.Getenv("JULA_FILEDROP_BUCKET")
+		prefix := os.Getenv("JULA_FILEDROP_PREFIX")
+		if bucket == "" {
+			return fmt.Errorf("JULA_FILEDROP_BUCKET is required when using the filedrop provider")
+		}
+		if prefix == "" {
+			prefix = "evidence/byoe/" // fallback
+		}
+		
+		tokenProvider := reporter.NewMetadataTokenProvider(&http.Client{})
+		gcsReader := &filedrop.GCSReader{
+			BucketName:    bucket,
+			HTTPClient:    &http.Client{},
+			TokenProvider: tokenProvider,
+		}
+		
+		providers.Register(filedrop.New(bucket, prefix, gcsReader))
+	}
+
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Providers:      providers,
+		Providers:      providersList,
 		Framework:      *frameworkFlag,
 		Target:         *targetFlag,
 		Path:           *pathFlag,
