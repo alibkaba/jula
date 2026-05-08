@@ -1,0 +1,34 @@
+# Changelog
+
+## 1.0.0 (2026-05-08)
+
+
+### Features
+
+* add Compute, Cloud SQL, KMS extractors with policy config ([3e81d34](https://github.com/alibkaba/jula-evidence-collector/commit/3e81d3489a60e0eb57d98a84240a51cd2f1513a1))
+* add consolidated evidence output and flag to disable individual finding files ([67792e6](https://github.com/alibkaba/jula-evidence-collector/commit/67792e6ce3697ed6fc91fa99e8ec9c3b988cbd7f))
+* add GitHub Actions workflow to release multi-platform binaries and Docker images on tag push ([ed3d064](https://github.com/alibkaba/jula-evidence-collector/commit/ed3d064bb31f6d86422edb5fbf141616335ef78b))
+* add GitHub provider, implement GCS-based filedrop provider, and update runner configuration ([126ad9f](https://github.com/alibkaba/jula-evidence-collector/commit/126ad9f6fde40ec55e3612023d8dd9fb27748888))
+* add markdown evidence portfolio support with configurable output format flag ([098fb57](https://github.com/alibkaba/jula-evidence-collector/commit/098fb57c579ba2b76f9622005d8482bddec220a9))
+* add markdown formatter to group and display evidence by criteria ([7f3d12f](https://github.com/alibkaba/jula-evidence-collector/commit/7f3d12fbd8b288ea3ccd538fcbf41f6db984c059))
+* add remediation blueprints for GCP security compliance and update documentation structure ([7ecc863](https://github.com/alibkaba/jula-evidence-collector/commit/7ecc86322139878d8d7d01b4b2cf17001c3bdd1f))
+* Add Terraform IaC, exception handling, and audit summary logging ([5d08161](https://github.com/alibkaba/jula-evidence-collector/commit/5d081612d866a6ff5860875b69b55cd3f99c27b4))
+* implement FileDropProvider for cloud storage-based evidence collection and document verification ([0f7d2f5](https://github.com/alibkaba/jula-evidence-collector/commit/0f7d2f5ecbffeb17038c2e311777f5fd2605ff7c))
+* implement full evidence collection pipeline, GCP metadata service authentication, and framework documentation updates. ([85d6ce6](https://github.com/alibkaba/jula-evidence-collector/commit/85d6ce60e21aa87a781c05320e8dee7b2693257d))
+* implement Google Cloud Storage reporter with OAuth2 token authentication ([199c175](https://github.com/alibkaba/jula-evidence-collector/commit/199c175fe136ac87b82369965a2bfe4f45f42231))
+* implement HTTP server command for Cloud Run deployment with health and run endpoints ([05eac65](https://github.com/alibkaba/jula-evidence-collector/commit/05eac65a8a311cfe266bde3f81e611258c42b387))
+* implement native Aikido provider and remove legacy integration bash scripts ([c607675](https://github.com/alibkaba/jula-evidence-collector/commit/c607675a7c94f37d2c5e51079903ed791ad03f67))
+* import strings package in local reporter ([946714a](https://github.com/alibkaba/jula-evidence-collector/commit/946714a9d79cbcd56fb1ecd736b90185973b8f55))
+* initialize Terraform infrastructure configuration and dependencies for evidence collection ([353aa7f](https://github.com/alibkaba/jula-evidence-collector/commit/353aa7f00504c6451e365478e3c71805ee2a83fd))
+* scaffold evidence collector engine with providers, mappers, and CLI command structure ([7c377a4](https://github.com/alibkaba/jula-evidence-collector/commit/7c377a4e30681b9366be9be429702a8f4f2ae79f))
+* update GitHub provider to support branch protection via both classic settings and modern rulesets ([2600a16](https://github.com/alibkaba/jula-evidence-collector/commit/2600a16f70f8743a2b6fb74dcea516f5af1fd25c))
+
+
+### Bug Fixes
+
+* include CA certificates in scratch image to enable TLS verification ([baaceba](https://github.com/alibkaba/jula-evidence-collector/commit/baacebabb1e7564994e4b6b125ad8dac1b1bbdc0))
+* **infra:** add run.invoker role and fix scheduler audience ([4371cfb](https://github.com/alibkaba/jula-evidence-collector/commit/4371cfb783b7f6983b48e833129b3b605f24001e))
+* remove duplicate newServeMux from test file ([85c8840](https://github.com/alibkaba/jula-evidence-collector/commit/85c884043984b3f6b1749efcfcc198a8bf2bba94))
+* sanitize configuration file paths, upgrade Go to 1.25, pin GCP auth action, and harden Dockerfile security ([fc4054f](https://github.com/alibkaba/jula-evidence-collector/commit/fc4054fb85888d70cb49bb9e90e48f365f3788c6))
+* **security:** resolve SAST findings for SSRF and GitHub Action pinning ([0e39fa6](https://github.com/alibkaba/jula-evidence-collector/commit/0e39fa6beecd3dff43c8d940cffc680ddecbc07f))
+* trim whitespace from signing key ([533a19e](https://github.com/alibkaba/jula-evidence-collector/commit/533a19eeac4dd3f09c867d83d7a8644f1b25f57e))
