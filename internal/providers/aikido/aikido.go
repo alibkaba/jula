@@ -25,8 +25,9 @@ const (
 	tokenURL       = "https://app.aikido.dev/api/oauth/token"
 	exportURL      = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
 	maxRetries     = 3
-	defaultBackoff = 5 * time.Second
 )
+
+var defaultBackoff = 5 * time.Second
 
 // Provider implements the providers.Provider interface for Aikido Security.
 type Provider struct {
