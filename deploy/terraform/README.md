@@ -2,7 +2,7 @@
 
 > **This directory is not for clients.** The Terraform in this folder provisions the isolated GCP environment where the Jula Evidence Collector itself runs. It is internal operational infrastructure, not a client deliverable.
 
-If you are looking for remediation blueprints to fix compliance violations flagged by Jula, see [`blueprints/remediation/`](../../blueprints/remediation/README.md).
+If you are looking for remediation templates to fix compliance violations flagged by Jula, see [`remediation/`](../../remediation/README.md).
 
 ## What This Deploys
 

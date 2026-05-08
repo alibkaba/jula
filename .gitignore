@@ -50,4 +50,4 @@ vendor/
 *.tfplan
 terraform.tfvars
 !terraform.tfvars.example
-overrides.tf
+deploy/terraform/gcp_*

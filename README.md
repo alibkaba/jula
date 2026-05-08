@@ -67,13 +67,14 @@ jula-evidence-collector/
 │   └── schemas/               #   BYOE validation schemas (e.g., vulnerability scans).
 ├── frameworks/                # Public compliance framework documentation and control status.
 │   └── soc2/                  #   SOC 2 TSC control-by-control coverage tracking.
-├── blueprints/remediation/    # Parameterized Terraform blueprints for fixing violations.
+├── remediation/               # Parameterized Terraform templates for fixing violations (gcp_, aws_).
+├── integrations/              # Client glue scripts (Bash/Python) for BYOE evidence ingestion.
 ├── deploy/terraform/          # Internal IaC for deploying Jula itself (Cloud Run, Scheduler).
 ├── Dockerfile                 # Multi-stage build: golang:alpine → scratch (zero attack surface).
 └── LICENSE                    # Business Source License (BSL 1.1).
 ```
 
-Each major directory contains its own `README.md` with localized context for contributors and evaluators. Start with [`internal/README.md`](internal/README.md) for the Go engine, [`configs/README.md`](configs/README.md) for the declarative rule system, or [`deploy/terraform/README.md`](deploy/terraform/README.md) for infrastructure operations.
+Each major directory contains its own `README.md` with localized context for contributors and evaluators. Start with [`internal/README.md`](internal/README.md) for the Go engine, [`configs/README.md`](configs/README.md) for the declarative rule system, [`remediation/README.md`](remediation/README.md) for compliance fix templates, [`integrations/README.md`](integrations/README.md) for third-party evidence scripts, or [`deploy/terraform/README.md`](deploy/terraform/README.md) for infrastructure operations.
 
 ## Supported SOC 2 Trust Services Criteria (TSC)
 
