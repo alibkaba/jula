@@ -35,7 +35,8 @@ resource "google_compute_firewall" "restrict_ssh" {
     protocol = "tcp"
     ports    = ["22"]
   }
-  source_ranges = ["0.0.0.0/0"]
+  # Restrict SSH to Identity-Aware Proxy (IAP)
+  source_ranges = ["35.235.240.0/20"]
 }
 
 # ── Disable Default RDP Rule ─────────────────────────────────
@@ -50,5 +51,6 @@ resource "google_compute_firewall" "restrict_rdp" {
     protocol = "tcp"
     ports    = ["3389"]
   }
-  source_ranges = ["0.0.0.0/0"]
+  # Restrict RDP to Identity-Aware Proxy (IAP)
+  source_ranges = ["35.235.240.0/20"]
 }

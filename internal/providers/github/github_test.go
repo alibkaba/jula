@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -58,10 +59,16 @@ func TestExtract_ProtectionEnabled(t *testing.T) {
 		httpClient: &http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
-					body := `{"required_pull_request_reviews": {"dismiss_stale_reviews": true}}`
+					if strings.Contains(req.URL.Path, "/protection") {
+						body := `{"required_pull_request_reviews": {"dismiss_stale_reviews": true}}`
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBufferString(body)),
+						}, nil
+					}
 					return &http.Response{
 						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBufferString(body)),
+						Body:       io.NopCloser(bytes.NewBufferString(`[]`)),
 					}, nil
 				},
 			},

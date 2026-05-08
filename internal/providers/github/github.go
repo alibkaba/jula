@@ -50,80 +50,106 @@ func (p *Provider) Validate() error {
 func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, error) {
 	var findings []types.Finding
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/branches/main/protection", p.repo)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	resourceARN := fmt.Sprintf("github:repo:%s:branch:main", p.repo)
+
+	// 1. Check Classic Branch Protection
+	urlBP := fmt.Sprintf("https://api.github.com/repos/%s/branches/main/protection", p.repo)
+	reqBP, err := http.NewRequestWithContext(ctx, http.MethodGet, urlBP, nil)
 	if err != nil {
 		return nil, fmt.Errorf("github: creating request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	reqBP.Header.Set("Authorization", "Bearer "+p.token)
+	reqBP.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := p.httpClient.Do(req)
+	var bpPayload map[string]any
+	respBP, errBP := p.httpClient.Do(reqBP)
+	if errBP != nil {
+		return nil, fmt.Errorf("github: classic protection request failed: %w", errBP)
+	}
+	defer respBP.Body.Close()
+	if respBP.StatusCode == http.StatusOK {
+		body, _ := io.ReadAll(respBP.Body)
+		if err := json.Unmarshal(body, &bpPayload); err != nil {
+			return nil, fmt.Errorf("github: parsing classic protection: %w", err)
+		}
+	} else if respBP.StatusCode != http.StatusNotFound {
+		return nil, fmt.Errorf("github: classic protection API returned %d", respBP.StatusCode)
+	}
+
+	// 2. Check Modern Rulesets
+	urlRules := fmt.Sprintf("https://api.github.com/repos/%s/rules/branches/main", p.repo)
+	reqRules, err := http.NewRequestWithContext(ctx, http.MethodGet, urlRules, nil)
 	if err != nil {
-		return nil, fmt.Errorf("github: request failed: %w", err)
+		return nil, fmt.Errorf("github: creating rules request: %w", err)
 	}
-	defer resp.Body.Close()
+	reqRules.Header.Set("Authorization", "Bearer "+p.token)
+	reqRules.Header.Set("Accept", "application/vnd.github+json")
 
-	body, _ := io.ReadAll(resp.Body)
-	var payload map[string]any
-
-	resourceARN := fmt.Sprintf("github:repo:%s:branch:main", p.repo)
-
-	if resp.StatusCode == http.StatusNotFound {
-		// Branch protection is NOT enforced.
-		findings = append(findings, types.Finding{
-			ID:          "github.branch_protection.enforced",
-			Provider:    providerName,
-			Resource:    "github_branch",
-			Check:       "branch_protection",
-			Status:      "FAIL",
-			RawPayload:  map[string]any{"detail": "Branch protection not found or not enabled on main"},
-			ResourceARN: resourceARN,
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
-		})
-		findings = append(findings, types.Finding{
-			ID:          "github.pull_requests.peer_reviewed",
-			Provider:    providerName,
-			Resource:    "github_branch",
-			Check:       "pull_requests",
-			Status:      "FAIL",
-			RawPayload:  map[string]any{"detail": "Branch protection not found, PRs not required"},
-			ResourceARN: resourceARN,
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
-		})
-		return findings, nil
+	var rulesPayload []any
+	respRules, errRules := p.httpClient.Do(reqRules)
+	if errRules != nil {
+		return nil, fmt.Errorf("github: rulesets request failed: %w", errRules)
+	}
+	defer respRules.Body.Close()
+	if respRules.StatusCode == http.StatusOK {
+		body, _ := io.ReadAll(respRules.Body)
+		if err := json.Unmarshal(body, &rulesPayload); err != nil {
+			return nil, fmt.Errorf("github: parsing rulesets: %w", err)
+		}
+	} else if respRules.StatusCode != http.StatusNotFound {
+		return nil, fmt.Errorf("github: rulesets API returned %d", respRules.StatusCode)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("github: API returned %d: %s", resp.StatusCode, string(body))
+	// Evaluate results
+	bpEnforced := false
+	prEnforced := false
+	combinedPayload := map[string]any{}
+
+	if bpPayload != nil {
+		bpEnforced = true
+		combinedPayload["classic_protection"] = bpPayload
+		if pr, ok := bpPayload["required_pull_request_reviews"].(map[string]any); ok && pr != nil {
+			prEnforced = true
+		}
 	}
 
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("github: parsing response: %w", err)
+	if len(rulesPayload) > 0 {
+		bpEnforced = true
+		combinedPayload["rulesets"] = rulesPayload
+		for _, r := range rulesPayload {
+			if ruleMap, ok := r.(map[string]any); ok {
+				if ruleMap["type"] == "pull_request" {
+					prEnforced = true
+				}
+			}
+		}
 	}
 
-	// Branch protection is enabled
+	bpStatus := "FAIL"
+	if bpEnforced {
+		bpStatus = "PASS"
+	} else {
+		combinedPayload["detail"] = "Branch protection not found or not enabled on main"
+	}
+
+	prStatus := "FAIL"
+	if prEnforced {
+		prStatus = "PASS"
+	} else if bpEnforced {
+		combinedPayload["detail"] = "Branch protection found, but pull request reviews are not required"
+	}
+
 	findings = append(findings, types.Finding{
 		ID:          "github.branch_protection.enforced",
 		Provider:    providerName,
 		Resource:    "github_branch",
 		Check:       "branch_protection",
-		Status:      "PASS",
-		RawPayload:  payload,
+		Status:      bpStatus,
+		RawPayload:  combinedPayload,
 		ResourceARN: resourceARN,
 		Timestamp:   time.Now().UTC(),
 		RunID:       runID,
 	})
-
-	// Check if required pull request reviews is enabled
-	prStatus := "FAIL"
-	if prReviews, ok := payload["required_pull_request_reviews"].(map[string]any); ok {
-		if prReviews != nil {
-			prStatus = "PASS"
-		}
-	}
 
 	findings = append(findings, types.Finding{
 		ID:          "github.pull_requests.peer_reviewed",
@@ -131,7 +157,7 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 		Resource:    "github_branch",
 		Check:       "pull_requests",
 		Status:      prStatus,
-		RawPayload:  payload,
+		RawPayload:  combinedPayload,
 		ResourceARN: resourceARN,
 		Timestamp:   time.Now().UTC(),
 		RunID:       runID,
