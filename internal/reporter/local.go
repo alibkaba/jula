@@ -124,7 +124,8 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 			return nil, fmt.Errorf("creating framework directory %s: %w", frameworkDir, err)
 		}
 
-		aggregatePath := filepath.Join(frameworkDir, "all_controls.json")
+		fileName := fmt.Sprintf("%s_all_controls.json", f)
+		aggregatePath := filepath.Join(frameworkDir, fileName)
 		aggregateData, err := json.MarshalIndent(frameworkEvidence, "", "  ")
 		if err != nil {
 			return nil, fmt.Errorf("marshalling aggregate evidence: %w", err)
@@ -135,7 +136,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-			Path:   filepath.Join(runDate, f, "all_controls.json"),
+			Path:   filepath.Join(runDate, f, fileName),
 			SHA256: crypto.HashFile(aggregateData),
 		})
 

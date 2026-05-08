@@ -164,7 +164,8 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			return nil, fmt.Errorf("marshalling aggregate evidence: %w", err)
 		}
 
-		objectName := fmt.Sprintf("%s/%s/all_controls.json", runDate, f)
+		fileName := fmt.Sprintf("%s_all_controls.json", f)
+		objectName := fmt.Sprintf("%s/%s/%s", runDate, f, fileName)
 		if err := r.uploadObject(ctx, objectName, aggregateData, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading aggregate evidence %s: %w", objectName, err)
 		}
