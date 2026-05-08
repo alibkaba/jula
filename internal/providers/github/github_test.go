@@ -3,7 +3,6 @@ package github
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -119,43 +118,78 @@ func TestExtract_ProtectionDisabled(t *testing.T) {
 	}
 }
 
-func TestExtract_ServerError(t *testing.T) {
+func TestExtract_RulesetsEnabled(t *testing.T) {
 	p := &Provider{
 		token: "test",
 		repo:  "alibkaba/jula",
 		httpClient: &http.Client{
 			Transport: &mockTransport{
 				roundTripFunc: func(req *http.Request) (*http.Response, error) {
-					return nil, errors.New("network error")
-				},
-			},
-		},
-	}
-
-	_, err := p.Extract(context.Background(), "run-1")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-}
-
-func TestExtract_ParseError(t *testing.T) {
-	p := &Provider{
-		token: "test",
-		repo:  "alibkaba/jula",
-		httpClient: &http.Client{
-			Transport: &mockTransport{
-				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Path, "/protection") {
+						return &http.Response{
+							StatusCode: http.StatusNotFound,
+							Body:       io.NopCloser(bytes.NewBufferString(`{"message": "Branch not protected"}`)),
+						}, nil
+					}
+					// Return a ruleset that enforces PRs
+					body := `[{"type": "pull_request"}]`
 					return &http.Response{
 						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBufferString(`{invalid_json}`)),
+						Body:       io.NopCloser(bytes.NewBufferString(body)),
 					}, nil
 				},
 			},
 		},
 	}
 
-	_, err := p.Extract(context.Background(), "run-1")
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	findings, err := p.Extract(context.Background(), "run-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d", len(findings))
+	}
+
+	if findings[0].Status != "PASS" || findings[1].Status != "PASS" {
+		t.Errorf("expected PASS for both, got %s and %s", findings[0].Status, findings[1].Status)
 	}
 }
+
+func TestExtract_RulesetsWithoutPRs(t *testing.T) {
+	p := &Provider{
+		token: "test",
+		repo:  "alibkaba/jula",
+		httpClient: &http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Path, "/protection") {
+						return &http.Response{
+							StatusCode: http.StatusNotFound,
+							Body:       io.NopCloser(bytes.NewBufferString(`{"message": "Branch not protected"}`)),
+						}, nil
+					}
+					// Return a ruleset that does NOT enforce PRs
+					body := `[{"type": "deletion"}, {"type": "non_fast_forward"}]`
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBufferString(body)),
+					}, nil
+				},
+			},
+		},
+	}
+
+	findings, err := p.Extract(context.Background(), "run-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if findings[0].Status != "PASS" {
+		t.Errorf("expected branch protection to PASS, got %s", findings[0].Status)
+	}
+	if findings[1].Status != "FAIL" {
+		t.Errorf("expected PR review to FAIL, got %s", findings[1].Status)
+	}
+}
+
