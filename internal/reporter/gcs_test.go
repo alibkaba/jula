@@ -193,6 +193,19 @@ func TestGCSReporter_Deliver(t *testing.T) {
 			if !found {
 				t.Errorf("%s not found in manifest evidence files", tt.expectedSuffix)
 			}
+
+			if tt.format == "json" {
+				consolidatedFound := false
+				for _, f := range manifest.EvidenceFiles {
+					if strings.Contains(f.Path, "soc2_all_controls.json") {
+						consolidatedFound = true
+						break
+					}
+				}
+				if !consolidatedFound {
+					t.Error("soc2_all_controls.json not found in manifest")
+				}
+			}
 		})
 	}
 }

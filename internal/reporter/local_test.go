@@ -117,8 +117,11 @@ func TestFormatMarkdownReport_EmptyCriteria(t *testing.T) {
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
 	}
-	if !strings.Contains(report, "## Criteria: unmapped") {
+	if !strings.Contains(report, "### Criteria: unmapped") {
 		t.Error("expected unmapped criteria in report")
+	}
+	if !strings.Contains(report, "## Framework: ") {
+		t.Error("expected framework header in report")
 	}
 }
 
@@ -135,6 +138,12 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 	}
 
 	runDate := time.Now().UTC().Format("2006-01-02")
+	// Check for renamed consolidated file
+	consolidatedPath := filepath.Join(tmpDir, runDate, "soc2", "soc2_all_controls.json")
+	if _, err := os.Stat(consolidatedPath); os.IsNotExist(err) {
+		t.Errorf("consolidated file %s not found", consolidatedPath)
+	}
+
 	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_global_test-run.json")
 
 	data, err := os.ReadFile(filePath)
