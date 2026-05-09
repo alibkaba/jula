@@ -59,7 +59,7 @@ jobs:
       id-token: write # Required for GCP and AWS OIDC Auth
 
     env:
-      AWS_REGISTRY: 352486518067.dkr.ecr.us-east-2.amazonaws.com
+      AWS_REGISTRY: 352486518067.dkr.ecr.us-east-1.amazonaws.com
       AWS_REPOSITORY: jula-evidence-collector
 
     steps:
