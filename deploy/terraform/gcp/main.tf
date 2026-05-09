@@ -215,8 +215,12 @@ resource "google_cloud_run_v2_service" "jula" {
       }
 
       env {
-        name  = "JULA_GCP_PROJECT_ID"
+        name  = "JULA_ENVIRONMENT_ID"
         value = var.project_id
+      }
+      env {
+        name  = "JULA_PLATFORM_TYPE"
+        value = "GCP"
       }
       env {
         name  = "JULA_OUTPUT_TARGET"

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alibkaba/jula-evidence-collector/internal/platform"
 	"github.com/alibkaba/jula-evidence-collector/internal/providers"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
@@ -29,11 +30,20 @@ type RunConfig struct {
 type Orchestrator struct {
 	cfg        RunConfig
 	exceptions []types.Exception
+	envInfo    platform.EnvironmentInfo
 }
 
 // New creates a new Orchestrator with the given configuration.
 func New(cfg RunConfig) *Orchestrator {
-	return &Orchestrator{cfg: cfg}
+	return &Orchestrator{
+		cfg:     cfg,
+		envInfo: platform.GetEnvironmentInfo(),
+	}
+}
+
+// Platform returns the identified environment information.
+func (o *Orchestrator) Platform() platform.EnvironmentInfo {
+	return o.envInfo
 }
 
 // LoadExceptions reads and parses the exceptions file. If no path is
