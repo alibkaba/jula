@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -105,11 +106,12 @@ func (p *GCPProvider) Extract(ctx context.Context, runID string) ([]types.Findin
 		fn   func(ctx context.Context, runID string) ([]types.Finding, error)
 	}{
 		{"audit_logging", p.extractAuditLogging},
-		{"storage_encryption", p.extractStorageEncryption},
+		{"object_storage_encryption", p.extractObjectStorageEncryption},
 		{"iam_service_account_keys", p.extractServiceAccountKeys},
 		{"compute_firewalls", p.extractComputeFirewalls},
-		{"cloud_sql", p.extractCloudSQL},
+		{"database", p.extractDatabase},
 		{"kms_key_rotation", p.extractKMSKeyRotation},
+		{"registry", p.extractRegistry},
 	}
 
 	for _, ext := range extractors {
@@ -158,4 +160,26 @@ func (p *GCPProvider) doRequest(ctx context.Context, url string) ([]byte, error)
 	}
 
 	return body, nil
+}
+
+// readBody reads and returns the full response body.
+func readBody(resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+	return body, nil
+}
+
+// toRawPayload converts any struct to a map[string]any for storage in Finding.RawPayload.
+func toRawPayload(v any) map[string]any {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil
+	}
+	return result
 }
