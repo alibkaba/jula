@@ -16,7 +16,7 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "repository_name" {
+variable "variable_name" {
   type        = string
   description = "The name of the Artifact Registry repository."
 }
@@ -28,25 +28,19 @@ resource "google_artifact_registry_repository" "remediated_registry" {
   format        = "DOCKER"
   description   = "Secure Docker repository with Tiered Retention Policy"
 
-  # 1. Protect the 15 most recent SemVer releases (tags starting with 'v')
+  # 1. Protect the 15 most recent versions (Global Buffer)
   cleanup_policies {
     id     = "keep-recent-releases"
     action = "KEEP"
-    condition {
-      tag_prefixes = ["v"]
-    }
     most_recent_versions {
       keep_count = 15
     }
   }
 
-  # 2. Protect only the single most recent 'latest' tag
+  # 2. Protect the single most recent 'latest' tag
   cleanup_policies {
     id     = "keep-latest-tag"
     action = "KEEP"
-    condition {
-      tag_prefixes = ["latest"]
-    }
     most_recent_versions {
       keep_count = 1
     }

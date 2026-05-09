@@ -30,7 +30,7 @@ func TestExtractRegistry_NoRepositories(t *testing.T) {
 	if len(findings) != 1 || findings[0].Status != "PASS" {
 		t.Errorf("expected PASS finding for no repositories, got %s", findings[0].Status)
 	}
-	if findings[0].ID != "gcp.registry.image_scanned.none" {
+	if findings[0].ID != "gcp.registry.image_scanned" {
 		t.Errorf("unexpected finding ID: %s", findings[0].ID)
 	}
 }
@@ -87,6 +87,9 @@ func TestExtractRegistry_VulnerabilitiesFound(t *testing.T) {
 	}
 	if len(findings) != 1 || findings[0].Status != "FAIL" {
 		t.Fatalf("expected 1 FAIL finding, got %d (status: %s)", len(findings), findings[0].Status)
+	}
+	if findings[0].ID != "gcp.registry.image_scanned" {
+		t.Errorf("unexpected finding ID: %s", findings[0].ID)
 	}
 }
 
