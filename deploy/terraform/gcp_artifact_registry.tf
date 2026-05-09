@@ -9,25 +9,21 @@ resource "google_artifact_registry_repository" "jula_registry" {
   format        = "DOCKER"
   description   = "Jula Evidence Collector - Tiered Retention Registry"
 
-  # 1. Protect the 15 most recent SemVer releases (tags starting with 'v')
+  # 1. Protect the 15 most recent versions (Global Buffer)
   cleanup_policies {
     id     = "keep-recent-releases"
     action = "KEEP"
-    condition {
-      tag_prefixes = ["v"]
-    }
     most_recent_versions {
       keep_count = 15
     }
   }
 
-  # 2. Protect only the single most recent 'latest' tag
+  # 2. Protect the single most recent 'latest' tag
+  # Note: In the google provider, most_recent_versions applies to the whole repo.
+  # We use this as a secondary safety for the latest build.
   cleanup_policies {
     id     = "keep-latest-tag"
     action = "KEEP"
-    condition {
-      tag_prefixes = ["latest"]
-    }
     most_recent_versions {
       keep_count = 1
     }

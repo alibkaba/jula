@@ -21,7 +21,7 @@
     {
       "id": "soc2-c1.1-storage-encryption",
       "description": "GCS bucket encryption satisfies C1.1 Confidential Data Protection",
-      "finding_id": "gcp.storage.encryption_enabled",
+      "finding_id": "gcp.object_storage.encryption_enabled",
       "criteria": ["C1.1"],
       "control_type": "AUTOMATED",
       "pass_condition": "PASS"
@@ -127,6 +127,22 @@
       "description": "Aikido open vulnerability check satisfies CC7.1 Vulnerability Management",
       "finding_id": "aikido.open_vulnerability",
       "criteria": ["CC7.1", "CC7.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc6.1-database-security",
+      "description": "Cloud Database (Spanner/Firestore) configuration satisfies CC6.1 Logical Access Security",
+      "finding_id": "gcp.database.secure_config",
+      "criteria": ["CC6.1", "A1.2"],
+      "control_type": "AUTOMATED",
+      "pass_condition": "PASS"
+    },
+    {
+      "id": "soc2-cc7.1-registry-scanning",
+      "description": "Artifact Registry vulnerability scanning satisfies CC7.1 Vulnerability Management",
+      "finding_id": "gcp.registry.image_scanned",
+      "criteria": ["CC7.1"],
       "control_type": "AUTOMATED",
       "pass_condition": "PASS"
     }

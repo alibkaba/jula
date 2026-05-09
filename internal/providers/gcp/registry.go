@@ -134,7 +134,7 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 				}
 
 				findings = append(findings, types.Finding{
-					ID:          fmt.Sprintf("gcp.registry.image_scanned.%s", occ.Name),
+					ID:          "gcp.registry.image_scanned",
 					Provider:    "gcp",
 					Resource:    "registry",
 					Check:       "image_vulnerability_scan",
@@ -151,7 +151,7 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 	// If no repositories or findings were found, emit a single PASS finding.
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "gcp.registry.image_scanned.none",
+			ID:          "gcp.registry.image_scanned",
 			Provider:    "gcp",
 			Resource:    "registry",
 			Check:       "image_vulnerability_scan",
