@@ -97,6 +97,20 @@ func TestExtractRegistry_NoScanFindings(t *testing.T) {
 	}
 }
 
+func TestExtractRegistry_DescribeReposError(t *testing.T) {
+	m := &mockECR{
+		DescribeRepositoriesFunc: func(ctx context.Context, params *ecr.DescribeRepositoriesInput, optFns ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error) {
+			return nil, errors.New("API error")
+		},
+	}
+	p := &awsProvider{ecrClient: m}
+
+	_, err := p.extractRegistry(context.Background(), "test-run")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
 func TestIsSeverityAboveThreshold(t *testing.T) {
 	p := &awsProvider{}
 	tests := []struct {
