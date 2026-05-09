@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/alibkaba/jula-evidence-collector/compare/v1.0.0...v1.0.1) (2026-05-09)
+
+
+### Reverts
+
+* remove educational overlay from remediation readme ([0f1fda0](https://github.com/alibkaba/jula-evidence-collector/commit/0f1fda0fafbb03139537105719768e205a83fdd1))
+
 ## 1.0.0 (2026-05-08)
 
 
