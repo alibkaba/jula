@@ -56,7 +56,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_ENABLED == 'true'
     permissions:
       contents: read
-      id-token: write
+      id-token: write # Required for GCP and AWS OIDC Auth
 
     env:
       AWS_REGISTRY: 352486518067.dkr.ecr.us-east-2.amazonaws.com
@@ -130,13 +130,18 @@ jobs:
     needs: build-and-deploy
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      AWS_REPOSITORY: jula-evidence-collector
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # Required for GCP and AWS OIDC Auth
+
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0 # Required for release-please to see git history
+
       - name: Release Please
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
@@ -144,17 +149,42 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: go
 
+      # --- GCP SEMVER TAGGING ---
       - name: Authenticate to Google Cloud
         if: ${{ steps.release.outputs.release_created }}
-        uses: google-github-actions/auth@62ad5e4028190003973046f8841bb2ca6a6d6962 # v2.1.8
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Tag Docker image with SemVer
+      - name: Tag Docker image with SemVer (GCP)
         if: ${{ steps.release.outputs.release_created }}
         run: |
           gcloud artifacts docker tags add \
             ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag_name }} \
             --quiet
+
+      # --- AWS SEMVER TAGGING ---
+      - name: Configure AWS Credentials
+        if: ${{ steps.release.outputs.release_created }}
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Tag Docker image with SemVer (AWS)
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          # Fetch the manifest of the existing sha- tagged image
+          MANIFEST=$(aws ecr batch-get-image \
+            --repository-name ${{ env.AWS_REPOSITORY }} \
+            --image-ids imageTag=sha-${{ github.sha }} \
+            --query 'images[0].imageManifest' \
+            --output text)
+
+          # Apply the new release-please tag (e.g. v1.0.0) to that exact manifest
+          aws ecr put-image \
+            --repository-name ${{ env.AWS_REPOSITORY }} \
+            --image-tag ${{ steps.release.outputs.tag_name }} \
+            --image-manifest "$MANIFEST"
