@@ -18,18 +18,6 @@ Files are prefixed by cloud provider (e.g., `gcp_`, `aws_`, `azure_`) to keep a 
 | [gcp_least_privilege_iam.tf](gcp_least_privilege_iam.tf) | `gcp.iam.overprivileged_sa == FAIL` | SOC 2 CC6.1, CC6.3 | Binds scoped, least-privilege roles to CI/CD service accounts. |
 | [gcp_storage_encryption.tf](gcp_storage_encryption.tf) | `gcp.storage.encryption_enabled == FAIL` | SOC 2 C1.1 | Encrypts a GCS bucket at rest using a customer-managed KMS key. |
 
-
-## The Culture Shift: Why This Matters
-
-Technical fixes are temporary; culture is permanent. Each of these templates is designed to enforce a specific behavioral shift within your engineering team.
-
-| Template | The Technical Fix | The Culture Shift (The "Why") |
-| :--- | :--- | :--- |
-| **Audit Logging** | API enablement | **Absolute Accountability**: Establishing a culture where every administrative action is a "recorded event," reducing the urge for "heroic" manual fixes in production. |
-| **Least Privilege** | IAM binding | **Need-to-Know by Default**: Moving away from "Full Admin" convenience toward a culture of scoped, temporary, and justified access. |
-| **Firewall Hardening** | Port restriction | **Zero-Trust Networking**: Reinforcing the mindset that the internal network is not a "safe zone" and that all entry points must be explicit and defended. |
-| **KMS Rotation** | Key management | **Cryptographic Lifecycle**: Educating teams that security is a moving target; static secrets are liabilities, and rotation is a standard operational rhythm. |
-
 ## Example Workflow
 
 ```bash
