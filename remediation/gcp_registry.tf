@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────
-# Jula Remediation Template: Artifact Registry Governance
+# Jula Remediation Template: GCP Artifact Registry Governance
 # ──────────────────────────────────────────────────────────────
 # Jula Finding: gcp.registry.lifecycle_policy == FAIL
 # Frameworks: SOC 2 CC6.1, CC7.1
