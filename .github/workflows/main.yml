@@ -24,12 +24,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      # FIXED: Replaced invalid hash with the correct v6.0.2 commit SHA
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: false
 
       - name: Run vet
@@ -60,7 +59,6 @@ jobs:
       id-token: write
 
     steps:
-      # FIXED: Replaced invalid hash with the correct v6.0.2 commit SHA
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Authenticate to Google Cloud
@@ -103,10 +101,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      # FIXED: Replaced invalid hash with the correct v6.0.2 commit SHA
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0 # Required for release-please to see git history
-      - uses: googleapis/release-please-action@d1a8f220a7b4545564883908f51dfc337446543b # v4.1.4
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           release-type: go
