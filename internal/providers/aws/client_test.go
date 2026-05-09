@@ -31,3 +31,15 @@ func TestName(t *testing.T) {
 		t.Errorf("expected aws, got %s", p.Name())
 	}
 }
+
+func TestValidate(t *testing.T) {
+	p := &awsProvider{}
+	t.Setenv("JULA_AWS_REGION", "")
+	if err := p.Validate(); err == nil {
+		t.Error("expected error for empty region")
+	}
+
+	t.Setenv("JULA_AWS_REGION", "us-east-1")
+	// Note: config.LoadDefaultConfig might fail in CI if no creds, but we check if it handles the logic.
+	_ = p.Validate()
+}

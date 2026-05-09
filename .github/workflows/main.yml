@@ -12,6 +12,8 @@ env:
   ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
   REPOSITORY: jula-evidence-collector
   IMAGE_NAME: jula
+  AWS_REGISTRY: 352486518067.dkr.ecr.us-east-1.amazonaws.com
+  AWS_REPOSITORY: jula-evidence-collector
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -24,19 +26,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
           cache: false
-
       - name: Run vet
         run: go vet ./...
-
       - name: Run tests with race detector
         run: go test -race -coverprofile=coverage.out ./...
-
       - name: Check coverage
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
@@ -47,27 +45,34 @@ jobs:
           fi
 
   # ==========================================
-  # 2. DEPLOY (Dual-Push: GCP + AWS)
+  # 2. PR BUILD CHECK (Runs ONLY on PRs)
   # ==========================================
-  build-and-deploy:
-    name: Build, Push & Deploy
+  pr-build-check:
+    name: Verify Docker Build
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dry Run Docker Build
+        run: docker build -t test-jula:latest .
+
+  # ==========================================
+  # 3. BUILD & PUSH (Dual-Push: GCP + AWS)
+  # ==========================================
+  build-and-push:
+    name: Build & Push Registries
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_ENABLED == 'true'
     permissions:
       contents: read
-      id-token: write # Required for GCP and AWS OIDC Auth
-
-    env:
-      AWS_REGISTRY: 352486518067.dkr.ecr.us-east-1.amazonaws.com
-      AWS_REPOSITORY: jula-evidence-collector
-
+      id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v4
 
-      # --- Step 1: Authenticate to GCP ---
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
@@ -75,41 +80,49 @@ jobs:
       - name: Configure Docker for GCP
         run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
 
-      # --- Step 2: Authenticate to AWS ---
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2.1.5
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # --- Step 3: Build Once ---
       - name: Build Docker image
-        run: |
-          docker build -t local-jula:latest .
+        run: docker build -t local-jula:latest .
 
-      # --- Step 4 & 5: Tag & Push (Dual-Push) ---
       - name: Tag and Push (GCP)
         run: |
           GCP_TAG="${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}"
           docker tag local-jula:latest ${GCP_TAG}:${{ github.sha }}
-          docker tag local-jula:latest ${GCP_TAG}:latest
           docker push ${GCP_TAG}:${{ github.sha }}
-          docker push ${GCP_TAG}:latest
 
       - name: Tag and Push (AWS)
         run: |
           AWS_TAG="${{ env.AWS_REGISTRY }}/${{ env.AWS_REPOSITORY }}"
-          # Apply the 'sha-' prefix required by ECR lifecycle policy
           docker tag local-jula:latest ${AWS_TAG}:sha-${{ github.sha }}
           docker push ${AWS_TAG}:sha-${{ github.sha }}
 
-      # --- Step 6: Deploy GCP ---
+  # ==========================================
+  # 4. DEPLOY (GCP Cloud Run)
+  # ==========================================
+  deploy-gcp:
+    name: Deploy to Cloud Run
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
       - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3.0.0
+        uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: jula-evidence-collector
           region: ${{ env.GCP_REGION }}
@@ -123,28 +136,24 @@ jobs:
             --quiet
 
   # ==========================================
-  # 3. RELEASE (Runs ONLY if Deploy succeeds)
+  # 5. RELEASE (Runs ONLY if Deploy succeeds)
   # ==========================================
   release:
     name: Release Please
-    needs: build-and-deploy
+    needs: deploy-gcp
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    env:
-      AWS_REPOSITORY: jula-evidence-collector
     permissions:
       contents: write
       pull-requests: write
-      id-token: write # Required for GCP and AWS OIDC Auth
-
+      id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for release-please to see git history
+          fetch-depth: 0
 
       - name: Release Please
         id: release
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: go
@@ -152,7 +161,7 @@ jobs:
       # --- GCP SEMVER TAGGING ---
       - name: Authenticate to Google Cloud
         if: ${{ steps.release.outputs.release_created }}
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
@@ -168,7 +177,7 @@ jobs:
       # --- AWS SEMVER TAGGING ---
       - name: Configure AWS Credentials
         if: ${{ steps.release.outputs.release_created }}
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: us-east-1
@@ -176,14 +185,12 @@ jobs:
       - name: Tag Docker image with SemVer (AWS)
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          # Fetch the manifest of the existing sha- tagged image
           MANIFEST=$(aws ecr batch-get-image \
             --repository-name ${{ env.AWS_REPOSITORY }} \
             --image-ids imageTag=sha-${{ github.sha }} \
             --query 'images[0].imageManifest' \
             --output text)
 
-          # Apply the new release-please tag (e.g. v1.0.0) to that exact manifest
           aws ecr put-image \
             --repository-name ${{ env.AWS_REPOSITORY }} \
             --image-tag ${{ steps.release.outputs.tag_name }} \
