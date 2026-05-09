@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.1.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.0.0...v1.1.0) (2026-05-09)
+
+
+### Features
+
+* add AWS ECR semver tagging to release workflow and update GCP a… ([e38cfa8](https://github.com/alibkaba/jula-evidence-collector/commit/e38cfa8105499d618a1e790fbf04641dcd6852bf))
+* add AWS ECR semver tagging to release workflow and update GCP auth configuration ([597f423](https://github.com/alibkaba/jula-evidence-collector/commit/597f4237e57a32153761a235c579905eca93bdb0))
+* **ci/infra:** Registry Governance & Immutable Digest Deployments ([16313e0](https://github.com/alibkaba/jula-evidence-collector/commit/16313e0b6a7bd5ec51b53b1c0450f5e5119e106f))
+* implement dual-push multi-cloud strategy (GCP + AWS) ([55afda8](https://github.com/alibkaba/jula-evidence-collector/commit/55afda88e342659051b7bf5215cf0189b224b080))
+* **remediation:** restore full template suite following taxonomy normalization ([1d15ca2](https://github.com/alibkaba/jula-evidence-collector/commit/1d15ca25d31ae744cc6223144eac6195074e7504))
+
+
+### Bug Fixes
+
+* **aws:** improve ecr coverage with error handling tests ([72b8e9f](https://github.com/alibkaba/jula-evidence-collector/commit/72b8e9f9d2401aa8cf7280db200188db10af640c))
+* **gcp:** resolve artifact registry location wildcard error ([4324bdb](https://github.com/alibkaba/jula-evidence-collector/commit/4324bdb74b7ea2b4d74098a682fcced512820718))
+* **gcp:** resolve artifact registry location wildcard error ([bd49099](https://github.com/alibkaba/jula-evidence-collector/commit/bd490994cde3ba0b6e9942044bffc123889907c8))
+* **gcp:** update registry tests for location discovery and improve co… ([4491c39](https://github.com/alibkaba/jula-evidence-collector/commit/4491c395a4c3e44796913cbca9f2c789d6bab9bf))
+* **gcp:** update registry tests for location discovery and improve coverage ([ea98ff4](https://github.com/alibkaba/jula-evidence-collector/commit/ea98ff4d3d78396c5d41f6e50ce476d70aba5362))
+* **iam:** upgrade CI/CD SA to Repo Admin to allow tag overwriting ([5d83255](https://github.com/alibkaba/jula-evidence-collector/commit/5d83255ad42ec568f530695498923276e796b715))
+* **mapper/infra:** resolve unmapped findings and fix terraform policy conflict ([a237d76](https://github.com/alibkaba/jula-evidence-collector/commit/a237d76c0eeab0d35959e3d9419e6446b708a3df))
+* **mapping/docs:** align taxonomy and fix dead links in soc2 framework readme ([c2dab8c](https://github.com/alibkaba/jula-evidence-collector/commit/c2dab8c0d2418565302c457f451207448de566f3))
+* **remediation:** sync remediation template and update gitignore patterns ([e464da2](https://github.com/alibkaba/jula-evidence-collector/commit/e464da28cba8ab45674fc64137bf2020c95ae721))
+
+
+### Reverts
+
+* remove educational overlay from remediation readme ([0f1fda0](https://github.com/alibkaba/jula-evidence-collector/commit/0f1fda0fafbb03139537105719768e205a83fdd1))
+
 ## 1.0.0 (2026-05-08)
 
 
