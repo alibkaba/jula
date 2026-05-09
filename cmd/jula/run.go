@@ -126,23 +126,22 @@ func handleRun(args []string) error {
 	}
 
 	if hasFiledrop {
-		bucket := os.Getenv("JULA_FILEDROP_BUCKET")
+		bucketURI := os.Getenv("JULA_FILEDROP_BUCKET")
 		prefix := os.Getenv("JULA_FILEDROP_PREFIX")
-		if bucket == "" {
+		if bucketURI == "" {
 			return fmt.Errorf("JULA_FILEDROP_BUCKET is required when using the filedrop provider")
 		}
 		if prefix == "" {
 			prefix = "evidence/byoe/" // fallback
 		}
-		
-		tokenProvider := reporter.NewMetadataTokenProvider(&http.Client{})
-		gcsReader := &filedrop.GCSReader{
-			BucketName:    bucket,
-			HTTPClient:    &http.Client{},
-			TokenProvider: tokenProvider,
+
+		factory := filedrop.NewFactory()
+		storageClient, bucketName, err := factory.NewStorageReader(context.Background(), bucketURI)
+		if err != nil {
+			return fmt.Errorf("failed to initialize filedrop storage: %w", err)
 		}
-		
-		providers.Register(filedrop.New(bucket, prefix, gcsReader))
+
+		providers.Register(filedrop.New(bucketName, prefix, storageClient))
 	}
 
 	// --- Step 1: Extract ---
@@ -253,7 +252,8 @@ func handleRun(args []string) error {
 	slog.Info("audit_execution_summary",
 		"run_id", runID,
 		"timestamp", time.Now().UTC().Format(time.RFC3339),
-		"environment", os.Getenv("JULA_GCP_PROJECT_ID"),
+		"environment", orch.Platform().ID,
+		"platform_type", orch.Platform().Type,
 		"framework", *frameworkFlag,
 		"overall_status", overallStatus,
 		"total_controls_checked", len(findings),

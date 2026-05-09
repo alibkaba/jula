@@ -44,12 +44,10 @@ evidence-output-*
 vendor/
 
 # Terraform
-.terraform*
+.terraform/
+.terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
 *.tfplan
 terraform.tfvars
 !terraform.tfvars.example
-deploy/terraform/gcp_*
-deploy/terraform/aws_*
-deploy/terraform/azure_*

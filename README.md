@@ -55,8 +55,9 @@ go run cmd/jula/main.go
 3. **The Mappers:** Configuration files that map the raw telemetry from Providers to specific compliance frameworks.
 4. **The Reporters:** Deliver signed, cryptographically verifiable evidence directly to the client's own cloud storage vault (S3, GCS, Azure Blob), giving auditors direct access without a SaaS middleman.
 5. **Deployment & Compatibility:** The architecture is fundamentally cloud-agnostic and compiles to a standard Docker container.
-    * **Google Cloud (GCP):** Fully configured, rigorously tested, and actively deployed in production.
-    * **AWS & Azure:** The core extraction engine supports these environments, but native API providers are currently in development. We welcome community collaboration from teams looking to implement and validate the AWS or Azure pathways.
+    * **Google Cloud (GCP):** Fully configured, rigorously tested, and actively deployed in production via Artifact Registry.
+    * **Amazon Web Services (AWS):** Integrated via a "Dual-Push" CI/CD strategy targeting ECR, enabling multi-cloud redundancy.
+    * **Azure:** Core extraction engine supports the environment; native API providers are currently on the roadmap.
 
 ## Directory Structure
 

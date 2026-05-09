@@ -38,7 +38,7 @@ func TestHandleRun_HappyPath(t *testing.T) {
 	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
+	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err = handleRun([]string{})
 
@@ -152,7 +152,7 @@ func TestHandleRun_GCSTarget(t *testing.T) {
 	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "gcs")
 	t.Setenv("JULA_OUTPUT_PATH", "gs://test-bucket")
-	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
+	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err := handleRun([]string{})
 	if err != nil && (strings.Contains(err.Error(), "failed to decode PEM block") || strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY")) {
@@ -168,7 +168,7 @@ func TestHandleRun_MarkdownFormat(t *testing.T) {
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
 	t.Setenv("JULA_OUTPUT_FORMAT", "markdown")
-	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
+	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err := handleRun([]string{})
 	if err != nil && (strings.Contains(err.Error(), "failed to decode PEM block") || strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY")) {
@@ -205,7 +205,7 @@ func TestHandleRun_S3Target(t *testing.T) {
 	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "s3")
 	t.Setenv("JULA_OUTPUT_PATH", "s3://test-bucket")
-	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
+	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err := handleRun([]string{})
 	if err == nil {
@@ -223,7 +223,7 @@ func TestHandleRun_MultipleProviders(t *testing.T) {
 	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
+	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err := handleRun([]string{})
 	if err != nil && (strings.Contains(err.Error(), "failed to decode PEM block") || strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY")) {
@@ -238,7 +238,7 @@ func TestHandleRun_ISO27001Framework(t *testing.T) {
 	t.Setenv("JULA_FRAMEWORK", "iso27001")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_GCP_PROJECT_ID", "test-project")
+	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err := handleRun([]string{})
 	if err == nil {

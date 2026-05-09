@@ -22,7 +22,3 @@ output "scheduler_job_name" {
   value       = google_cloud_scheduler_job.jula_trigger.name
 }
 
-output "aws_github_actions_role_arn" {
-  description = "ARN of the IAM role for GitHub Actions."
-  value       = aws_iam_role.github_actions.arn
-}

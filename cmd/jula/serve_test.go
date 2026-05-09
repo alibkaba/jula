@@ -48,7 +48,7 @@ func TestRunEndpointPOSTWithEnv_NoGCPCreds(t *testing.T) {
 	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", "./test-output")
-	t.Setenv("JULA_GCP_PROJECT_ID", "")
+	t.Setenv("JULA_ENVIRONMENT_ID", "")
 
 	mux := newServeMux()
 	req := httptest.NewRequest(http.MethodPost, "/run", nil)
