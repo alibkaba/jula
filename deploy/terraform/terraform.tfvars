@@ -1,0 +1,7 @@
+project_id           = "jula-494603"
+region               = "us-central1"
+docker_image         = "us-central1-docker.pkg.dev/jula-494603/jula-evidence-collector/jula:latest"
+evidence_bucket_name = "jula-evidence-output-494603"
+scheduler_cron       = "0 3 * * *"
+scheduler_timezone   = "Etc/UTC"
+repository_name      = "jula-evidence-collector"

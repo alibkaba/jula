@@ -17,12 +17,13 @@ Files are prefixed by cloud provider (e.g., `gcp_`, `aws_`, `azure_`) to keep a 
 | [gcp_kms_rotation.tf](gcp_kms_rotation.tf) | `gcp.kms.key_rotation == FAIL` | SOC 2 CC6.1 | Creates a CMEK with automatic 90-day rotation. |
 | [gcp_least_privilege_iam.tf](gcp_least_privilege_iam.tf) | `gcp.iam.overprivileged_sa == FAIL` | SOC 2 CC6.1, CC6.3 | Binds scoped, least-privilege roles to CI/CD service accounts. |
 | [gcp_storage_encryption.tf](gcp_storage_encryption.tf) | `gcp.storage.encryption_enabled == FAIL` | SOC 2 C1.1 | Encrypts a GCS bucket at rest using a customer-managed KMS key. |
+| [gcp_artifact_registry.tf](gcp_artifact_registry.tf) | `gcp.registry.lifecycle_policy == FAIL` | SOC 2 CC6.1, CC7.1 | Implements a tiered retention policy to manage registry bloat and protect releases. |
 
 ## Example Workflow
 
 ```bash
 # 1. Clone the template into your infra repo.
-cp remediation/gcp_audit_logging.tf my-infra/modules/
+cp remediation/gcp_artifact_registry.tf my-infra/modules/
 
 # 2. Create your private variables file.
 cat > my-infra/modules/terraform.tfvars <<EOF

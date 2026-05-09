@@ -79,3 +79,9 @@ variable "scheduler_timezone" {
   type        = string
   default     = "Etc/UTC"
 }
+
+variable "repository_name" {
+  description = "Name of the Artifact Registry repository."
+  type        = string
+  default     = "jula-evidence-collector"
+}
