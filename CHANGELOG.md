@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.0.0...v1.1.0) (2026-05-09)
+
+
+### Features
+
+* **ci/infra:** Registry Governance & Immutable Digest Deployments ([16313e0](https://github.com/alibkaba/jula-evidence-collector/commit/16313e0b6a7bd5ec51b53b1c0450f5e5119e106f))
+
+
+### Bug Fixes
+
+* **aws:** improve ecr coverage with error handling tests ([72b8e9f](https://github.com/alibkaba/jula-evidence-collector/commit/72b8e9f9d2401aa8cf7280db200188db10af640c))
+* **gcp:** resolve artifact registry location wildcard error ([4324bdb](https://github.com/alibkaba/jula-evidence-collector/commit/4324bdb74b7ea2b4d74098a682fcced512820718))
+* **gcp:** resolve artifact registry location wildcard error ([bd49099](https://github.com/alibkaba/jula-evidence-collector/commit/bd490994cde3ba0b6e9942044bffc123889907c8))
+* **gcp:** update registry tests for location discovery and improve co… ([4491c39](https://github.com/alibkaba/jula-evidence-collector/commit/4491c395a4c3e44796913cbca9f2c789d6bab9bf))
+* **gcp:** update registry tests for location discovery and improve coverage ([ea98ff4](https://github.com/alibkaba/jula-evidence-collector/commit/ea98ff4d3d78396c5d41f6e50ce476d70aba5362))
+
+
+### Reverts
+
+* remove educational overlay from remediation readme ([0f1fda0](https://github.com/alibkaba/jula-evidence-collector/commit/0f1fda0fafbb03139537105719768e205a83fdd1))
+
 ## 1.0.0 (2026-05-08)
 
 
