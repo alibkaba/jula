@@ -101,7 +101,7 @@
     {
       "id": "soc2-cc6.1-sql-private",
       "description": "Cloud SQL private IP configuration satisfies CC6.1 Logical Access Security",
-      "finding_id": "gcp.sql.secure_config",
+      "finding_id": "gcp.database.secure_config",
       "criteria": ["CC6.1"],
       "control_type": "AUTOMATED",
       "pass_condition": "PASS"
@@ -109,7 +109,7 @@
     {
       "id": "soc2-a1.2-sql-backup",
       "description": "Cloud SQL automated backup satisfies A1.2 System Recovery",
-      "finding_id": "gcp.sql.secure_config",
+      "finding_id": "gcp.database.secure_config",
       "criteria": ["A1.2"],
       "control_type": "AUTOMATED",
       "pass_condition": "PASS"
