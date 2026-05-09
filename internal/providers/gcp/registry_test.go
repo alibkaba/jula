@@ -13,6 +13,10 @@ import (
 func TestExtractRegistry_NoRepositories(t *testing.T) {
 	p := newTestProvider(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/projects/test-project/locations" {
+			json.NewEncoder(w).Encode(map[string]any{"locations": []map[string]any{{"locationId": "us-central1"}}})
+			return
+		}
 		json.NewEncoder(w).Encode(map[string]any{"repositories": []any{}})
 	}))
 	defer server.Close()
@@ -37,13 +41,19 @@ func TestExtractRegistry_VulnerabilitiesFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		switch callCount {
-		case 1: // List Repositories
+		case 1: // List Locations
+			json.NewEncoder(w).Encode(map[string]any{
+				"locations": []map[string]any{
+					{"locationId": "us-central1"},
+				},
+			})
+		case 2: // List Repositories
 			json.NewEncoder(w).Encode(map[string]any{
 				"repositories": []map[string]any{
 					{"name": "projects/test-project/locations/us-central1/repositories/my-repo"},
 				},
 			})
-		case 2: // List Images
+		case 3: // List Images
 			json.NewEncoder(w).Encode(map[string]any{
 				"dockerImages": []map[string]any{
 					{
@@ -52,7 +62,7 @@ func TestExtractRegistry_VulnerabilitiesFound(t *testing.T) {
 					},
 				},
 			})
-		case 3: // List Occurrences
+		case 4: // List Occurrences
 			resp := map[string]any{
 				"occurrences": []map[string]any{
 					{
@@ -77,6 +87,21 @@ func TestExtractRegistry_VulnerabilitiesFound(t *testing.T) {
 	}
 	if len(findings) != 1 || findings[0].Status != "FAIL" {
 		t.Fatalf("expected 1 FAIL finding, got %d (status: %s)", len(findings), findings[0].Status)
+	}
+}
+
+func TestExtractRegistry_LocationListFailure(t *testing.T) {
+	p := newTestProvider(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "API error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	_, err := testWithRedirect(p, server.URL, func() ([]types.Finding, error) {
+		return p.extractRegistry(context.Background(), "test-run")
+	})
+	if err == nil {
+		t.Fatal("expected error on location list failure, got nil")
 	}
 }
 
