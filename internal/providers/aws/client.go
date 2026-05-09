@@ -11,9 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 )
 
+// ECRAPI defines the subset of AWS ECR methods used by the provider.
+type ECRAPI interface {
+	DescribeRepositories(ctx context.Context, params *ecr.DescribeRepositoriesInput, optFns ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error)
+	DescribeImageScanFindings(ctx context.Context, params *ecr.DescribeImageScanFindingsInput, optFns ...func(*ecr.Options)) (*ecr.DescribeImageScanFindingsOutput, error)
+}
+
 type awsProvider struct {
 	region    string
-	ecrClient *ecr.Client
+	ecrClient ECRAPI
 }
 
 func init() {
