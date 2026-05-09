@@ -26,6 +26,12 @@ type dockerImageListResponse struct {
 	} `json:"dockerImages"`
 }
 
+type locationsResponse struct {
+	Locations []struct {
+		LocationID string `json:"locationId"`
+	} `json:"locations"`
+}
+
 type occurrenceListResponse struct {
 	Occurrences []struct {
 		Name          string `json:"name"`
@@ -44,28 +50,50 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 		threshold = "HIGH"
 	}
 
-	// 1. List Repositories across all locations
-	reposURL := fmt.Sprintf(
-		"https://artifactregistry.googleapis.com/v1/projects/%s/locations/-/repositories",
+	// 1. List Locations to find where repositories might exist.
+	// Artifact Registry doesn't support '-' wildcard for listing repositories across all locations in a single call.
+	locationsURL := fmt.Sprintf(
+		"https://artifactregistry.googleapis.com/v1/projects/%s/locations",
 		p.projectID,
 	)
 	
-	body, err := p.doRequest(ctx, reposURL)
+	locBody, err := p.doRequest(ctx, locationsURL)
 	if err != nil {
-		return nil, fmt.Errorf("listing artifact repositories: %w", err)
+		return nil, fmt.Errorf("listing locations: %w", err)
 	}
 
-	var repoList repositoryListResponse
-	if err := json.Unmarshal(body, &repoList); err != nil {
-		return nil, fmt.Errorf("parsing repositories: %w", err)
+	var locResp locationsResponse
+	if err := json.Unmarshal(locBody, &locResp); err != nil {
+		return nil, fmt.Errorf("parsing locations: %w", err)
+	}
+
+	var allRepos []string
+	for _, loc := range locResp.Locations {
+		reposURL := fmt.Sprintf(
+			"https://artifactregistry.googleapis.com/v1/projects/%s/locations/%s/repositories",
+			p.projectID, loc.LocationID,
+		)
+		
+		body, err := p.doRequest(ctx, reposURL)
+		if err != nil {
+			continue // Skip locations with issues
+		}
+
+		var repoList repositoryListResponse
+		if err := json.Unmarshal(body, &repoList); err != nil {
+			continue
+		}
+		for _, repo := range repoList.Repositories {
+			allRepos = append(allRepos, repo.Name)
+		}
 	}
 
 	var findings []types.Finding
-	for _, repo := range repoList.Repositories {
+	for _, repoName := range allRepos {
 		// 2. List Images in Repository
 		imagesURL := fmt.Sprintf(
 			"https://artifactregistry.googleapis.com/v1/%s/dockerImages",
-			repo.Name,
+			repoName,
 		)
 		
 		imgBody, err := p.doRequest(ctx, imagesURL)
