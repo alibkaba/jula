@@ -80,7 +80,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-          aws-region: us-east-2
+          aws-region: us-east-1
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -171,7 +171,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-          aws-region: us-east-2
+          aws-region: us-east-1
 
       - name: Tag Docker image with SemVer (AWS)
         if: ${{ steps.release.outputs.release_created }}
