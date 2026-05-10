@@ -45,8 +45,8 @@ func TestGetEnvironmentInfo(t *testing.T) {
 			wantType: "AWS",
 		},
 		{
-			name:     "Local fallback",
-			env:      map[string]string{},
+			name: "Local fallback",
+			env:  map[string]string{},
 			wantID:   "unknown",
 			wantType: "LOCAL",
 		},

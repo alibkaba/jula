@@ -12,8 +12,8 @@ type mockProvider struct {
 	name string
 }
 
-func (m *mockProvider) Name() string                                                 { return m.name }
-func (m *mockProvider) Validate() error                                              { return nil }
+func (m *mockProvider) Name() string                                              { return m.name }
+func (m *mockProvider) Validate() error                                           { return nil }
 func (m *mockProvider) Extract(_ context.Context, _ string) ([]types.Finding, error) { return nil, nil }
 
 func TestRegister_And_Get(t *testing.T) {

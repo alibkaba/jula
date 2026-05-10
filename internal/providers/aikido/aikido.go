@@ -21,10 +21,10 @@ func init() {
 }
 
 const (
-	providerName = "aikido"
-	tokenURL     = "https://app.aikido.dev/api/oauth/token"
-	exportURL    = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
-	maxRetries   = 3
+	providerName   = "aikido"
+	tokenURL       = "https://app.aikido.dev/api/oauth/token"
+	exportURL      = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
+	maxRetries     = 3
 )
 
 var defaultBackoff = 5 * time.Second

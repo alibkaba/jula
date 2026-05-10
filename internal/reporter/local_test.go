@@ -109,7 +109,7 @@ func TestLocalReporter_Name(t *testing.T) {
 func TestFormatMarkdownReport_EmptyCriteria(t *testing.T) {
 	evidence := []types.Evidence{
 		{
-			Finding:  types.Finding{ResourceARN: "gs://test"},
+			Finding: types.Finding{ResourceARN: "gs://test"},
 			Criteria: []string{},
 		},
 	}
