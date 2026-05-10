@@ -35,13 +35,14 @@ By pairing this containerized evidence collector with your existing tooling, you
 
 ### Supported Frameworks
 
-*   **MVP Focus:** SOC 2 (Type II)
-*   **Roadmap (Later Date):**
-    *   CIS GCP / AWS / Azure Foundations Benchmark
-    *   NIST (800-53 / CSF)
-    *   HIPAA Security Rule
-    *   PCI-DSS
-    *   ISO 27001
+Our roadmap is ruthlessly prioritized based on what unblocks B2B SaaS enterprise revenue the fastest. We do not build "vanity" dashboards; we build targeted attestation pipelines.
+
+* **Current Engine (Production-Ready):** * **SOC 2 (Type II):** Full programmatic coverage for the Common Criteria (Security), Confidentiality, and Availability Trust Services Criteria.
+* **Near-Term Roadmap (Q3/Q4):** * **ISO/IEC 27001:2022 (Annex A):** Because our evidence extractors map raw infrastructure telemetry, the transition from SOC 2 to ISO 27001 is a pure mapping exercise. (In active development).
+* **Enterprise Expansion (Future Roadmap):**
+    * **NIST Cybersecurity Framework (CSF):** Executive maturity dashboards derived from existing SOC 2 technical telemetry.
+    * **CIS Foundations Benchmarks (AWS/GCP/Azure):** Granular infrastructure hardening.
+    * **PCI-DSS & HIPAA Security Rule:** Specialized regulatory pipelines slated for long-term enterprise expansion.
 
 ## Quick Start
 ```bash
