@@ -56,7 +56,7 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 		"https://artifactregistry.googleapis.com/v1/projects/%s/locations",
 		p.projectID,
 	)
-	
+
 	locBody, err := p.doRequest(ctx, locationsURL)
 	if err != nil {
 		return nil, fmt.Errorf("listing locations: %w", err)
@@ -73,7 +73,7 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 			"https://artifactregistry.googleapis.com/v1/projects/%s/locations/%s/repositories",
 			p.projectID, loc.LocationID,
 		)
-		
+
 		body, err := p.doRequest(ctx, reposURL)
 		if err != nil {
 			continue // Skip locations with issues
@@ -95,7 +95,7 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 			"https://artifactregistry.googleapis.com/v1/%s/dockerImages",
 			repoName,
 		)
-		
+
 		imgBody, err := p.doRequest(ctx, imagesURL)
 		if err != nil {
 			continue // Skip repos that might be empty or inaccessible

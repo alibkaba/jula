@@ -21,10 +21,10 @@ func init() {
 }
 
 const (
-	providerName   = "aikido"
-	tokenURL       = "https://app.aikido.dev/api/oauth/token"
-	exportURL      = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
-	maxRetries     = 3
+	providerName = "aikido"
+	tokenURL     = "https://app.aikido.dev/api/oauth/token"
+	exportURL    = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
+	maxRetries   = 3
 )
 
 var defaultBackoff = 5 * time.Second
@@ -75,7 +75,7 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	var findings []types.Finding
 	for _, issue := range issues {
 		status := "FAIL" // Any open issue in the export is considered a FAIL finding
-		
+
 		rawPayload, ok := issue.(map[string]any)
 		if !ok {
 			rawPayload = map[string]any{"raw": issue}

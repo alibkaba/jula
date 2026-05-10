@@ -31,6 +31,7 @@ func (p *GCPProvider) extractObjectStorageEncryption(ctx context.Context, runID 
 
 	var findings []types.Finding
 	if items, ok := payload["items"].([]any); ok {
+		findings = make([]types.Finding, 0, len(items))
 		for _, it := range items {
 			bucket, ok := it.(map[string]any)
 			if !ok {

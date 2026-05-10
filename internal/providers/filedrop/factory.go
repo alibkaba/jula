@@ -32,18 +32,18 @@ func NewFactory() *Factory {
 func (f *Factory) NewStorageReader(ctx context.Context, bucketURI string) (StorageReader, string, error) {
 	if strings.HasPrefix(bucketURI, "s3://") {
 		bucketName := strings.TrimPrefix(bucketURI, "s3://")
-		
+
 		// Initialize AWS S3 Client
 		awsRegion := os.Getenv("JULA_AWS_REGION")
 		if awsRegion == "" {
 			awsRegion = "us-east-1" // Default region
 		}
-		
+
 		cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(awsRegion))
 		if err != nil {
 			return nil, "", fmt.Errorf("loading aws config: %w", err)
 		}
-		
+
 		return &S3Reader{
 			BucketName: bucketName,
 			S3Client:   s3.NewFromConfig(cfg),
@@ -52,7 +52,7 @@ func (f *Factory) NewStorageReader(ctx context.Context, bucketURI string) (Stora
 
 	// Default to GCS (either explicit gs:// or legacy plain name)
 	bucketName := strings.TrimPrefix(bucketURI, "gs://")
-	
+
 	tokenProvider := reporter.NewMetadataTokenProvider(f.HTTPClient)
 	return &GCSReader{
 		BucketName:    bucketName,
