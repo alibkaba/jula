@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.1.0...v1.2.0) (2026-05-10)
+
+
+### Features
+
+* add environment info utilities with tests and refactor CI pipeline to separate build, deploy, and release stages. ([d23b9ed](https://github.com/alibkaba/jula-evidence-collector/commit/d23b9edcd045c15e40a36d844b3044e6881d9099))
+
 ## [1.1.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.0.0...v1.1.0) (2026-05-09)
 
 
