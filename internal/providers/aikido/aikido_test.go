@@ -57,7 +57,7 @@ func TestExtract(t *testing.T) {
 	p := New()
 	p.clientID = "test-client"
 	p.secretKey = "test-secret"
-	
+
 	reqCount := 0
 	p.client.Transport = &mockTransport{
 		roundTripFunc: func(req *http.Request) (*http.Response, error) {
@@ -96,7 +96,7 @@ func TestExtract_NoIssues(t *testing.T) {
 	p := New()
 	p.clientID = "test-client"
 	p.secretKey = "test-secret"
-	
+
 	p.client.Transport = &mockTransport{
 		roundTripFunc: func(req *http.Request) (*http.Response, error) {
 			if req.URL.Path == "/api/oauth/token" {
@@ -133,7 +133,7 @@ func TestAuthenticate_Errors(t *testing.T) {
 	p := New()
 	p.clientID = "test"
 	p.secretKey = "test"
-	
+
 	p.client.Transport = &mockTransport{
 		roundTripFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -153,7 +153,7 @@ func TestAuthenticate_RateLimited(t *testing.T) {
 	p := New()
 	p.clientID = "test"
 	p.secretKey = "test"
-	
+
 	reqCount := 0
 	p.client.Transport = &mockTransport{
 		roundTripFunc: func(req *http.Request) (*http.Response, error) {

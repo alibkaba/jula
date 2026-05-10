@@ -163,7 +163,7 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 
 func TestLocalReporter_Validate(t *testing.T) {
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	
+
 	tests := []struct {
 		name    string
 		r       *LocalReporter

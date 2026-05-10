@@ -75,7 +75,7 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	var findings []types.Finding
 	for _, issue := range issues {
 		status := "FAIL" // Any open issue in the export is considered a FAIL finding
-		
+
 		rawPayload, ok := issue.(map[string]any)
 		if !ok {
 			rawPayload = map[string]any{"raw": issue}

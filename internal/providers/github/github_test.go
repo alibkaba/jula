@@ -192,4 +192,3 @@ func TestExtract_RulesetsWithoutPRs(t *testing.T) {
 		t.Errorf("expected PR review to FAIL, got %s", findings[1].Status)
 	}
 }
-

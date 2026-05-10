@@ -75,7 +75,7 @@ func (m *SOC2Mapper) Map(findings []types.Finding) ([]types.Evidence, error) {
 		return nil, fmt.Errorf("mapping rules not loaded: call LoadRules first")
 	}
 
-	var evidence []types.Evidence
+	evidence := make([]types.Evidence, 0, len(findings))
 
 	for _, f := range findings {
 		rules, exists := m.ruleIndex[f.ID]

@@ -32,7 +32,7 @@ func (p *awsProvider) extractRegistry(ctx context.Context, runID string) ([]type
 
 	for _, repo := range repos.Repositories {
 		repoName := aws.ToString(repo.RepositoryName)
-		
+
 		// 2. Describe Image Scan Findings for 'latest'
 		input := &ecr.DescribeImageScanFindingsInput{
 			RepositoryName: repo.RepositoryName,
@@ -55,7 +55,7 @@ func (p *awsProvider) extractRegistry(ctx context.Context, runID string) ([]type
 		for _, finding := range output.ImageScanFindings.Findings {
 			severity := string(finding.Severity)
 			status := "PASS"
-			
+
 			if p.isSeverityAboveThreshold(severity, threshold) {
 				status = "FAIL"
 			}

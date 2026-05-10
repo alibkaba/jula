@@ -90,7 +90,7 @@ func TestExtractRegistry_NoScanFindings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Error in DescribeImageScanFindings results in skipping findings for that repo, 
+	// Error in DescribeImageScanFindings results in skipping findings for that repo,
 	// leading to "none" PASS finding if no other repos have findings.
 	if len(findings) != 1 || findings[0].Status != "PASS" {
 		t.Errorf("expected PASS finding, got %s", findings[0].Status)
