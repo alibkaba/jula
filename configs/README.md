@@ -6,9 +6,17 @@ This directory contains the declarative configuration that drives the Jula Evide
 
 | File | Purpose |
 | :--- | :--- |
-| `soc2_mapping.json` | Maps infrastructure findings to specific AICPA Trust Services Criteria (e.g., CC6.1, CC7.2). This is the primary rule file that determines which `Finding` satisfies which SOC 2 control. |
+| `soc2_mapping.json` | **Current (Production):** Maps infrastructure findings to specific AICPA Trust Services Criteria (e.g., CC6.1, CC7.2). This is the primary rule file that determines which `Finding` satisfies which SOC 2 control. |
+| `iso27001_mapping.json`| **Next Up (Near-Term):** (In Development) Maps infrastructure findings to ISO 27001:2022 Annex A controls. This is the immediate roadmap priority for the Jula ecosystem. |
 | `gcp_policy.json` | Defines environment-specific policy thresholds, such as the maximum allowed age for KMS key rotation (90 days) or the required backup retention period for Cloud SQL instances. |
 | `exceptions.json` | Documents approved exceptions to policy rules. When a specific resource is intentionally non-compliant (e.g., a public-facing storage bucket for static assets), the exception is recorded here with a justification and expiration date. |
+
+## Roadmap & Upcoming Rules
+
+We ruthlessly prioritize mapping files that unblock enterprise revenue. The release schedule for new framework mappings is as follows:
+
+1. **Immediate (v1.x):** `iso27001_mapping.json` (ISO 27001:2022 Annex A).
+2. **Future (v2.x+):** NIST CSF, CIS Foundations Benchmarks, PCI-DSS, and HIPAA.
 
 ## Schemas
 
