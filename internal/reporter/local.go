@@ -69,6 +69,13 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				criteria = []string{"unmapped"}
 			}
 
+			data, err := json.MarshalIndent(ev, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("marshalling evidence: %w", err)
+			}
+
+			hash := crypto.HashFile(data)
+
 			for _, criterion := range criteria {
 				dirPath := filepath.Join(r.OutputDir, runDate, ev.Framework, criterion)
 				if err := os.MkdirAll(dirPath, 0755); err != nil {
@@ -80,11 +87,6 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
 				filePath := filepath.Join(dirPath, fileName)
 
-				data, err := json.MarshalIndent(ev, "", "  ")
-				if err != nil {
-					return nil, fmt.Errorf("marshalling evidence: %w", err)
-				}
-
 				if err := os.WriteFile(filePath, data, 0644); err != nil {
 					return nil, fmt.Errorf("writing evidence file: %w", err)
 				}
@@ -93,7 +95,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				relativePath := filepath.Join(runDate, ev.Framework, criterion, fileName)
 				manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 					Path:   relativePath,
-					SHA256: crypto.HashFile(data),
+					SHA256: hash,
 				})
 
 				slog.Debug("reporter: wrote evidence file",

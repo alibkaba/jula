@@ -124,6 +124,8 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 				return nil, fmt.Errorf("marshalling evidence: %w", err)
 			}
 
+			hash := crypto.HashFile(data)
+
 			for _, criterion := range criteria {
 				safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
 				objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
@@ -134,7 +136,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 				manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 					Path:   objectName,
-					SHA256: crypto.HashFile(data),
+					SHA256: hash,
 				})
 
 				slog.Debug("gcs: uploaded evidence",
