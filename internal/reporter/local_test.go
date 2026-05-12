@@ -109,7 +109,7 @@ func TestLocalReporter_Name(t *testing.T) {
 func TestFormatMarkdownReport_EmptyCriteria(t *testing.T) {
 	evidence := []types.Evidence{
 		{
-			Finding:  types.Finding{ResourceARN: "gs://test"},
+			Finding:  types.Finding{ResourceIdentifier: "gs://test"},
 			Criteria: []string{},
 		},
 	}
@@ -144,7 +144,9 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 		t.Errorf("consolidated file %s not found", consolidatedPath)
 	}
 
-	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_global_test-run.json")
+	// Reporter uses Finding.ResourceIdentifier (sanitized) for filenames.
+	// When ResourceIdentifier is empty, SanitizeResourceID returns "global_resource".
+	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_global_resource_test-run.json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
