@@ -29,7 +29,7 @@ func newServeMux() *http.ServeMux {
 
 		if err := handleRun([]string{}); err != nil {
 			slog.Error("serve: pipeline failed", "error", err, "duration", time.Since(start))
-			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 			return
 		}
 
