@@ -228,7 +228,7 @@ resource "google_cloud_run_v2_service" "jula" {
       }
       env {
         name  = "JULA_OUTPUT_FORMAT"
-        value = "markdown"
+        value = "json"
       }
       env {
         name  = "JULA_OUTPUT_PATH"

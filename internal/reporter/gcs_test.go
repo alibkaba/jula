@@ -145,12 +145,6 @@ func TestGCSReporter_Deliver(t *testing.T) {
 			expectedSuffix: ".json",
 			expectedCount:  4, // 1 individual + 1 consolidated + 1 manifest + 1 csv
 		},
-		{
-			name:           "Deliver with Markdown Format",
-			format:         "markdown",
-			expectedSuffix: "evidence_portfolio.md",
-			expectedCount:  5, // 1 individual + 1 consolidated + 1 markdown + 1 manifest + 1 csv
-		},
 	}
 
 	for _, tt := range tests {

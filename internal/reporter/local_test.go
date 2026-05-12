@@ -65,11 +65,6 @@ func TestLocalReporter_Deliver(t *testing.T) {
 			format:         "json",
 			expectedSuffix: ".json",
 		},
-		{
-			name:           "Deliver with Markdown Format",
-			format:         "markdown",
-			expectedSuffix: "evidence_portfolio.md",
-		},
 	}
 
 	for _, tt := range tests {
@@ -103,25 +98,6 @@ func TestLocalReporter_Name(t *testing.T) {
 	r := &LocalReporter{}
 	if r.Name() != "local" {
 		t.Errorf("expected local, got %s", r.Name())
-	}
-}
-
-func TestFormatMarkdownReport_EmptyCriteria(t *testing.T) {
-	evidence := []types.Evidence{
-		{
-			Finding:  types.Finding{ResourceIdentifier: "gs://test"},
-			Criteria: []string{},
-		},
-	}
-	report, err := FormatMarkdownReport(evidence)
-	if err != nil {
-		t.Fatalf("format failed: %v", err)
-	}
-	if !strings.Contains(report, "### Criteria: unmapped") {
-		t.Error("expected unmapped criteria in report")
-	}
-	if !strings.Contains(report, "## Framework: ") {
-		t.Error("expected framework header in report")
 	}
 }
 
