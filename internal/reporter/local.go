@@ -48,9 +48,9 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		Timestamp: time.Now().UTC(),
 	}
 
-	// Track unique providers and frameworks for the manifest.
+	// Track unique providers and group evidence by framework for the manifest.
 	providerSet := make(map[string]bool)
-	frameworkSet := make(map[string]bool)
+	evidenceByFramework := make(map[string][]types.Evidence)
 
 	for _, ev := range evidence {
 		select {
@@ -60,7 +60,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		providerSet[ev.Finding.Provider] = true
-		frameworkSet[ev.Framework] = true
+		evidenceByFramework[ev.Framework] = append(evidenceByFramework[ev.Framework], ev)
 
 		if !r.ConsolidatedOnly {
 			// Write evidence to each criteria directory it maps to.
@@ -106,14 +106,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 	}
 
 	// Generate a consolidated JSON file for each framework
-	for f := range frameworkSet {
-		var frameworkEvidence []types.Evidence
-		for _, ev := range evidence {
-			if ev.Framework == f {
-				frameworkEvidence = append(frameworkEvidence, ev)
-			}
-		}
-
+	for f, frameworkEvidence := range evidenceByFramework {
 		frameworkDir := filepath.Join(r.OutputDir, runDate, f)
 		if err := os.MkdirAll(frameworkDir, 0755); err != nil {
 			return nil, fmt.Errorf("creating framework directory %s: %w", frameworkDir, err)
@@ -174,7 +167,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 	for p := range providerSet {
 		manifest.Providers = append(manifest.Providers, p)
 	}
-	for f := range frameworkSet {
+	for f := range evidenceByFramework {
 		manifest.Frameworks = append(manifest.Frameworks, f)
 	}
 
