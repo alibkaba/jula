@@ -117,10 +117,13 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 		bpEnforced = true
 		combinedPayload["rulesets"] = rulesPayload
 		for _, r := range rulesPayload {
-			if ruleMap, ok := r.(map[string]any); ok {
-				if ruleMap["type"] == "pull_request" {
-					prEnforced = true
-				}
+			ruleMap, ok := r.(map[string]any)
+			if !ok {
+				continue
+			}
+			if ruleMap["type"] == "pull_request" {
+				prEnforced = true
+				break
 			}
 		}
 	}
