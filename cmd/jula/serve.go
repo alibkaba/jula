@@ -52,6 +52,16 @@ func handleServe(args []string) error {
 	}
 
 	mux := newServeMux()
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      6 * time.Minute,
+		IdleTimeout:       120 * time.Second,
+	}
+
 	slog.Info("serve: starting HTTP server", "port", port)
-	return http.ListenAndServe(":"+port, mux)
+	return server.ListenAndServe()
 }
