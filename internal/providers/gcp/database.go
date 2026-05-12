@@ -49,15 +49,15 @@ func (p *GCPProvider) extractDatabase(ctx context.Context, runID string) ([]type
 	// If no database instances exist, emit a single PASS.
 	if len(sqlList.Items) == 0 {
 		return []types.Finding{{
-			ID:          "gcp.database.secure_config",
-			Provider:    "gcp",
-			Resource:    "database",
-			Check:       "secure_config",
-			Status:      "PASS",
-			RawPayload:  map[string]any{"detail": "no Cloud SQL instances found"},
-			ResourceARN: fmt.Sprintf("projects/%s", p.projectID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "gcp.database.secure_config",
+			Provider:           "gcp",
+			Resource:           "database",
+			Check:              "secure_config",
+			Status:             "PASS",
+			RawPayload:         map[string]any{"detail": "no Cloud SQL instances found"},
+			ResourceIdentifier: fmt.Sprintf("projects/%s", p.projectID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		}}, nil
 	}
 
@@ -92,9 +92,9 @@ func (p *GCPProvider) extractDatabase(ctx context.Context, runID string) ([]type
 				"instance": inst.Name,
 				"issues":   issues,
 			},
-			ResourceARN: fmt.Sprintf("projects/%s/instances/%s", p.projectID, inst.Name),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ResourceIdentifier: fmt.Sprintf("projects/%s/instances/%s", p.projectID, inst.Name),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 

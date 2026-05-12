@@ -115,15 +115,15 @@ func (p *GCPProvider) extractKMSKeyRotation(ctx context.Context, runID string) (
 				}
 
 				findings = append(findings, types.Finding{
-					ID:          "gcp.kms.key_rotation",
-					Provider:    "gcp",
-					Resource:    "kms",
-					Check:       "key_rotation",
-					Status:      status,
-					RawPayload:  toRawPayload(key),
-					ResourceARN: key.Name,
-					Timestamp:   time.Now().UTC(),
-					RunID:       runID,
+					ID:                 "gcp.kms.key_rotation",
+					Provider:           "gcp",
+					Resource:           "kms",
+					Check:              "key_rotation",
+					Status:             status,
+					RawPayload:         toRawPayload(key),
+					ResourceIdentifier: key.Name,
+					Timestamp:          time.Now().UTC(),
+					RunID:              runID,
 				})
 			}
 		}
@@ -132,15 +132,15 @@ func (p *GCPProvider) extractKMSKeyRotation(ctx context.Context, runID string) (
 	// If no KMS keys were found, emit a single PASS.
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "gcp.kms.key_rotation",
-			Provider:    "gcp",
-			Resource:    "kms",
-			Check:       "key_rotation",
-			Status:      "PASS",
-			RawPayload:  map[string]any{"detail": "no KMS crypto keys found"},
-			ResourceARN: fmt.Sprintf("projects/%s", p.projectID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "gcp.kms.key_rotation",
+			Provider:           "gcp",
+			Resource:           "kms",
+			Check:              "key_rotation",
+			Status:             "PASS",
+			RawPayload:         map[string]any{"detail": "no KMS crypto keys found"},
+			ResourceIdentifier: fmt.Sprintf("projects/%s", p.projectID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 

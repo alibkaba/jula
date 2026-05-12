@@ -126,15 +126,15 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 		}
 
 		finding := types.Finding{
-			ID:          "aikido.open_vulnerability",
-			Provider:    providerName,
-			Resource:    "aikido_issue",
-			Check:       "open_vulnerability",
-			Status:      status,
-			RawPayload:  rawPayload,
-			ResourceARN: fmt.Sprintf("aikido:issue:%s", issueID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "aikido.open_vulnerability",
+			Provider:           providerName,
+			Resource:           "aikido_issue",
+			Check:              "open_vulnerability",
+			Status:             status,
+			RawPayload:         rawPayload,
+			ResourceIdentifier: fmt.Sprintf("aikido:issue:%s", issueID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		}
 		findings = append(findings, finding)
 	}

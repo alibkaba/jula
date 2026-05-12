@@ -85,21 +85,21 @@ func (p *GCPProvider) extractComputeFirewalls(ctx context.Context, runID string)
 							"exception_id": exc.ID,
 							"reason":       exc.Reason,
 						},
-						ResourceARN: fmt.Sprintf("projects/%s/global/firewalls/%s", p.projectID, rule.Name),
-						Timestamp:   time.Now().UTC(),
-						RunID:       runID,
+						ResourceIdentifier: fmt.Sprintf("projects/%s/global/firewalls/%s", p.projectID, rule.Name),
+						Timestamp:          time.Now().UTC(),
+						RunID:              runID,
 					})
 				} else {
 					findings = append(findings, types.Finding{
-						ID:          "gcp.compute.firewall_ingress",
-						Provider:    "gcp",
-						Resource:    "compute",
-						Check:       "firewall_ingress",
-						Status:      status,
-						RawPayload:  toRawPayload(rule),
-						ResourceARN: fmt.Sprintf("projects/%s/global/firewalls/%s", p.projectID, rule.Name),
-						Timestamp:   time.Now().UTC(),
-						RunID:       runID,
+						ID:                 "gcp.compute.firewall_ingress",
+						Provider:           "gcp",
+						Resource:           "compute",
+						Check:              "firewall_ingress",
+						Status:             status,
+						RawPayload:         toRawPayload(rule),
+						ResourceIdentifier: fmt.Sprintf("projects/%s/global/firewalls/%s", p.projectID, rule.Name),
+						Timestamp:          time.Now().UTC(),
+						RunID:              runID,
 					})
 				}
 			}
@@ -109,14 +109,14 @@ func (p *GCPProvider) extractComputeFirewalls(ctx context.Context, runID string)
 	// If no violations were found, emit a PASS.
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "gcp.compute.firewall_ingress",
-			Provider:    "gcp",
-			Resource:    "compute",
-			Check:       "firewall_ingress",
-			Status:      "PASS",
-			ResourceARN: fmt.Sprintf("projects/%s", p.projectID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "gcp.compute.firewall_ingress",
+			Provider:           "gcp",
+			Resource:           "compute",
+			Check:              "firewall_ingress",
+			Status:             "PASS",
+			ResourceIdentifier: fmt.Sprintf("projects/%s", p.projectID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 
