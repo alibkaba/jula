@@ -101,7 +101,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 	}
 
 	providerSet := make(map[string]bool)
-	frameworkSet := make(map[string]bool)
+	evidenceByFramework := make(map[string][]types.Evidence)
 
 	for _, ev := range evidence {
 		select {
@@ -111,7 +111,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 
 		providerSet[ev.Finding.Provider] = true
-		frameworkSet[ev.Framework] = true
+		evidenceByFramework[ev.Framework] = append(evidenceByFramework[ev.Framework], ev)
 
 		criteria := ev.Criteria
 		if len(criteria) == 0 {
@@ -147,14 +147,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 	}
 
 	// Generate a consolidated JSON file for each framework
-	for f := range frameworkSet {
-		var frameworkEvidence []types.Evidence
-		for _, ev := range evidence {
-			if ev.Framework == f {
-				frameworkEvidence = append(frameworkEvidence, ev)
-			}
-		}
-
+	for f, frameworkEvidence := range evidenceByFramework {
 		aggregateData, err := json.MarshalIndent(frameworkEvidence, "", "  ")
 		if err != nil {
 			return nil, fmt.Errorf("marshalling aggregate evidence: %w", err)
@@ -210,7 +203,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 	for p := range providerSet {
 		manifest.Providers = append(manifest.Providers, p)
 	}
-	for f := range frameworkSet {
+	for f := range evidenceByFramework {
 		manifest.Frameworks = append(manifest.Frameworks, f)
 	}
 
