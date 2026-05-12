@@ -59,4 +59,3 @@ func TestRunEndpointPOSTWithEnv_NoGCPCreds(t *testing.T) {
 		t.Errorf("expected 500 without GCP creds, got %d", rec.Code)
 	}
 }
-

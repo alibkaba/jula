@@ -29,38 +29,40 @@ func (p *GCPProvider) extractObjectStorageEncryption(ctx context.Context, runID 
 		return nil, fmt.Errorf("parsing bucket list: %w", err)
 	}
 
-	var findings []types.Finding
-	if items, ok := payload["items"].([]any); ok {
-		findings = make([]types.Finding, 0, len(items))
-		for _, it := range items {
-			bucket, ok := it.(map[string]any)
-			if !ok {
-				continue
-			}
+	items, ok := payload["items"].([]any)
+	if !ok {
+		return nil, nil
+	}
 
-			name, _ := bucket["name"].(string)
-
-			// GCS always encrypts data at rest by default (Google-managed keys).
-			// A CMEK (Customer-Managed Encryption Key) is the stronger posture.
-			status := "PASS"
-			if encryption, ok := bucket["encryption"].(map[string]any); ok {
-				if kmsKey, ok := encryption["defaultKmsKeyName"].(string); ok && kmsKey != "" {
-					status = "PASS" // CMEK configured, strongest posture.
-				}
-			}
-
-			findings = append(findings, types.Finding{
-				ID:                 "gcp.object_storage.encryption_enabled",
-				Provider:           "gcp",
-				Resource:           "object_storage",
-				Check:              "encryption_enabled",
-				Status:             status,
-				RawPayload:         toRawPayload(bucket),
-				ResourceIdentifier: fmt.Sprintf("gs://%s", name),
-				Timestamp:          time.Now().UTC(),
-				RunID:              runID,
-			})
+	findings := make([]types.Finding, 0, len(items))
+	for _, it := range items {
+		bucket, ok := it.(map[string]any)
+		if !ok {
+			continue
 		}
+
+		name, _ := bucket["name"].(string)
+
+		// GCS always encrypts data at rest by default (Google-managed keys).
+		// A CMEK (Customer-Managed Encryption Key) is the stronger posture.
+		status := "PASS"
+		if encryption, ok := bucket["encryption"].(map[string]any); ok {
+			if kmsKey, ok := encryption["defaultKmsKeyName"].(string); ok && kmsKey != "" {
+				status = "PASS" // CMEK configured, strongest posture.
+			}
+		}
+
+		findings = append(findings, types.Finding{
+			ID:                 "gcp.object_storage.encryption_enabled",
+			Provider:           "gcp",
+			Resource:           "object_storage",
+			Check:              "encryption_enabled",
+			Status:             status,
+			RawPayload:         toRawPayload(bucket),
+			ResourceIdentifier: fmt.Sprintf("gs://%s", name),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
+		})
 	}
 
 	return findings, nil
