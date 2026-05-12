@@ -78,24 +78,42 @@ func (o *Orchestrator) ApplyExceptions(findings []types.Finding, now time.Time) 
 		return findings
 	}
 
+	type exceptionKey struct {
+		ResourceIdentifier string
+		Check              string
+	}
+
+	activeExceptions := make(map[exceptionKey]*types.Exception, len(o.exceptions))
+	for i := range o.exceptions {
+		if o.exceptions[i].IsActive(now) {
+			key := exceptionKey{
+				ResourceIdentifier: o.exceptions[i].ResourceIdentifier,
+				Check:              o.exceptions[i].Check,
+			}
+			activeExceptions[key] = &o.exceptions[i]
+		}
+	}
+
+	if len(activeExceptions) == 0 {
+		return findings
+	}
+
 	for i := range findings {
 		if findings[i].Status != "FAIL" {
 			continue
 		}
-		for _, exc := range o.exceptions {
-			if !exc.IsActive(now) {
-				continue
-			}
-			if findings[i].ResourceIdentifier == exc.ResourceIdentifier && findings[i].Check == exc.Check {
-				slog.Info("exceptions: applied",
-					"resource", exc.ResourceIdentifier,
-					"check", exc.Check,
-					"reason", exc.Reason,
-					"expires_at", exc.ExpiresAt,
-				)
-				findings[i].Status = "EXCEPTED"
-				break
-			}
+		key := exceptionKey{
+			ResourceIdentifier: findings[i].ResourceIdentifier,
+			Check:              findings[i].Check,
+		}
+		if exc, ok := activeExceptions[key]; ok {
+			slog.Info("exceptions: applied",
+				"resource", exc.ResourceIdentifier,
+				"check", exc.Check,
+				"reason", exc.Reason,
+				"expires_at", exc.ExpiresAt,
+			)
+			findings[i].Status = "EXCEPTED"
 		}
 	}
 
