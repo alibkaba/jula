@@ -74,15 +74,16 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				return nil, fmt.Errorf("marshalling evidence: %w", err)
 			}
 
+			dataHash := crypto.HashFile(data)
+			safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
+			fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
+
 			for _, criterion := range criteria {
 				dirPath := filepath.Join(r.OutputDir, runDate, ev.Framework, criterion)
 				if err := os.MkdirAll(dirPath, 0755); err != nil {
 					return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 				}
 
-				// Use runID to guarantee unique filenames and prevent overwriting
-				safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
-				fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
 				filePath := filepath.Join(dirPath, fileName)
 
 				if err := os.WriteFile(filePath, data, 0644); err != nil {
@@ -93,7 +94,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				relativePath := filepath.Join(runDate, ev.Framework, criterion, fileName)
 				manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 					Path:   relativePath,
-					SHA256: crypto.HashFile(data),
+					SHA256: dataHash,
 				})
 
 				slog.Debug("reporter: wrote evidence file",
