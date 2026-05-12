@@ -413,13 +413,13 @@ func TestExtract_WithSBOMs(t *testing.T) {
 	// Check the findings
 	var foundCode, foundCon, foundVM bool
 	for _, f := range findings {
-		if f.ResourceARN == "aikido:code_repo:repo1" {
+		if f.ResourceIdentifier == "aikido:code_repo:repo1" {
 			foundCode = true
 		}
-		if f.ResourceARN == "aikido:container:con1" {
+		if f.ResourceIdentifier == "aikido:container:con1" {
 			foundCon = true
 		}
-		if f.ResourceARN == "aikido:virtual_machine:vm1" {
+		if f.ResourceIdentifier == "aikido:virtual_machine:vm1" {
 			foundVM = true
 		}
 	}
