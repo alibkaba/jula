@@ -34,7 +34,11 @@ func handleRun(args []string) error {
 	pathFlag := runCmd.String("path", os.Getenv("JULA_OUTPUT_PATH"), "Target path or bucket URI")
 	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent provider goroutines")
 	timeoutFlag := runCmd.String("timeout", "5m", "Per-provider timeout duration")
-	formatFlag := runCmd.String("format", os.Getenv("JULA_OUTPUT_FORMAT"), "Output format (json, markdown)")
+	defaultFormat := os.Getenv("JULA_OUTPUT_FORMAT")
+	if defaultFormat == "" {
+		defaultFormat = "json"
+	}
+	formatFlag := runCmd.String("format", defaultFormat, "Output format (json)")
 	consolidatedFlag := runCmd.Bool("consolidated-only", os.Getenv("JULA_CONSOLIDATED_ONLY") == "true", "Skip individual finding files and only output consolidated framework evidence")
 
 	if err := runCmd.Parse(args); err != nil {

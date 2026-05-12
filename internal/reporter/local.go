@@ -131,24 +131,6 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		slog.Debug("reporter: wrote consolidated framework evidence", "path", aggregatePath)
 	}
 
-	// Optional: Generate Markdown evidence portfolio.
-	if r.Format == "markdown" {
-		report, err := FormatMarkdownReport(evidence)
-		if err != nil {
-			return nil, fmt.Errorf("generating markdown report: %w", err)
-		}
-
-		reportPath := filepath.Join(r.OutputDir, runDate, "evidence_portfolio.md")
-		if err := os.WriteFile(reportPath, []byte(report), 0644); err != nil {
-			return nil, fmt.Errorf("writing markdown report: %w", err)
-		}
-
-		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-			Path:   filepath.Join(runDate, "evidence_portfolio.md"),
-			SHA256: crypto.HashFile([]byte(report)),
-		})
-	}
-
 	// Generate CSV Ledger
 	csvData, err := FormatCSVReport(evidence, runDate, runID)
 	if err != nil {

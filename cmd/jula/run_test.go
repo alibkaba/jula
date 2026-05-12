@@ -160,22 +160,6 @@ func TestHandleRun_GCSTarget(t *testing.T) {
 	}
 }
 
-func TestHandleRun_MarkdownFormat(t *testing.T) {
-	key, _ := generateTestKey()
-	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
-	t.Setenv("JULA_OUTPUT_TARGET", "local")
-	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_OUTPUT_FORMAT", "markdown")
-	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
-
-	err := handleRun([]string{})
-	if err != nil && (strings.Contains(err.Error(), "failed to decode PEM block") || strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY")) {
-		t.Errorf("expected no PEM parsing error, got: %v", err)
-	}
-}
-
 func TestHandleRun_WrongKeyType(t *testing.T) {
 	// RSA key in PEM block
 	privKey, _ := rsa.GenerateKey(rand.Reader, 2048)

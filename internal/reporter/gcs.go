@@ -188,24 +188,6 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		SHA256: crypto.HashFile(csvData),
 	})
 
-	// Optional: Generate Markdown evidence portfolio.
-	if r.Format == "markdown" {
-		report, err := FormatMarkdownReport(evidence)
-		if err != nil {
-			return nil, fmt.Errorf("generating markdown report: %w", err)
-		}
-
-		reportObject := fmt.Sprintf("%s/evidence_portfolio.md", runDate)
-		if err := r.uploadObject(ctx, reportObject, []byte(report), "text/markdown"); err != nil {
-			return nil, fmt.Errorf("uploading markdown report: %w", err)
-		}
-
-		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-			Path:   reportObject,
-			SHA256: crypto.HashFile([]byte(report)),
-		})
-	}
-
 	// Populate manifest metadata.
 	for p := range providerSet {
 		manifest.Providers = append(manifest.Providers, p)
