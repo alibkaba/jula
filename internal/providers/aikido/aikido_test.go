@@ -207,3 +207,224 @@ func TestFetchIssues_RateLimited(t *testing.T) {
 		t.Errorf("unexpected issues length: %d", len(issues))
 	}
 }
+
+func TestParseEnvList(t *testing.T) {
+	t.Setenv("TEST_EMPTY", "")
+	t.Setenv("TEST_LIST", "a,b,c")
+
+	if res := parseEnvList("TEST_EMPTY"); res != nil {
+		t.Errorf("expected nil, got %v", res)
+	}
+
+	res := parseEnvList("TEST_LIST")
+	if len(res) != 3 || res[0] != "a" || res[1] != "b" || res[2] != "c" {
+		t.Errorf("expected [a b c], got %v", res)
+	}
+}
+
+func TestFetchSBOM(t *testing.T) {
+	p := New()
+
+	t.Run("success", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"bomFormat": "CycloneDX"}`)),
+				}, nil
+			},
+		}
+
+		res, err := p.fetchSBOM(context.Background(), "token", "http://test")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res["bomFormat"] != "CycloneDX" {
+			t.Errorf("unexpected payload: %v", res)
+		}
+	})
+
+	t.Run("404 not found", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+				}, nil
+			},
+		}
+
+		_, err := p.fetchSBOM(context.Background(), "token", "http://test")
+		if !errors.Is(err, ErrResourceNotFound) {
+			t.Errorf("expected ErrResourceNotFound, got %v", err)
+		}
+	})
+
+	t.Run("rate limit retry", func(t *testing.T) {
+		reqCount := 0
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				reqCount++
+				if reqCount == 1 {
+					return &http.Response{
+						StatusCode: http.StatusTooManyRequests,
+						Body:       io.NopCloser(bytes.NewBufferString(`{}`)),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"bomFormat": "CycloneDX"}`)),
+				}, nil
+			},
+		}
+
+		res, err := p.fetchSBOM(context.Background(), "token", "http://test")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res["bomFormat"] != "CycloneDX" {
+			t.Errorf("unexpected payload: %v", res)
+		}
+	})
+
+	t.Run("500 error", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"error":"server error"}`)),
+				}, nil
+			},
+		}
+
+		_, err := p.fetchSBOM(context.Background(), "token", "http://test")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`invalid json`)),
+				}, nil
+			},
+		}
+
+		_, err := p.fetchSBOM(context.Background(), "token", "http://test")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+}
+
+func TestBuildSBOMFinding(t *testing.T) {
+	p := New()
+
+	t.Run("success", func(t *testing.T) {
+		sbom := map[string]any{"key": "value"}
+		f := p.buildSBOMFinding("id", "type", "arn", "run", sbom, nil)
+		if f.Status != "PASS" {
+			t.Errorf("expected PASS, got %s", f.Status)
+		}
+		if f.RawPayload["key"] != "value" {
+			t.Errorf("unexpected payload: %v", f.RawPayload)
+		}
+	})
+
+	t.Run("not found error", func(t *testing.T) {
+		f := p.buildSBOMFinding("id", "type", "arn", "run", nil, ErrResourceNotFound)
+		if f.Status != "FAIL" {
+			t.Errorf("expected FAIL, got %s", f.Status)
+		}
+		if f.RawPayload["error"] != "Resource not found (404)" {
+			t.Errorf("unexpected payload: %v", f.RawPayload)
+		}
+	})
+
+	t.Run("other error", func(t *testing.T) {
+		f := p.buildSBOMFinding("id", "type", "arn", "run", nil, errors.New("timeout"))
+		if f.Status != "FAIL" {
+			t.Errorf("expected FAIL, got %s", f.Status)
+		}
+		if f.RawPayload["error"] != "timeout" {
+			t.Errorf("unexpected payload: %v", f.RawPayload)
+		}
+	})
+}
+
+func TestExtract_WithSBOMs(t *testing.T) {
+	t.Setenv("AIK_CODE_REPO_IDS", "repo1")
+	t.Setenv("AIK_CONTAINER_REPO_IDS", "con1")
+	t.Setenv("AIK_VM_IDS", "vm1")
+
+	p := New()
+	p.clientID = "test-client"
+	p.secretKey = "test-secret"
+
+	p.client.Transport = &mockTransport{
+		roundTripFunc: func(req *http.Request) (*http.Response, error) {
+			if req.URL.Path == "/api/oauth/token" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"access_token": "mock-token"}`)),
+				}, nil
+			}
+			if req.URL.Path == "/api/public/v1/issues/export" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`[]`)),
+				}, nil
+			}
+			if req.URL.Path == "/api/public/v1/repositories/code/repo1/licenses/export" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"type": "code"}`)),
+				}, nil
+			}
+			if req.URL.Path == "/api/public/v1/containers/con1/licenses/export" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"type": "container"}`)),
+				}, nil
+			}
+			if req.URL.Path == "/api/public/v1/virtual-machines/vm1/export/sbom" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`{"type": "vm"}`)),
+				}, nil
+			}
+			return nil, errors.New("unexpected url: " + req.URL.Path)
+		},
+	}
+
+	findings, err := p.Extract(context.Background(), "run-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// 1 for workspace PASS + 3 SBOMs = 4 findings
+	if len(findings) != 4 {
+		t.Fatalf("expected 4 findings, got %d", len(findings))
+	}
+
+	// Check the findings
+	var foundCode, foundCon, foundVM bool
+	for _, f := range findings {
+		if f.ResourceARN == "aikido:code_repo:repo1" {
+			foundCode = true
+		}
+		if f.ResourceARN == "aikido:container:con1" {
+			foundCon = true
+		}
+		if f.ResourceARN == "aikido:virtual_machine:vm1" {
+			foundVM = true
+		}
+	}
+
+	if !foundCode || !foundCon || !foundVM {
+		t.Errorf("missing some expected SBOM findings")
+	}
+}

@@ -144,6 +144,8 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 		t.Errorf("consolidated file %s not found", consolidatedPath)
 	}
 
+	// Reporter uses Finding.ResourceIdentifier (sanitized) for filenames.
+	// When ResourceIdentifier is empty, SanitizeResourceID returns "global_resource".
 	filePath := filepath.Join(tmpDir, runDate, "soc2", "CC2.1", "gcp.audit_logging.enabled_global_resource_test-run.json")
 
 	data, err := os.ReadFile(filePath)
