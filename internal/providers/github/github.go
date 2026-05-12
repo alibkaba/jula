@@ -108,7 +108,7 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	if bpPayload != nil {
 		bpEnforced = true
 		combinedPayload["classic_protection"] = bpPayload
-		if pr, ok := bpPayload["required_pull_request_reviews"].(map[string]any); ok && pr != nil {
+		if hasRequiredPullRequestReviews(bpPayload) {
 			prEnforced = true
 		}
 	}
@@ -116,15 +116,8 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	if len(rulesPayload) > 0 {
 		bpEnforced = true
 		combinedPayload["rulesets"] = rulesPayload
-		for _, r := range rulesPayload {
-			ruleMap, ok := r.(map[string]any)
-			if !ok {
-				continue
-			}
-			if ruleMap["type"] == "pull_request" {
-				prEnforced = true
-				break
-			}
+		if hasPullRequestRule(rulesPayload) {
+			prEnforced = true
 		}
 	}
 
@@ -167,4 +160,20 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	})
 
 	return findings, nil
+}
+
+func hasRequiredPullRequestReviews(bpPayload map[string]any) bool {
+	pr, ok := bpPayload["required_pull_request_reviews"].(map[string]any)
+	return ok && pr != nil
+}
+
+func hasPullRequestRule(rulesPayload []any) bool {
+	for _, r := range rulesPayload {
+		if ruleMap, ok := r.(map[string]any); ok {
+			if ruleMap["type"] == "pull_request" {
+				return true
+			}
+		}
+	}
+	return false
 }
