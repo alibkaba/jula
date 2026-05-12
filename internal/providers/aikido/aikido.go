@@ -97,15 +97,15 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 
 	if len(issues) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "aikido.open_vulnerability",
-			Provider:    providerName,
-			Resource:    "aikido_workspace",
-			Check:       "open_vulnerability",
-			Status:      "PASS",
-			RawPayload:  map[string]any{"message": "No open issues found"},
-			ResourceARN: "aikido:workspace",
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "aikido.open_vulnerability",
+			Provider:           providerName,
+			Resource:           "aikido_workspace",
+			Check:              "open_vulnerability",
+			Status:             "PASS",
+			RawPayload:         map[string]any{"message": "No open issues found"},
+			ResourceIdentifier: "aikido:workspace",
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 
@@ -307,7 +307,7 @@ func (p *Provider) fetchSBOM(ctx context.Context, token string, targetURL string
 	return nil, fmt.Errorf("max retries exceeded: %v", lastErr)
 }
 
-func (p *Provider) buildSBOMFinding(findingID, resourceType, resourceARN, runID string, sbom map[string]any, err error) types.Finding {
+func (p *Provider) buildSBOMFinding(findingID, resourceType, resourceIdentifier, runID string, sbom map[string]any, err error) types.Finding {
 	status := "PASS"
 	var payload map[string]any
 
@@ -323,14 +323,14 @@ func (p *Provider) buildSBOMFinding(findingID, resourceType, resourceARN, runID 
 	}
 
 	return types.Finding{
-		ID:          findingID,
-		Provider:    providerName,
-		Resource:    resourceType,
-		Check:       "sbom_collection",
-		Status:      status,
-		RawPayload:  payload,
-		ResourceARN: resourceARN,
-		Timestamp:   time.Now().UTC(),
-		RunID:       runID,
+		ID:                 findingID,
+		Provider:           providerName,
+		Resource:           resourceType,
+		Check:              "sbom_collection",
+		Status:             status,
+		RawPayload:         payload,
+		ResourceIdentifier: resourceIdentifier,
+		Timestamp:          time.Now().UTC(),
+		RunID:              runID,
 	}
 }
