@@ -307,7 +307,7 @@ func (p *Provider) fetchSBOM(ctx context.Context, token string, targetURL string
 	return nil, fmt.Errorf("max retries exceeded: %v", lastErr)
 }
 
-func (p *Provider) buildSBOMFinding(findingID, resourceType, resourceARN, runID string, sbom map[string]any, err error) types.Finding {
+func (p *Provider) buildSBOMFinding(findingID, resourceType, resourceIdentifier, runID string, sbom map[string]any, err error) types.Finding {
 	status := "PASS"
 	var payload map[string]any
 
@@ -329,7 +329,7 @@ func (p *Provider) buildSBOMFinding(findingID, resourceType, resourceARN, runID 
 		Check:              "sbom_collection",
 		Status:             status,
 		RawPayload:         payload,
-		ResourceIdentifier: resourceARN,
+		ResourceIdentifier: resourceIdentifier,
 		Timestamp:          time.Now().UTC(),
 		RunID:              runID,
 	}
