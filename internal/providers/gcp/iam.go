@@ -81,15 +81,15 @@ func (p *GCPProvider) extractServiceAccountKeys(ctx context.Context, runID strin
 			}
 
 			findings = append(findings, types.Finding{
-				ID:          "gcp.iam.service_account_key_rotation",
-				Provider:    "gcp",
-				Resource:    "iam",
-				Check:       "service_account_key_rotation",
-				Status:      status,
-				RawPayload:  toRawPayload(key),
-				ResourceARN: key.Name,
-				Timestamp:   time.Now().UTC(),
-				RunID:       runID,
+				ID:                 "gcp.iam.service_account_key_rotation",
+				Provider:           "gcp",
+				Resource:           "iam",
+				Check:              "service_account_key_rotation",
+				Status:             status,
+				RawPayload:         toRawPayload(key),
+				ResourceIdentifier: key.Name,
+				Timestamp:          time.Now().UTC(),
+				RunID:              runID,
 			})
 		}
 	}

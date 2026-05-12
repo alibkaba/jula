@@ -19,8 +19,8 @@ type testProvider struct {
 	delay    time.Duration
 }
 
-func (tp *testProvider) Name() string      { return tp.name }
-func (tp *testProvider) Validate() error   { return nil }
+func (tp *testProvider) Name() string    { return tp.name }
+func (tp *testProvider) Validate() error { return nil }
 func (tp *testProvider) Extract(ctx context.Context, runID string) ([]types.Finding, error) {
 	if tp.delay > 0 {
 		select {
@@ -237,17 +237,17 @@ func TestApplyExceptions_ActiveException(t *testing.T) {
 	o := &Orchestrator{
 		exceptions: []types.Exception{
 			{
-				ResourceARN: "projects/test/firewalls/allow-all",
-				Check:       "firewall_ingress_unrestricted",
-				Reason:      "Approved by CISO",
-				ExpiresAt:   time.Now().Add(24 * time.Hour), // Expires tomorrow.
+				ResourceIdentifier: "projects/test/firewalls/allow-all",
+				Check:              "firewall_ingress_unrestricted",
+				Reason:             "Approved by CISO",
+				ExpiresAt:          time.Now().Add(24 * time.Hour), // Expires tomorrow.
 			},
 		},
 	}
 
 	findings := []types.Finding{
-		{ID: "f1", ResourceARN: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
-		{ID: "f2", ResourceARN: "projects/test/sql/instance1", Check: "sql_backup_enabled", Status: "PASS"},
+		{ID: "f1", ResourceIdentifier: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
+		{ID: "f2", ResourceIdentifier: "projects/test/sql/instance1", Check: "sql_backup_enabled", Status: "PASS"},
 	}
 
 	result := o.ApplyExceptions(findings, time.Now())
@@ -264,16 +264,16 @@ func TestApplyExceptions_ExpiredException(t *testing.T) {
 	o := &Orchestrator{
 		exceptions: []types.Exception{
 			{
-				ResourceARN: "projects/test/firewalls/allow-all",
-				Check:       "firewall_ingress_unrestricted",
-				Reason:      "Expired exception",
-				ExpiresAt:   time.Now().Add(-24 * time.Hour), // Expired yesterday.
+				ResourceIdentifier: "projects/test/firewalls/allow-all",
+				Check:              "firewall_ingress_unrestricted",
+				Reason:             "Expired exception",
+				ExpiresAt:          time.Now().Add(-24 * time.Hour), // Expired yesterday.
 			},
 		},
 	}
 
 	findings := []types.Finding{
-		{ID: "f1", ResourceARN: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
+		{ID: "f1", ResourceIdentifier: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
 	}
 
 	result := o.ApplyExceptions(findings, time.Now())
@@ -287,16 +287,16 @@ func TestApplyExceptions_NoMatch(t *testing.T) {
 	o := &Orchestrator{
 		exceptions: []types.Exception{
 			{
-				ResourceARN: "projects/test/firewalls/other-rule",
-				Check:       "firewall_ingress_unrestricted",
-				Reason:      "Wrong resource",
-				ExpiresAt:   time.Now().Add(24 * time.Hour),
+				ResourceIdentifier: "projects/test/firewalls/other-rule",
+				Check:              "firewall_ingress_unrestricted",
+				Reason:             "Wrong resource",
+				ExpiresAt:          time.Now().Add(24 * time.Hour),
 			},
 		},
 	}
 
 	findings := []types.Finding{
-		{ID: "f1", ResourceARN: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
+		{ID: "f1", ResourceIdentifier: "projects/test/firewalls/allow-all", Check: "firewall_ingress_unrestricted", Status: "FAIL"},
 	}
 
 	result := o.ApplyExceptions(findings, time.Now())

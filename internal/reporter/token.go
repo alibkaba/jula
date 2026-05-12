@@ -53,7 +53,7 @@ func (p *metadataTokenProvider) Token() (string, error) {
 	allowedHosts := map[string]bool{
 		"metadata.google.internal": true,
 		"localhost":                true,
-		"127.0.0.1":               true,
+		"127.0.0.1":                true,
 	}
 	if !allowedHosts[parsedURL.Hostname()] {
 		return "", fmt.Errorf("metadata request blocked: host %q is not in the allowlist", parsedURL.Hostname())

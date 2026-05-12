@@ -50,15 +50,15 @@ func (p *GCPProvider) extractObjectStorageEncryption(ctx context.Context, runID 
 			}
 
 			findings = append(findings, types.Finding{
-				ID:          "gcp.object_storage.encryption_enabled",
-				Provider:    "gcp",
-				Resource:    "object_storage",
-				Check:       "encryption_enabled",
-				Status:      status,
-				RawPayload:  toRawPayload(bucket),
-				ResourceARN: fmt.Sprintf("gs://%s", name),
-				Timestamp:   time.Now().UTC(),
-				RunID:       runID,
+				ID:                 "gcp.object_storage.encryption_enabled",
+				Provider:           "gcp",
+				Resource:           "object_storage",
+				Check:              "encryption_enabled",
+				Status:             status,
+				RawPayload:         toRawPayload(bucket),
+				ResourceIdentifier: fmt.Sprintf("gs://%s", name),
+				Timestamp:          time.Now().UTC(),
+				RunID:              runID,
 			})
 		}
 	}

@@ -61,15 +61,15 @@ func (p *awsProvider) extractRegistry(ctx context.Context, runID string) ([]type
 			}
 
 			findings = append(findings, types.Finding{
-				ID:          fmt.Sprintf("aws.registry.image_scanned.%s", aws.ToString(finding.Name)),
-				Provider:    "aws",
-				Resource:    "registry",
-				Check:       "image_vulnerability_scan",
-				Status:      status,
-				RawPayload:  toRawPayload(finding),
-				ResourceARN: fmt.Sprintf("%s/%s", aws.ToString(repo.RepositoryArn), repoName),
-				Timestamp:   time.Now().UTC(),
-				RunID:       runID,
+				ID:                 fmt.Sprintf("aws.registry.image_scanned.%s", aws.ToString(finding.Name)),
+				Provider:           "aws",
+				Resource:           "registry",
+				Check:              "image_vulnerability_scan",
+				Status:             status,
+				RawPayload:         toRawPayload(finding),
+				ResourceIdentifier: fmt.Sprintf("%s/%s", aws.ToString(repo.RepositoryArn), repoName),
+				Timestamp:          time.Now().UTC(),
+				RunID:              runID,
 			})
 		}
 	}
@@ -77,14 +77,14 @@ func (p *awsProvider) extractRegistry(ctx context.Context, runID string) ([]type
 	// If no repositories or findings were found, emit a single PASS finding for the service.
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "aws.registry.image_scanned.none",
-			Provider:    "aws",
-			Resource:    "registry",
-			Check:       "scan_enabled",
-			Status:      "PASS",
-			ResourceARN: fmt.Sprintf("arn:aws:ecr:%s:root", p.region),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "aws.registry.image_scanned.none",
+			Provider:           "aws",
+			Resource:           "registry",
+			Check:              "scan_enabled",
+			Status:             "PASS",
+			ResourceIdentifier: fmt.Sprintf("arn:aws:ecr:%s:root", p.region),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 

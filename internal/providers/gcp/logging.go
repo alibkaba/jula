@@ -74,15 +74,15 @@ func (p *GCPProvider) extractAuditLogging(ctx context.Context, runID string) ([]
 
 	return []types.Finding{
 		{
-			ID:          "gcp.audit_logging.enabled",
-			Provider:    "gcp",
-			Resource:    "audit_logging",
-			Check:       "enabled",
-			Status:      status,
-			RawPayload:  toRawPayload(payload),
-			ResourceARN: fmt.Sprintf("projects/%s", p.projectID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "gcp.audit_logging.enabled",
+			Provider:           "gcp",
+			Resource:           "audit_logging",
+			Check:              "enabled",
+			Status:             status,
+			RawPayload:         toRawPayload(payload),
+			ResourceIdentifier: fmt.Sprintf("projects/%s", p.projectID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		},
 	}, nil
 }
