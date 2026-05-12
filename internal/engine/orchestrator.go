@@ -86,9 +86,9 @@ func (o *Orchestrator) ApplyExceptions(findings []types.Finding, now time.Time) 
 			if !exc.IsActive(now) {
 				continue
 			}
-			if findings[i].ResourceARN == exc.ResourceARN && findings[i].Check == exc.Check {
+			if findings[i].ResourceIdentifier == exc.ResourceIdentifier && findings[i].Check == exc.Check {
 				slog.Info("exceptions: applied",
-					"resource", exc.ResourceARN,
+					"resource", exc.ResourceIdentifier,
 					"check", exc.Check,
 					"reason", exc.Reason,
 					"expires_at", exc.ExpiresAt,

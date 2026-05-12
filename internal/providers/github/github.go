@@ -140,27 +140,27 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	}
 
 	findings = append(findings, types.Finding{
-		ID:          "github.branch_protection.enforced",
-		Provider:    providerName,
-		Resource:    "github_branch",
-		Check:       "branch_protection",
-		Status:      bpStatus,
-		RawPayload:  combinedPayload,
-		ResourceARN: resourceARN,
-		Timestamp:   time.Now().UTC(),
-		RunID:       runID,
+		ID:                 "github.branch_protection.enforced",
+		Provider:           providerName,
+		Resource:           "github_branch",
+		Check:              "branch_protection",
+		Status:             bpStatus,
+		RawPayload:         combinedPayload,
+		ResourceIdentifier: resourceARN,
+		Timestamp:          time.Now().UTC(),
+		RunID:              runID,
 	})
 
 	findings = append(findings, types.Finding{
-		ID:          "github.pull_requests.peer_reviewed",
-		Provider:    providerName,
-		Resource:    "github_branch",
-		Check:       "pull_requests",
-		Status:      prStatus,
-		RawPayload:  combinedPayload,
-		ResourceARN: resourceARN,
-		Timestamp:   time.Now().UTC(),
-		RunID:       runID,
+		ID:                 "github.pull_requests.peer_reviewed",
+		Provider:           providerName,
+		Resource:           "github_branch",
+		Check:              "pull_requests",
+		Status:             prStatus,
+		RawPayload:         combinedPayload,
+		ResourceIdentifier: resourceARN,
+		Timestamp:          time.Now().UTC(),
+		RunID:              runID,
 	})
 
 	return findings, nil

@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
@@ -77,11 +76,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 				}
 
 				// Use runID to guarantee unique filenames and prevent overwriting
-				safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
-				safeResource = strings.ReplaceAll(safeResource, "/", "-")
-				if safeResource == "" {
-					safeResource = "global"
-				}
+				safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
 				fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
 				filePath := filepath.Join(dirPath, fileName)
 
@@ -160,6 +155,20 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 			SHA256: crypto.HashFile([]byte(report)),
 		})
 	}
+
+	// Generate CSV Ledger
+	csvData, err := FormatCSVReport(evidence, runDate, runID)
+	if err != nil {
+		return nil, fmt.Errorf("formatting csv report: %w", err)
+	}
+	csvPath := filepath.Join(r.OutputDir, runDate, "evidence_ledger.csv")
+	if err := os.WriteFile(csvPath, csvData, 0644); err != nil {
+		return nil, fmt.Errorf("writing csv report: %w", err)
+	}
+	manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+		Path:   filepath.Join(runDate, "evidence_ledger.csv"),
+		SHA256: crypto.HashFile(csvData),
+	})
 
 	// Populate manifest metadata.
 	for p := range providerSet {

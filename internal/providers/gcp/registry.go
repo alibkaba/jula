@@ -134,15 +134,15 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 				}
 
 				findings = append(findings, types.Finding{
-					ID:          "gcp.registry.image_scanned",
-					Provider:    "gcp",
-					Resource:    "registry",
-					Check:       "image_vulnerability_scan",
-					Status:      status,
-					RawPayload:  toRawPayload(occ),
-					ResourceARN: fmt.Sprintf("//artifactregistry.googleapis.com/%s", img.Name),
-					Timestamp:   time.Now().UTC(),
-					RunID:       runID,
+					ID:                 "gcp.registry.image_scanned",
+					Provider:           "gcp",
+					Resource:           "registry",
+					Check:              "image_vulnerability_scan",
+					Status:             status,
+					RawPayload:         toRawPayload(occ),
+					ResourceIdentifier: fmt.Sprintf("//artifactregistry.googleapis.com/%s", img.Name),
+					Timestamp:          time.Now().UTC(),
+					RunID:              runID,
 				})
 			}
 		}
@@ -151,14 +151,14 @@ func (p *GCPProvider) extractRegistry(ctx context.Context, runID string) ([]type
 	// If no repositories or findings were found, emit a single PASS finding.
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "gcp.registry.image_scanned",
-			Provider:    "gcp",
-			Resource:    "registry",
-			Check:       "image_vulnerability_scan",
-			Status:      "PASS",
-			ResourceARN: fmt.Sprintf("projects/%s/locations/-/repositories", p.projectID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "gcp.registry.image_scanned",
+			Provider:           "gcp",
+			Resource:           "registry",
+			Check:              "image_vulnerability_scan",
+			Status:             "PASS",
+			ResourceIdentifier: fmt.Sprintf("projects/%s/locations/-/repositories", p.projectID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 

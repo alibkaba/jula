@@ -21,10 +21,10 @@ func init() {
 }
 
 const (
-	providerName   = "aikido"
-	tokenURL       = "https://app.aikido.dev/api/oauth/token"
-	exportURL      = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
-	maxRetries     = 3
+	providerName = "aikido"
+	tokenURL     = "https://app.aikido.dev/api/oauth/token"
+	exportURL    = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
+	maxRetries   = 3
 )
 
 var defaultBackoff = 5 * time.Second
@@ -90,30 +90,30 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 		}
 
 		finding := types.Finding{
-			ID:          "aikido.open_vulnerability",
-			Provider:    providerName,
-			Resource:    "aikido_issue",
-			Check:       "open_vulnerability",
-			Status:      status,
-			RawPayload:  rawPayload,
-			ResourceARN: fmt.Sprintf("aikido:issue:%s", issueID),
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "aikido.open_vulnerability",
+			Provider:           providerName,
+			Resource:           "aikido_issue",
+			Check:              "open_vulnerability",
+			Status:             status,
+			RawPayload:         rawPayload,
+			ResourceIdentifier: fmt.Sprintf("aikido:issue:%s", issueID),
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		}
 		findings = append(findings, finding)
 	}
 
 	if len(findings) == 0 {
 		findings = append(findings, types.Finding{
-			ID:          "aikido.open_vulnerability",
-			Provider:    providerName,
-			Resource:    "aikido_workspace",
-			Check:       "open_vulnerability",
-			Status:      "PASS",
-			RawPayload:  map[string]any{"message": "No open issues found"},
-			ResourceARN: "aikido:workspace",
-			Timestamp:   time.Now().UTC(),
-			RunID:       runID,
+			ID:                 "aikido.open_vulnerability",
+			Provider:           providerName,
+			Resource:           "aikido_workspace",
+			Check:              "open_vulnerability",
+			Status:             "PASS",
+			RawPayload:         map[string]any{"message": "No open issues found"},
+			ResourceIdentifier: "aikido:workspace",
+			Timestamp:          time.Now().UTC(),
+			RunID:              runID,
 		})
 	}
 

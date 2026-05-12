@@ -125,11 +125,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			}
 
 			for _, criterion := range criteria {
-				safeResource := strings.ReplaceAll(ev.Finding.ResourceARN, ":", "-")
-				safeResource = strings.ReplaceAll(safeResource, "/", "-")
-				if safeResource == "" {
-					safeResource = "global"
-				}
+				safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
 				objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
 
 				if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
@@ -177,6 +173,20 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 		slog.Debug("gcs: uploaded consolidated framework evidence", "object", objectName)
 	}
+
+	// Generate CSV Ledger
+	csvData, err := FormatCSVReport(evidence, runDate, runID)
+	if err != nil {
+		return nil, fmt.Errorf("formatting csv report: %w", err)
+	}
+	csvObjectName := fmt.Sprintf("%s/evidence_ledger.csv", runDate)
+	if err := r.uploadObject(ctx, csvObjectName, csvData, "text/csv"); err != nil {
+		return nil, fmt.Errorf("uploading csv report: %w", err)
+	}
+	manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+		Path:   csvObjectName,
+		SHA256: crypto.HashFile(csvData),
+	})
 
 	// Optional: Generate Markdown evidence portfolio.
 	if r.Format == "markdown" {

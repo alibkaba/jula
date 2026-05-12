@@ -59,7 +59,7 @@ func FormatMarkdownReport(evidenceList []types.Evidence) (string, error) {
 			for _, e := range evidence {
 				fmt.Fprintf(&builder, "| %s | %s | %s | %s | %s |\n",
 					e.Finding.Status,
-					e.Finding.ResourceARN,
+					e.Finding.ResourceIdentifier,
 					e.Finding.Check,
 					e.Finding.Provider,
 					e.ControlType,
