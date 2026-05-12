@@ -2,6 +2,8 @@ package gcp
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -308,6 +310,67 @@ func TestNewTokenSource_InvalidPEM(t *testing.T) {
 	_, err := newTokenSource(saKey, &http.Client{})
 	if err == nil {
 		t.Fatal("expected error for invalid PEM")
+	}
+}
+
+func TestNewTokenSource_InvalidPKCS8(t *testing.T) {
+	pemData := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("invalid pkcs8 data")})
+
+	saKey := &serviceAccountKey{
+		PrivateKey: string(pemData),
+	}
+
+	_, err := newTokenSource(saKey, &http.Client{})
+	if err == nil {
+		t.Fatal("expected error for invalid PKCS8 private key")
+	}
+}
+
+func TestNewTokenSource_NonRSAKey(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pkcs8, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pemData := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8})
+
+	saKey := &serviceAccountKey{
+		PrivateKey: string(pemData),
+	}
+
+	_, err = newTokenSource(saKey, &http.Client{})
+	if err == nil {
+		t.Fatal("expected error for non-RSA private key")
+	}
+}
+
+func TestNewTokenSource_CustomTokenURI(t *testing.T) {
+	saKey := &serviceAccountKey{
+		TokenURI: "https://custom.oauth.endpoint/token",
+	}
+	// Provide valid RSA key to reach the TokenURI check
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkcs8, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemData := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8})
+	saKey.PrivateKey = string(pemData)
+
+	ts, err := newTokenSource(saKey, &http.Client{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ts.tokenURL != "https://custom.oauth.endpoint/token" {
+		t.Errorf("expected custom token URL, got %s", ts.tokenURL)
 	}
 }
 
