@@ -1,3 +1,4 @@
-## 2026-05-12 - [Framework Grouping Optimization]
-Learning: Grouping logic using nested loops (O(F*E)) is a common bottleneck when processing large datasets with many categories. Using a map for single-pass grouping (O(E)) significantly improves performance.
-Action: Always use maps to group data by a key before processing categories to avoid redundant iterations over the full dataset.
+## 2026-05-12 - Prevent Repeated JSON Marshalling
+
+Learning: Inside loops over criteria, repeatedly re-marshalling identical structs to JSON wastes allocations and CPU cycles. Moving the marshal step outside the inner loop significantly cuts down on overall memory allocations.
+Action: Whenever serializing data for multiple output destinations, check if the data remains the same across iterations. If it does, serialize once outside the loop and reuse the payload.
