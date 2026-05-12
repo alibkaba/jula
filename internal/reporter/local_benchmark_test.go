@@ -21,8 +21,8 @@ func BenchmarkLocalReporter_Deliver(b *testing.B) {
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpDir := b.TempDir()
 
-	numEvidence := 10000
-	numFrameworks := 100
+	numEvidence := 1000
+	numFrameworks := 10
 	evidence := make([]types.Evidence, numEvidence)
 	for i := 0; i < numEvidence; i++ {
 		framework := fmt.Sprintf("framework-%d", i%numFrameworks)
@@ -34,14 +34,14 @@ func BenchmarkLocalReporter_Deliver(b *testing.B) {
 				Timestamp:          time.Now().UTC(),
 			},
 			Framework: framework,
-			Criteria:  []string{"C1"},
+			Criteria:  []string{"C1", "C2", "C3", "C4", "C5"}, // Multiple criteria
 		}
 	}
 
 	r := &LocalReporter{
 		OutputDir:        tmpDir,
 		SigningKey:       privKey,
-		ConsolidatedOnly: true, // Focus on the grouping logic and consolidation
+		ConsolidatedOnly: false, // Benchmark the inner loop logic
 	}
 
 	b.ResetTimer()
