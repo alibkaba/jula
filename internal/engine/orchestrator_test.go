@@ -19,8 +19,8 @@ type testProvider struct {
 	delay    time.Duration
 }
 
-func (tp *testProvider) Name() string      { return tp.name }
-func (tp *testProvider) Validate() error   { return nil }
+func (tp *testProvider) Name() string    { return tp.name }
+func (tp *testProvider) Validate() error { return nil }
 func (tp *testProvider) Extract(ctx context.Context, runID string) ([]types.Finding, error) {
 	if tp.delay > 0 {
 		select {

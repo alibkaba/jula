@@ -20,9 +20,9 @@ import (
 	// Import the providers so their init() registers them.
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/aikido"
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
+	"github.com/alibkaba/jula-evidence-collector/internal/providers/filedrop"
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/github"
-	"github.com/alibkaba/jula-evidence-collector/internal/providers/filedrop"
 )
 
 func handleRun(args []string) error {

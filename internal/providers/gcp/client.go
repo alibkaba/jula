@@ -35,8 +35,8 @@ func (p *GCPProvider) Name() string {
 // Validate ensures all required GCP environment variables are present
 // and initializes the authenticated HTTP client.
 // Supports two authentication modes:
-//   1. Service account JSON key file (JULA_GCP_CREDENTIALS_JSON) for local dev.
-//   2. GCP metadata server (Application Default Credentials) for Cloud Run.
+//  1. Service account JSON key file (JULA_GCP_CREDENTIALS_JSON) for local dev.
+//  2. GCP metadata server (Application Default Credentials) for Cloud Run.
 func (p *GCPProvider) Validate() error {
 	p.projectID = os.Getenv("JULA_GCP_PROJECT_ID")
 	if p.projectID == "" {
