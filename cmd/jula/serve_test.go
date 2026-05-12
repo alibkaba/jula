@@ -60,9 +60,3 @@ func TestRunEndpointPOSTWithEnv_NoGCPCreds(t *testing.T) {
 	}
 }
 
-func TestHandleServeDefaultPort(t *testing.T) {
-	// Verify that handleServe reads PORT env correctly.
-	t.Setenv("PORT", "")
-	// We can't actually start the server in tests, but we can verify
-	// the function signature compiles and the env is read.
-}
