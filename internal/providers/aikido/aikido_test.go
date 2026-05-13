@@ -355,6 +355,111 @@ func TestBuildSBOMFinding(t *testing.T) {
 	})
 }
 
+func TestAutoDiscoverHelpers(t *testing.T) {
+	p := New()
+	p.clientID = "test-client"
+	p.secretKey = "test-secret"
+
+	t.Run("success", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				if req.URL.Path == "/api/public/v1/repositories/code" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBufferString(`[{"id": "auto-code-1"}, {"id": "auto-code-2"}]`)),
+					}, nil
+				}
+				if req.URL.Path == "/api/public/v1/containers" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBufferString(`[{"id": "auto-con-1"}]`)),
+					}, nil
+				}
+				if req.URL.Path == "/api/public/v1/virtual-machines" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBufferString(`[{"id": "auto-vm-1"}]`)),
+					}, nil
+				}
+				return nil, errors.New("unexpected url: " + req.URL.Path)
+			},
+		}
+
+		codeIDs, err := p.autoDiscoverCodeRepos(context.Background(), "token")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(codeIDs) != 2 || codeIDs[0] != "auto-code-1" || codeIDs[1] != "auto-code-2" {
+			t.Errorf("unexpected codeIDs: %v", codeIDs)
+		}
+
+		conIDs, err := p.autoDiscoverContainers(context.Background(), "token")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(conIDs) != 1 || conIDs[0] != "auto-con-1" {
+			t.Errorf("unexpected conIDs: %v", conIDs)
+		}
+
+		vmIDs, err := p.autoDiscoverVMs(context.Background(), "token")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(vmIDs) != 1 || vmIDs[0] != "auto-vm-1" {
+			t.Errorf("unexpected vmIDs: %v", vmIDs)
+		}
+	})
+
+	t.Run("http error", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return nil, errors.New("network error")
+			},
+		}
+
+		_, err := p.autoDiscoverCodeRepos(context.Background(), "token")
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+
+		_, err = p.autoDiscoverContainers(context.Background(), "token")
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+
+		_, err = p.autoDiscoverVMs(context.Background(), "token")
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
+
+	t.Run("decode error", func(t *testing.T) {
+		p.client.Transport = &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewBufferString(`invalid json`)),
+				}, nil
+			},
+		}
+
+		_, err := p.autoDiscoverCodeRepos(context.Background(), "token")
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+
+		_, err = p.autoDiscoverContainers(context.Background(), "token")
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+
+		_, err = p.autoDiscoverVMs(context.Background(), "token")
+		if err == nil {
+			t.Error("expected error, got nil")
+		}
+	})
+}
+
 func TestExtract_WithSBOMs(t *testing.T) {
 	t.Setenv("AIK_CODE_REPO_IDS", "repo1")
 	t.Setenv("AIK_CONTAINER_REPO_IDS", "con1")
