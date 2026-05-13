@@ -302,6 +302,66 @@ func TestNewTokenSource_ValidKey(t *testing.T) {
 	}
 }
 
+func TestNewTokenSource_FromJSONKey(t *testing.T) {
+	// Generate a valid RSA key
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkcs8, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemData := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8})
+
+	// Create JSON representation of the key
+	jsonKeyData := map[string]string{
+		"type":           "service_account",
+		"project_id":     "test-project",
+		"private_key_id": "1234567890",
+		"private_key":    string(pemData),
+		"client_email":   "test@test-project.iam.gserviceaccount.com",
+		"client_id":      "1111111111",
+		"token_uri":      "https://oauth2.googleapis.com/token",
+	}
+
+	jsonData, err := json.Marshal(jsonKeyData)
+	if err != nil {
+		t.Fatalf("failed to marshal json key: %v", err)
+	}
+
+	var saKey serviceAccountKey
+	if err := json.Unmarshal(jsonData, &saKey); err != nil {
+		t.Fatalf("failed to unmarshal json key: %v", err)
+	}
+
+	httpClient := &http.Client{}
+
+	ts, err := newTokenSource(&saKey, httpClient)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ts == nil {
+		t.Fatal("expected non-nil token source")
+	}
+
+	if ts.key.ClientEmail != "test@test-project.iam.gserviceaccount.com" {
+		t.Errorf("expected client email test@test-project.iam.gserviceaccount.com, got %s", ts.key.ClientEmail)
+	}
+	if ts.tokenURL != "https://oauth2.googleapis.com/token" {
+		t.Errorf("expected token URL https://oauth2.googleapis.com/token, got %s", ts.tokenURL)
+	}
+	if ts.httpClient != httpClient {
+		t.Errorf("expected HTTP client to be set")
+	}
+	if len(ts.scopes) != 1 || ts.scopes[0] != "https://www.googleapis.com/auth/cloud-platform.read-only" {
+		t.Errorf("expected read-only cloud platform scope, got %v", ts.scopes)
+	}
+	if ts.privateKey == nil {
+		t.Errorf("expected private key to be parsed")
+	}
+}
+
 func TestNewTokenSource_InvalidPEM(t *testing.T) {
 	saKey := &serviceAccountKey{
 		PrivateKey: "not-a-pem-block",
