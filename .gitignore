@@ -34,6 +34,7 @@ c.out
 # Local Evidence Output Folder
 evidence-output/
 evidence-output-*
+local_evidence/
 
 # IDEs
 .idea/
