@@ -78,24 +78,41 @@ func (o *Orchestrator) ApplyExceptions(findings []types.Finding, now time.Time) 
 		return findings
 	}
 
+	// Index active exceptions to avoid O(N*M) lookup.
+	type excKey struct {
+		ResourceIdentifier string
+		Check              string
+	}
+	activeExc := make(map[excKey]types.Exception, len(o.exceptions))
+	for _, exc := range o.exceptions {
+		if exc.IsActive(now) {
+			// In case of multiple active exceptions for the exact same resource and check,
+			// the original loop semantics match the *first* one found. Since we iterate forward,
+			// only insert if not already present.
+			key := excKey{exc.ResourceIdentifier, exc.Check}
+			if _, exists := activeExc[key]; !exists {
+				activeExc[key] = exc
+			}
+		}
+	}
+
+	if len(activeExc) == 0 {
+		return findings
+	}
+
 	for i := range findings {
 		if findings[i].Status != "FAIL" {
 			continue
 		}
-		for _, exc := range o.exceptions {
-			if !exc.IsActive(now) {
-				continue
-			}
-			if findings[i].ResourceIdentifier == exc.ResourceIdentifier && findings[i].Check == exc.Check {
-				slog.Info("exceptions: applied",
-					"resource", exc.ResourceIdentifier,
-					"check", exc.Check,
-					"reason", exc.Reason,
-					"expires_at", exc.ExpiresAt,
-				)
-				findings[i].Status = "EXCEPTED"
-				break
-			}
+		key := excKey{findings[i].ResourceIdentifier, findings[i].Check}
+		if exc, ok := activeExc[key]; ok {
+			slog.Info("exceptions: applied",
+				"resource", exc.ResourceIdentifier,
+				"check", exc.Check,
+				"reason", exc.Reason,
+				"expires_at", exc.ExpiresAt,
+			)
+			findings[i].Status = "EXCEPTED"
 		}
 	}
 
