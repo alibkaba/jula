@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.3.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.2.0...v1.3.0) (2026-05-13)
+
+
+### Features
+
+* add aikido auto-discovery and soc2 sbom mapping ([533a701](https://github.com/alibkaba/jula-evidence-collector/commit/533a7016ac16578647476c76f229bd97106430d0))
+* add aikido auto-discovery and soc2 sbom mapping ([949aef0](https://github.com/alibkaba/jula-evidence-collector/commit/949aef0af6bdb97682ab22ecdcd5ff3b7dc0e075))
+* add aikido auto-discovery and soc2 sbom mapping ([914cfd7](https://github.com/alibkaba/jula-evidence-collector/commit/914cfd71f4c4d7359cfc4156c1850a187aacecd9))
+* add Aikido security rules, update Go version to 1.25, ignore lo… ([a58e3c6](https://github.com/alibkaba/jula-evidence-collector/commit/a58e3c66e9138f8e8a4ef62bf1c1e0bcfcb3fc14))
+* add Aikido security rules, update Go version to 1.25, ignore local evidence, and implement SLA-based issue status logic with improved ID formatting ([c05855b](https://github.com/alibkaba/jula-evidence-collector/commit/c05855b748413e513ee59f53051b44114bb7fe90))
+* add CSV ledger export and rename ResourceARN to ResourceIdentifier ([007f0eb](https://github.com/alibkaba/jula-evidence-collector/commit/007f0eb3e38d3f94769b1e6e74df3d60199b1f4c))
+* Add CSV Master Ledger and cloud-agnostic ResourceIdentifier ([99d7ccc](https://github.com/alibkaba/jula-evidence-collector/commit/99d7cccf06256a648ee0a1a056ba17101e3b1743))
+* implement Defense-in-Depth SBOM collection for Aikido ([2ff791f](https://github.com/alibkaba/jula-evidence-collector/commit/2ff791fe2eff5a4da9271ab708787b3c8cc74d3e))
+* implement Defense-in-Depth SBOM collection for Aikido ([4e94453](https://github.com/alibkaba/jula-evidence-collector/commit/4e94453c1d5019670c958b15ea6fae516b787db2))
+* Map Aikido SBOM collection to SOC 2 evidence output ([b357d2b](https://github.com/alibkaba/jula-evidence-collector/commit/b357d2b7611e542173d22e10c32279ba14edddaf))
+* Map Aikido SBOM collection to SOC 2 evidence output ([8d00585](https://github.com/alibkaba/jula-evidence-collector/commit/8d00585504d4f445e4180860d267146033441b4a))
+
+
+### Bug Fixes
+
+* replace ResourceARN with ResourceIdentifier in aikido provider ([337f404](https://github.com/alibkaba/jula-evidence-collector/commit/337f404b3f93c90720fe8cd12a9fe2b5f8f441f4))
+* Replace ResourceARN with ResourceIdentifier in aikido provider ([6bb2e6a](https://github.com/alibkaba/jula-evidence-collector/commit/6bb2e6aa1b389e9e249c26de695ef0993b2c80ff))
+* **serve:** replace detailed error with generic message to prevent info leak ([3384939](https://github.com/alibkaba/jula-evidence-collector/commit/338493925b7c324ba6fe8c287c11003686d4e905))
+
+
+### Performance Improvements
+
+* Hoist invariant hash and string manipulations from reporters loop ([1fdc7e6](https://github.com/alibkaba/jula-evidence-collector/commit/1fdc7e613890a07569aeca24fe44eaa36ae49eba))
+* optimize ApplyExceptions with O(1) map lookup ([bca8102](https://github.com/alibkaba/jula-evidence-collector/commit/bca8102f29cd38dbecda40e7de922293487cade1))
+* prevent repeated JSON marshalling in local reporter ([6434220](https://github.com/alibkaba/jula-evidence-collector/commit/6434220ccbd0ab1a9c654c20f61b209fee733a3e))
+
 ## [1.2.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.1.0...v1.2.0) (2026-05-10)
 
 
