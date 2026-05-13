@@ -3,6 +3,6 @@
 Learning: Inside loops over criteria, repeatedly re-marshalling identical structs to JSON wastes allocations and CPU cycles. Moving the marshal step outside the inner loop significantly cuts down on overall memory allocations.
 Action: Whenever serializing data for multiple output destinations, check if the data remains the same across iterations. If it does, serialize once outside the loop and reuse the payload.
 
-## 2026-05-12 - Hoisting repeated invariant hashes and string manipulations
-Learning: Cryptographic hashing and formatting operations can easily sneak into inner loops of file reporting mechanisms when generating redundant payloads for different destinations. Here, `crypto.HashFile` and string sanitization were correctly moved outside of an inner loop iterating through different frameworks, improving allocation/op and CPU overhead significantly.
-Action: Always check loops iterating over combinations to see what is perfectly constant across items. Move hashes, marshals, and resource string sanitizations out of innermost logic structures whenever iterating combinations.
+## 2026-05-13 - Optimize framework grouping loops
+Learning: When consolidating objects categorized by a specific attribute (like a framework or region), iterating over the entire slice repeatedly for each category creates an $O(N \times M)$ complexity.
+Action: Build a map grouping items by their category (`map[string][]Item`) in a single $O(M)$ pass, and then iterate the keys of the map. This is much faster and more idiomatic.
