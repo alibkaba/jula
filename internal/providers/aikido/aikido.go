@@ -22,13 +22,16 @@ func init() {
 }
 
 const (
-	providerName     = "aikido"
-	tokenURL         = "https://app.aikido.dev/api/oauth/token"
-	exportURL        = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
-	codeSbomURL      = "https://app.aikido.dev/api/public/v1/repositories/code/%s/licenses/export?format=sbom"
-	containerSbomURL = "https://app.aikido.dev/api/public/v1/containers/%s/licenses/export?format=sbom"
-	vmSbomURL        = "https://app.aikido.dev/api/public/v1/virtual-machines/%s/export/sbom"
-	maxRetries       = 3
+	providerName      = "aikido"
+	tokenURL          = "https://app.aikido.dev/api/oauth/token"
+	exportURL         = "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open"
+	listCodeReposURL  = "https://app.aikido.dev/api/public/v1/repositories/code"
+	listContainersURL = "https://app.aikido.dev/api/public/v1/containers"
+	listVMsURL        = "https://app.aikido.dev/api/public/v1/virtual-machines"
+	codeSbomURL       = "https://app.aikido.dev/api/public/v1/repositories/code/%s/licenses/export?format=sbom"
+	containerSbomURL  = "https://app.aikido.dev/api/public/v1/containers/%s/licenses/export?format=sbom"
+	vmSbomURL         = "https://app.aikido.dev/api/public/v1/virtual-machines/%s/export/sbom"
+	maxRetries        = 3
 )
 
 var (
@@ -139,6 +142,32 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 		findings = append(findings, finding)
 	}
 
+	// --- AUTO DISCOVERY FALLBACKS ---
+	if len(p.codeRepoIDs) == 0 {
+		fmt.Println("AIK_CODE_REPO_IDS is empty, auto-discovering code repos...")
+		discoveredIDs, err := p.autoDiscoverCodeRepos(ctx, token)
+		if err == nil {
+			p.codeRepoIDs = discoveredIDs
+		}
+	}
+
+	if len(p.containerRepoIDs) == 0 {
+		fmt.Println("AIK_CONTAINER_REPO_IDS is empty, auto-discovering containers...")
+		discoveredIDs, err := p.autoDiscoverContainers(ctx, token)
+		if err == nil {
+			p.containerRepoIDs = discoveredIDs
+		}
+	}
+
+	if len(p.vmIDs) == 0 {
+		fmt.Println("AIK_VM_IDS is empty, auto-discovering VMs...")
+		discoveredIDs, err := p.autoDiscoverVMs(ctx, token)
+		if err == nil {
+			p.vmIDs = discoveredIDs
+		}
+	}
+	// --------------------------------
+
 	for _, id := range p.codeRepoIDs {
 		sbom, err := p.fetchCodeSBOM(ctx, token, id)
 		findings = append(findings, p.buildSBOMFinding("aikido.sbom.code", "code_repo", "aikido:code_repo:"+id, runID, sbom, err))
@@ -246,6 +275,96 @@ func (p *Provider) fetchIssues(ctx context.Context, token string) ([]any, error)
 	}
 
 	return nil, fmt.Errorf("max retries exceeded: %v", lastErr)
+}
+
+func (p *Provider) autoDiscoverCodeRepos(ctx context.Context, token string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", listCodeReposURL, nil)
+	if err != nil {
+		fmt.Println("Warning: auto-discovery of code repos failed, skipping...")
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		fmt.Println("Warning: auto-discovery of code repos failed, skipping...")
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var repos []map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+		fmt.Println("Warning: auto-discovery of code repos failed, skipping...")
+		return nil, fmt.Errorf("failed to decode code repos: %w", err)
+	}
+
+	var ids []string
+	for _, repo := range repos {
+		if id, ok := repo["id"]; ok {
+			ids = append(ids, fmt.Sprintf("%v", id))
+		}
+	}
+	return ids, nil
+}
+
+func (p *Provider) autoDiscoverContainers(ctx context.Context, token string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", listContainersURL, nil)
+	if err != nil {
+		fmt.Println("Warning: auto-discovery of containers failed, skipping...")
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		fmt.Println("Warning: auto-discovery of containers failed, skipping...")
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var containers []map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&containers); err != nil {
+		fmt.Println("Warning: auto-discovery of containers failed, skipping...")
+		return nil, fmt.Errorf("failed to decode containers: %w", err)
+	}
+
+	var ids []string
+	for _, container := range containers {
+		if id, ok := container["id"]; ok {
+			ids = append(ids, fmt.Sprintf("%v", id))
+		}
+	}
+	return ids, nil
+}
+
+func (p *Provider) autoDiscoverVMs(ctx context.Context, token string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", listVMsURL, nil)
+	if err != nil {
+		fmt.Println("Warning: auto-discovery of VMs failed, skipping...")
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		fmt.Println("Warning: auto-discovery of VMs failed, skipping...")
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var vms []map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&vms); err != nil {
+		fmt.Println("Warning: auto-discovery of VMs failed, skipping...")
+		return nil, fmt.Errorf("failed to decode VMs: %w", err)
+	}
+
+	var ids []string
+	for _, vm := range vms {
+		if id, ok := vm["id"]; ok {
+			ids = append(ids, fmt.Sprintf("%v", id))
+		}
+	}
+	return ids, nil
 }
 
 func (p *Provider) fetchCodeSBOM(ctx context.Context, token string, repoID string) (map[string]any, error) {
