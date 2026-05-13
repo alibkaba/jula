@@ -113,11 +113,20 @@ func (p *Provider) Extract(ctx context.Context, runID string) ([]types.Finding, 
 	}
 
 	for _, issue := range issues {
-		status := "FAIL" // Any open issue in the export is considered a FAIL finding
-
 		rawPayload, ok := issue.(map[string]any)
 		if !ok {
 			rawPayload = map[string]any{"raw": issue}
+		}
+
+		status := "PASS"
+		if slaVal, exists := rawPayload["sla_remediate_by"]; exists && slaVal != nil {
+			// In Go, JSON numbers unmarshal to float64 in generic maps
+			if slaSeconds, ok := slaVal.(float64); ok && slaSeconds > 0 {
+				slaDate := time.Unix(int64(slaSeconds), 0).UTC()
+				if time.Now().UTC().After(slaDate) {
+					status = "FAIL"
+				}
+			}
 		}
 
 		var issueID string
@@ -301,7 +310,12 @@ func (p *Provider) autoDiscoverCodeRepos(ctx context.Context, token string) ([]s
 	var ids []string
 	for _, repo := range repos {
 		if id, ok := repo["id"]; ok {
-			ids = append(ids, fmt.Sprintf("%v", id))
+			switch v := id.(type) {
+			case float64:
+				ids = append(ids, fmt.Sprintf("%.0f", v))
+			default:
+				ids = append(ids, fmt.Sprintf("%v", v))
+			}
 		}
 	}
 	return ids, nil
@@ -331,7 +345,12 @@ func (p *Provider) autoDiscoverContainers(ctx context.Context, token string) ([]
 	var ids []string
 	for _, container := range containers {
 		if id, ok := container["id"]; ok {
-			ids = append(ids, fmt.Sprintf("%v", id))
+			switch v := id.(type) {
+			case float64:
+				ids = append(ids, fmt.Sprintf("%.0f", v))
+			default:
+				ids = append(ids, fmt.Sprintf("%v", v))
+			}
 		}
 	}
 	return ids, nil
@@ -361,7 +380,12 @@ func (p *Provider) autoDiscoverVMs(ctx context.Context, token string) ([]string,
 	var ids []string
 	for _, vm := range vms {
 		if id, ok := vm["id"]; ok {
-			ids = append(ids, fmt.Sprintf("%v", id))
+			switch v := id.(type) {
+			case float64:
+				ids = append(ids, fmt.Sprintf("%.0f", v))
+			default:
+				ids = append(ids, fmt.Sprintf("%v", v))
+			}
 		}
 	}
 	return ids, nil
