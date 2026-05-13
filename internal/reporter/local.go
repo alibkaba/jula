@@ -77,9 +77,10 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 			dataHash := crypto.HashFile(data)
 			safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
 			fileName := fmt.Sprintf("%s_%s_%s.json", ev.Finding.ID, safeResource, runID)
+			baseDirPath := filepath.Join(r.OutputDir, runDate, ev.Framework)
 
 			for _, criterion := range criteria {
-				dirPath := filepath.Join(r.OutputDir, runDate, ev.Framework, criterion)
+				dirPath := filepath.Join(baseDirPath, criterion)
 				if err := os.MkdirAll(dirPath, 0755); err != nil {
 					return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 				}

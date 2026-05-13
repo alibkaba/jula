@@ -127,8 +127,11 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			dataHash := crypto.HashFile(data)
 			safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
 
+			prefix := runDate + "/" + ev.Framework + "/"
+			suffix := "/" + ev.Finding.ID + "_" + safeResource + "_" + runID + ".json"
+
 			for _, criterion := range criteria {
-				objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
+				objectName := prefix + criterion + suffix
 
 				if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 					return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
