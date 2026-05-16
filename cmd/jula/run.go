@@ -79,6 +79,15 @@ func handleRun(args []string) error {
 		awsConfigPath = "configs/extractions/aws_config.json"
 	}
 
+	// Resolve SaaS HTTP extraction path.
+	saasConfigPath := os.Getenv("JULA_SAAS_CONFIG_PATH")
+	if saasConfigPath == "" {
+		saasConfigPath = "/configs/extractions/saas_http.json"
+	}
+	if _, err := os.Stat(saasConfigPath); os.IsNotExist(err) {
+		saasConfigPath = "configs/extractions/saas_http.json"
+	}
+
 	// Generate a unique run ID.
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
 
@@ -89,6 +98,7 @@ func handleRun(args []string) error {
 		"timeout", *timeoutFlag,
 		"cai_config", caiConfigPath,
 		"aws_config", awsConfigPath,
+		"saas_config", saasConfigPath,
 		"run_id", runID,
 	)
 
@@ -98,9 +108,10 @@ func handleRun(args []string) error {
 		Path:          *pathFlag,
 		Concurrency:   *concurrencyFlag,
 		Timeout:       timeout,
-		RunID:         runID,
-		CAIConfigPath: caiConfigPath,
-		AWSConfigPath: awsConfigPath,
+		RunID:          runID,
+		CAIConfigPath:  caiConfigPath,
+		AWSConfigPath:  awsConfigPath,
+		SaaSConfigPath: saasConfigPath,
 	})
 
 	ctx := context.Background()

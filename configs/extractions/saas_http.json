@@ -1,0 +1,116 @@
+{
+  "E-VUL-01": {
+    "description": "Aikido Open Vulnerability Scan",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-VUL-02": {
+    "description": "Aikido Code Repository Inventory",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/repositories/code",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-VUL-03": {
+    "description": "Aikido Container Inventory",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/containers",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-VUL-04": {
+    "description": "Aikido Virtual Machine Inventory",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/virtual-machines",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-SBOM-01": {
+    "description": "Aikido Code Repository SBOM",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-SBOM-02": {
+    "description": "Aikido Container SBOM",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/containers/${AIK_CONTAINER_ID}/licenses/export?format=sbom",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-SBOM-03": {
+    "description": "Aikido Virtual Machine SBOM",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/virtual-machines/${AIK_VM_ID}/export/sbom",
+    "headers": {
+      "Authorization": "Bearer ${AIK_TOKEN}"
+    },
+    "json_path": "$"
+  },
+  "E-CHG-01": {
+    "description": "GitHub Repository Metadata",
+    "provider": "github",
+    "method": "GET",
+    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_TOKEN}",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    "json_path": "$"
+  },
+  "E-CHG-02": {
+    "description": "GitHub Branch Protection Rules",
+    "provider": "github",
+    "method": "GET",
+    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/branches/main/protection",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_TOKEN}",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    "json_path": "$"
+  },
+  "E-CHG-03": {
+    "description": "GitHub Recent Pull Requests",
+    "provider": "github",
+    "method": "GET",
+    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=all&per_page=100&sort=updated&direction=desc",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_TOKEN}",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    "json_path": "$"
+  },
+  "E-CHG-04": {
+    "description": "GitHub CODEOWNERS File",
+    "provider": "github",
+    "method": "GET",
+    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/contents/CODEOWNERS",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_TOKEN}",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    "json_path": "$"
+  }
+}

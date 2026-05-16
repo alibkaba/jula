@@ -11,6 +11,7 @@ import (
 	"github.com/alibkaba/jula-evidence-collector/internal/platform"
 	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
 	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
+	httpgeneric "github.com/alibkaba/jula-evidence-collector/internal/providers/http_generic"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
@@ -27,6 +28,8 @@ type RunConfig struct {
 	CAIConfigPath string
 	// AWSConfigPath is the path to the AWS Config declarative extraction config JSON.
 	AWSConfigPath string
+	// SaaSConfigPath is the path to the generic SaaS HTTP extraction config JSON.
+	SaaSConfigPath string
 }
 
 // extractionJob represents a single ERL extraction to be executed.
@@ -86,6 +89,16 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
 			slog.Warn("orchestrator: skipping AWS Config provider", "error", err)
 		} else {
 			jobs = append(jobs, awsJobs...)
+		}
+	}
+
+	// --- Generic SaaS HTTP Provider ---
+	if o.cfg.SaaSConfigPath != "" {
+		saasJobs, err := o.buildHTTPGenericJobs()
+		if err != nil {
+			slog.Warn("orchestrator: skipping SaaS HTTP provider", "error", err)
+		} else {
+			jobs = append(jobs, saasJobs...)
 		}
 	}
 
@@ -232,6 +245,33 @@ func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error
 			description: c.Description,
 			execute: func(ctx context.Context) (types.Finding, error) {
 				return provider.Extract(ctx, id, c, o.cfg.RunID)
+			},
+		})
+	}
+
+	return jobs, nil
+}
+
+// buildHTTPGenericJobs loads the SaaS HTTP config and creates extraction jobs
+// for any third-party API endpoint (Aikido, GitHub, etc.) using the
+// Universal HTTP Engine.
+func (o *Orchestrator) buildHTTPGenericJobs() ([]extractionJob, error) {
+	configs, err := httpgeneric.LoadSaaSConfigs(o.cfg.SaaSConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading SaaS HTTP configs: %w", err)
+	}
+
+	engine := httpgeneric.NewEngine()
+
+	var jobs []extractionJob
+	for erlID, cfg := range configs {
+		id := erlID
+		c := cfg
+		jobs = append(jobs, extractionJob{
+			erlID:       id,
+			description: c.Description,
+			execute: func(ctx context.Context) (types.Finding, error) {
+				return engine.Extract(ctx, id, c, o.cfg.RunID)
 			},
 		})
 	}

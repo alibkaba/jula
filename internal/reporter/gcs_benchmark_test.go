@@ -28,21 +28,17 @@ func BenchmarkGCSReporterDeliver(b *testing.B) {
 		SigningKey:       key,
 		HTTPClient:       server.Client(),
 		TokenProvider:    &staticToken{token: "mock-token"},
-		Format:           "json",
-		ConsolidatedOnly: true, // we only care about testing grouping logic which creates the consolidated file
 		baseURL:          server.URL,
 	}
 
-	numFrameworks := 5
 	numEvidences := 1000
 
 	var evidence []types.Evidence
 	for i := 0; i < numEvidences; i++ {
-		framework := fmt.Sprintf("framework-%d", i%numFrameworks)
 		evidence = append(evidence, types.Evidence{
-			Framework: framework,
+			PayloadHash: fmt.Sprintf("hash-%d", i),
 			Finding: types.Finding{
-				ID:       fmt.Sprintf("finding-%d", i),
+				ErlID:    fmt.Sprintf("E-TEST-%d", i),
 				Provider: "test",
 			},
 		})
