@@ -15,12 +15,8 @@ func TestBuildHTTPGenericJobs(t *testing.T) {
 		"E-TEST-SaaS": {
 			"description": "Test SaaS",
 			"provider": "saas_http",
-			"endpoints": [
-				{
-					"url": "https://api.example.com/data",
-					"method": "GET"
-				}
-			]
+			"method": "GET",
+			"url": "https://api.example.com/data"
 		}
 	}`
 	err := os.WriteFile(configPath, []byte(configData), 0644)

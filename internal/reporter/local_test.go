@@ -190,3 +190,32 @@ func TestLocalReporter_ManifestSignature(t *testing.T) {
 		t.Error("manifest signature is invalid")
 	}
 }
+
+// TestLocalReporter_Deliver_Negative tests file system error paths.
+func TestLocalReporter_Deliver_Negative(t *testing.T) {
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	
+	// Create a deeply invalid path by using a file as a directory path
+	// This forces os.MkdirAll to fail deterministically
+	tempFile := filepath.Join(t.TempDir(), "invalid_dir_file")
+	if err := os.WriteFile(tempFile, []byte("file content"), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	
+	reporter := &LocalReporter{
+		OutputDir:  tempFile, 
+		SigningKey: key,
+	}
+
+	evidence := []types.Evidence{
+		{ErlID: "E-TEST", Finding: types.Finding{RawData: []byte(`{}`)}},
+	}
+
+	_, err := reporter.Deliver(context.Background(), evidence, "test-run")
+	if err == nil {
+		t.Fatal("expected delivery to fail due to invalid output directory")
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("expected 'not a directory' error, got %v", err)
+	}
+}

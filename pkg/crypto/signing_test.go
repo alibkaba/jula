@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,5 +148,40 @@ func TestVerifyManifest_MalformedSignature(t *testing.T) {
 	_, err := VerifyManifest(m, &privKey.PublicKey)
 	if err == nil {
 		t.Error("expected error when signature is not valid hex")
+	}
+}
+
+func TestSignManifest_Negative(t *testing.T) {
+	manifest := &types.Manifest{RunID: "test-run"}
+
+	err := SignManifest(manifest, nil)
+	if err == nil || err.Error() != "private key is nil" {
+		t.Errorf("expected 'private key is nil' error, got %v", err)
+	}
+}
+
+func TestVerifyManifest_Negative(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	pubKey := &privKey.PublicKey
+	manifest := &types.Manifest{RunID: "test-run"}
+
+	// Test 1: Nil Public Key
+	_, err := VerifyManifest(manifest, nil)
+	if err == nil || err.Error() != "public key is nil" {
+		t.Errorf("expected 'public key is nil' error, got %v", err)
+	}
+
+	// Test 2: Empty Signature
+	manifest.Signature = ""
+	_, err = VerifyManifest(manifest, pubKey)
+	if err == nil || err.Error() != "signature is empty" {
+		t.Errorf("expected 'signature is empty' error, got %v", err)
+	}
+
+	// Test 3: Invalid Hex Signature
+	manifest.Signature = "not-a-hex-string"
+	_, err = VerifyManifest(manifest, pubKey)
+	if err == nil || !strings.Contains(err.Error(), "failed to decode signature") {
+		t.Errorf("expected signature decode error, got %v", err)
 	}
 }

@@ -7,8 +7,13 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func generateTestKey() (string, error) {
@@ -177,5 +182,57 @@ func TestHandleRun_NoExtractionsAvailable(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no extraction jobs available") {
 		t.Errorf("expected 'no extraction jobs available' error, got: %v", err)
+	}
+}
+
+// TestHandleRun_FullExecution tests the full pipeline through extraction and delivery
+// by utilizing a mocked SaaS HTTP endpoint to guarantee a successful extraction.
+func TestHandleRun_FullExecution(t *testing.T) {
+	// 1. Setup Mock HTTP Server to act as our SaaS provider
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "success", "data": "mock_evidence"}`))
+	}))
+	defer ts.Close()
+
+	// 2. Create a temporary SaaS configuration pointing to our mock server
+	outDir := t.TempDir()
+	saasConfigPath := filepath.Join(outDir, "saas_mock.json")
+	mockConfig := []byte(`{
+		"E-MOCK-01": {
+			"description": "Mock HTTP Extraction",
+			"provider": "saas_http",
+			"method": "GET",
+			"url": "` + ts.URL + `"
+		}
+	}`)
+	if err := os.WriteFile(saasConfigPath, mockConfig, 0644); err != nil {
+		t.Fatalf("failed to write mock config: %v", err)
+	}
+
+	// 3. Setup environment variables
+	key, _ := generateTestKey()
+	t.Setenv("JULA_SIGNING_KEY", key)
+	t.Setenv("JULA_OUTPUT_TARGET", "local")
+	t.Setenv("JULA_OUTPUT_PATH", outDir)
+	
+	// Force the engine to use our mock config and ignore GCP/AWS
+	t.Setenv("JULA_SAAS_CONFIG_PATH", saasConfigPath)
+	t.Setenv("JULA_CAI_CONFIG_PATH", filepath.Join(outDir, "missing_cai.json"))
+	t.Setenv("JULA_AWS_CONFIG_PATH", filepath.Join(outDir, "missing_aws.json"))
+
+	// 4. Run the command
+	err := handleRun([]string{})
+
+	// 5. Assertions
+	if err != nil {
+		t.Fatalf("expected full execution to succeed, but got error: %v", err)
+	}
+
+	// 8. Verify that the output was generated (checking for the manifest.json file)
+	runDate := time.Now().UTC().Format("2006-01-02")
+	manifestPath := filepath.Join(outDir, runDate, "manifest.json")
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		t.Errorf("expected manifest.json to be created at %s", manifestPath)
 	}
 }

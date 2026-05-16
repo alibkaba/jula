@@ -226,3 +226,55 @@ func TestOrchestrator_Extract_InvalidConfigs(t *testing.T) {
 		t.Fatal("expected error due to missing configs")
 	}
 }
+
+// TestExecuteJobs_ContextCancellation tests the semaphore block when a context cancels.
+func TestExecuteJobs_ContextCancellation(t *testing.T) {
+	o := New(RunConfig{
+		Concurrency: 1, // Restrict to 1 so the second job blocks on semaphore
+		Timeout:     5 * time.Second,
+		RunID:       "test-run",
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel immediately so jobs fail when trying to acquire the semaphore
+	cancel()
+
+	jobs := []extractionJob{
+		{
+			erlID: "E-TEST-01",
+			execute: func(ctx context.Context) (types.Finding, error) {
+				// simulate work that respects context
+				select {
+				case <-time.After(1 * time.Second):
+					return types.Finding{}, nil
+				case <-ctx.Done():
+					return types.Finding{}, ctx.Err()
+				}
+			},
+		},
+	}
+
+	findings, err := o.executeJobs(ctx, jobs)
+	if err == nil {
+		t.Fatal("expected error due to context cancellation, got nil")
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected 0 findings, got %d", len(findings))
+	}
+}
+
+// TestOrchestrator_BuildAWSJobs_NoRegion tests the AWS initialization guard rail.
+func TestOrchestrator_BuildAWSJobs_NoRegion(t *testing.T) {
+	// Unset AWS region env vars
+	t.Setenv("AWS_REGION", "")
+	t.Setenv("AWS_DEFAULT_REGION", "")
+
+	o := New(RunConfig{
+		AWSConfigPath: "dummy.json",
+	})
+
+	_, err := o.buildAWSJobs(context.Background())
+	if err == nil || err.Error() != "AWS_REGION or AWS_DEFAULT_REGION is required for AWS Config provider" {
+		t.Errorf("expected missing AWS_REGION error, got %v", err)
+	}
+}

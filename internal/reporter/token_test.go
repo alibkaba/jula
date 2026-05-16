@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestMetadataTokenProvider_Token(t *testing.T) {
@@ -88,4 +90,59 @@ func TestMetadataTokenProvider_Cache(t *testing.T) {
 	if callCount != 1 {
 		t.Errorf("expected 1 call to metadata server, got %d", callCount)
 	}
+}
+
+// TestMetadataTokenProvider_Negative tests error paths for GCP token retrieval.
+func TestMetadataTokenProvider_Negative(t *testing.T) {
+	tests := []struct {
+		name           string
+		handler        http.HandlerFunc
+		expectedErrStr string
+	}{
+		{
+			name: "HTTP 500 Internal Server Error",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("server error"))
+			},
+			expectedErrStr: "metadata server returned HTTP 500",
+		},
+		{
+			name: "Malformed JSON Response",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				// expires_in should be an int, passing a string causes unmarshal error
+				w.Write([]byte(`{"access_token": "token", "expires_in": "not-an-int"}`))
+			},
+			expectedErrStr: "parsing metadata token",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(tc.handler)
+			defer ts.Close()
+
+			provider := &metadataTokenProvider{
+				httpClient: ts.Client(),
+				baseURL:    ts.URL,
+			}
+
+			_, err := provider.Token()
+			if err == nil || !strings.Contains(err.Error(), tc.expectedErrStr) {
+				t.Errorf("expected error containing %q, got: %v", tc.expectedErrStr, err)
+			}
+		})
+	}
+	
+	t.Run("Network Timeout / Connection Refused", func(t *testing.T) {
+		provider := &metadataTokenProvider{
+			httpClient: &http.Client{Timeout: 1 * time.Millisecond},
+			baseURL:    "http://127.0.0.1:12345", // Assumed closed port to force failure
+		}
+		_, err := provider.Token()
+		if err == nil || !strings.Contains(err.Error(), "metadata server request failed") {
+			t.Errorf("expected request failure, got: %v", err)
+		}
+	})
 }
