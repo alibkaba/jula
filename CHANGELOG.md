@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.3.0...v1.4.0) (2026-05-16)
+
+
+### Features
+
+* add OAuth 2.0 client_credentials support for Aikido API ([e539840](https://github.com/alibkaba/jula-evidence-collector/commit/e53984070cf2f4352d55391d4eebd7b717c76f87))
+* add universal http engine, purge legacy csv/byoe/imperative providers ([ca4841f](https://github.com/alibkaba/jula-evidence-collector/commit/ca4841f768cd7858352a99e298f29a87ed33c878))
+* migrate to collector-only architecture with aws config integration ([53c95b4](https://github.com/alibkaba/jula-evidence-collector/commit/53c95b4a5348c8f6cb47c7bcab4014ff42820e1d))
+* migrate to collector-only architecture with aws config integration ([91a0f44](https://github.com/alibkaba/jula-evidence-collector/commit/91a0f4475e10f27efc7aed67365de124ad95f348))
+* mock-based coverage for AWS/GCP providers and CI cleanup ([28ec4a7](https://github.com/alibkaba/jula-evidence-collector/commit/28ec4a7ea2784b79923f312a73ee841898bab974))
+* mock-based coverage for AWS/GCP providers and CI cleanup ([e66ee0b](https://github.com/alibkaba/jula-evidence-collector/commit/e66ee0b46b5862cfad9e46b088bf6f8698c986da))
+
+
+### Bug Fixes
+
+* rewrite run_test.go for collector-only architecture, remove legacy provider/framework tests ([34fdf0a](https://github.com/alibkaba/jula-evidence-collector/commit/34fdf0a1544d81530ef38b2207c94e06476ad1ff))
+
 ## [1.3.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.2.0...v1.3.0) (2026-05-13)
 
 
