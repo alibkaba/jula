@@ -55,8 +55,10 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		default:
 		}
 
+		sanitizedErlID := filepath.Base(ev.ErlID)
+
 		// Build the ERL-based directory path.
-		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", ev.ErlID)
+		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", sanitizedErlID)
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
 			return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 		}
@@ -68,7 +70,8 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		// Use the payload hash as the filename for immutability.
-		fileName := fmt.Sprintf("%s_%s.json", ev.Finding.Provider, ev.PayloadHash)
+		sanitizedProvider := filepath.Base(ev.Finding.Provider)
+		fileName := fmt.Sprintf("%s_%s.json", sanitizedProvider, ev.PayloadHash)
 		filePath := filepath.Join(dirPath, fileName)
 
 		if err := os.WriteFile(filePath, data, 0644); err != nil {
@@ -76,7 +79,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		// Record in manifest.
-		relativePath := filepath.Join(runDate, "evidence", ev.ErlID, fileName)
+		relativePath := filepath.Join(runDate, "evidence", sanitizedErlID, fileName)
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 			Path:   relativePath,
 			SHA256: crypto.HashFile(data),

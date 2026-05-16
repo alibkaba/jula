@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -112,8 +113,10 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
 		}
 
+		sanitizedErlID := filepath.Base(ev.ErlID)
+
 		// Use the payload hash as the filename for immutability.
-		objectName := fmt.Sprintf("%s/evidence/%s/%s.json", runDate, ev.ErlID, ev.PayloadHash)
+		objectName := fmt.Sprintf("%s/evidence/%s/%s.json", runDate, sanitizedErlID, ev.PayloadHash)
 
 		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
@@ -126,7 +129,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 		slog.Debug("gcs: uploaded evidence",
 			"object", objectName,
-			"erl_id", ev.ErlID,
+			"erl_id", sanitizedErlID,
 		)
 	}
 
