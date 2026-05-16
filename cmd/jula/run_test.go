@@ -215,7 +215,7 @@ func TestHandleRun_FullExecution(t *testing.T) {
 	t.Setenv("JULA_SIGNING_KEY", key)
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", outDir)
-	
+
 	// Force the engine to use our mock config and ignore GCP/AWS
 	t.Setenv("JULA_SAAS_CONFIG_PATH", saasConfigPath)
 	t.Setenv("JULA_CAI_CONFIG_PATH", filepath.Join(outDir, "missing_cai.json"))

@@ -125,19 +125,19 @@ func TestExtract_NoScope(t *testing.T) {
 func TestExtract_Success(t *testing.T) {
 	// Prepare mock data
 	createTime := timestamppb.New(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC))
-	
+
 	attrStruct, _ := structpb.NewStruct(map[string]interface{}{
 		"key1": "value1",
 	})
 
 	mockResults := []*assetpb.ResourceSearchResult{
 		{
-			Name:       "//compute.googleapis.com/projects/my-project/zones/us-central1-a/instances/instance-1",
-			AssetType:  "compute.googleapis.com/Instance",
-			Project:    "projects/my-project",
-			State:      "RUNNING",
-			CreateTime: createTime,
-			Labels:     map[string]string{"env": "prod"},
+			Name:                 "//compute.googleapis.com/projects/my-project/zones/us-central1-a/instances/instance-1",
+			AssetType:            "compute.googleapis.com/Instance",
+			Project:              "projects/my-project",
+			State:                "RUNNING",
+			CreateTime:           createTime,
+			Labels:               map[string]string{"env": "prod"},
 			AdditionalAttributes: attrStruct,
 		},
 	}

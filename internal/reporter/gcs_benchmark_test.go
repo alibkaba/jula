@@ -24,11 +24,11 @@ func BenchmarkGCSReporterDeliver(b *testing.B) {
 
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	reporter := &GCSReporter{
-		BucketName:       "test-bucket",
-		SigningKey:       key,
-		HTTPClient:       server.Client(),
-		TokenProvider:    &staticToken{token: "mock-token"},
-		baseURL:          server.URL,
+		BucketName:    "test-bucket",
+		SigningKey:    key,
+		HTTPClient:    server.Client(),
+		TokenProvider: &staticToken{token: "mock-token"},
+		baseURL:       server.URL,
 	}
 
 	numEvidences := 1000

@@ -13,9 +13,9 @@ import (
 
 func testManifest() *types.Manifest {
 	return &types.Manifest{
-		RunID:      "test-run-123",
-		Timestamp:  time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC),
-		Providers:  []string{"gcp"},
+		RunID:     "test-run-123",
+		Timestamp: time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC),
+		Providers: []string{"gcp"},
 
 		EvidenceFiles: []types.FileChecksum{
 			{Path: "soc2/CC2.1/gcp.audit_logging.enabled.json", SHA256: "abc123"},

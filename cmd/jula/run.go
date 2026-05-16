@@ -61,32 +61,10 @@ func handleRun(args []string) error {
 		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
 	}
 
-	// Resolve GCP CAI config path.
-	caiConfigPath := os.Getenv("JULA_CAI_CONFIG_PATH")
-	if caiConfigPath == "" {
-		caiConfigPath = "/configs/extractions/gcp_cai.json"
-	}
-	if _, err := os.Stat(caiConfigPath); os.IsNotExist(err) {
-		caiConfigPath = "configs/extractions/gcp_cai.json"
-	}
-
-	// Resolve AWS Config extraction path.
-	awsConfigPath := os.Getenv("JULA_AWS_CONFIG_PATH")
-	if awsConfigPath == "" {
-		awsConfigPath = "/configs/extractions/aws_config.json"
-	}
-	if _, err := os.Stat(awsConfigPath); os.IsNotExist(err) {
-		awsConfigPath = "configs/extractions/aws_config.json"
-	}
-
-	// Resolve SaaS HTTP extraction path.
-	saasConfigPath := os.Getenv("JULA_SAAS_CONFIG_PATH")
-	if saasConfigPath == "" {
-		saasConfigPath = "/configs/extractions/saas_http.json"
-	}
-	if _, err := os.Stat(saasConfigPath); os.IsNotExist(err) {
-		saasConfigPath = "configs/extractions/saas_http.json"
-	}
+	// Resolve configuration paths.
+	caiConfigPath := resolveConfigPath("JULA_CAI_CONFIG_PATH", "configs/extractions/gcp_cai.json")
+	awsConfigPath := resolveConfigPath("JULA_AWS_CONFIG_PATH", "configs/extractions/aws_config.json")
+	saasConfigPath := resolveConfigPath("JULA_SAAS_CONFIG_PATH", "configs/extractions/saas_http.json")
 
 	// Generate a unique run ID.
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
@@ -104,10 +82,10 @@ func handleRun(args []string) error {
 
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Target:        *targetFlag,
-		Path:          *pathFlag,
-		Concurrency:   *concurrencyFlag,
-		Timeout:       timeout,
+		Target:         *targetFlag,
+		Path:           *pathFlag,
+		Concurrency:    *concurrencyFlag,
+		Timeout:        timeout,
 		RunID:          runID,
 		CAIConfigPath:  caiConfigPath,
 		AWSConfigPath:  awsConfigPath,
@@ -184,4 +162,17 @@ func isValidTarget(name string) bool {
 	default:
 		return false
 	}
+}
+
+// resolveConfigPath resolves a configuration file path by checking the environment variable.
+// It falls back to an absolute path ("/" + defaultPath) and then a relative path (defaultPath).
+func resolveConfigPath(envKey, defaultPath string) string {
+	path := os.Getenv(envKey)
+	if path == "" {
+		path = "/" + defaultPath
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		path = defaultPath
+	}
+	return path
 }

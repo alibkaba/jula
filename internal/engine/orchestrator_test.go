@@ -219,7 +219,7 @@ func TestOrchestrator_Extract_InvalidConfigs(t *testing.T) {
 		AWSConfigPath:  "nonexistent-aws.json",
 		SaaSConfigPath: "nonexistent-saas.json",
 	})
-	
+
 	// Should log warnings for non-existent configs and return a "no extraction jobs" error.
 	_, err := o.Extract(context.Background())
 	if err == nil {

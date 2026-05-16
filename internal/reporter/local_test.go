@@ -194,16 +194,16 @@ func TestLocalReporter_ManifestSignature(t *testing.T) {
 // TestLocalReporter_Deliver_Negative tests file system error paths.
 func TestLocalReporter_Deliver_Negative(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	
+
 	// Create a deeply invalid path by using a file as a directory path
 	// This forces os.MkdirAll to fail deterministically
 	tempFile := filepath.Join(t.TempDir(), "invalid_dir_file")
 	if err := os.WriteFile(tempFile, []byte("file content"), 0644); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	
+
 	reporter := &LocalReporter{
-		OutputDir:  tempFile, 
+		OutputDir:  tempFile,
 		SigningKey: key,
 	}
 
