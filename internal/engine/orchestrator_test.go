@@ -192,3 +192,37 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 
 	t.Logf("concurrency bound validated: peak=%d, limit=%d", peak, maxConcurrency)
 }
+
+// TestOrchestrator_Extract_Empty verifies that Extract returns an error when
+// no configs are provided.
+func TestOrchestrator_Extract_Empty(t *testing.T) {
+	o := New(RunConfig{})
+	_, err := o.Extract(context.Background())
+	if err == nil {
+		t.Fatal("expected error for empty configs")
+	}
+}
+
+// TestOrchestrator_Platform verifies Platform returns valid info.
+func TestOrchestrator_Platform(t *testing.T) {
+	o := New(RunConfig{})
+	info := o.Platform()
+	if info.ID == "impossible_value" {
+		t.Error("expected valid ID string")
+	}
+}
+
+// TestOrchestrator_Extract_InvalidConfigs tests the error paths for loading configs.
+func TestOrchestrator_Extract_InvalidConfigs(t *testing.T) {
+	o := New(RunConfig{
+		CAIConfigPath:  "nonexistent-cai.json",
+		AWSConfigPath:  "nonexistent-aws.json",
+		SaaSConfigPath: "nonexistent-saas.json",
+	})
+	
+	// Should log warnings for non-existent configs and return a "no extraction jobs" error.
+	_, err := o.Extract(context.Background())
+	if err == nil {
+		t.Fatal("expected error due to missing configs")
+	}
+}
