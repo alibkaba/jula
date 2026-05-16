@@ -7,7 +7,7 @@ import (
 
 func TestStructInstantiation(t *testing.T) {
 	now := time.Now()
-	
+
 	f := Finding{
 		ErlID:     "E-TEST-01",
 		Provider:  "test-provider",

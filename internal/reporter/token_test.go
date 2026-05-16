@@ -134,7 +134,7 @@ func TestMetadataTokenProvider_Negative(t *testing.T) {
 			}
 		})
 	}
-	
+
 	t.Run("Network Timeout / Connection Refused", func(t *testing.T) {
 		provider := &metadataTokenProvider{
 			httpClient: &http.Client{Timeout: 1 * time.Millisecond},

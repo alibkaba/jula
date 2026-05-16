@@ -10,7 +10,7 @@ func TestBuildHTTPGenericJobs(t *testing.T) {
 	// Create a temp config file
 	tmpDir := t.TempDir()
 	configPath := tmpDir + "/saas_http.json"
-	
+
 	configData := `{
 		"E-TEST-SaaS": {
 			"description": "Test SaaS",
@@ -26,7 +26,7 @@ func TestBuildHTTPGenericJobs(t *testing.T) {
 
 	o := New(RunConfig{
 		SaaSConfigPath: configPath,
-		RunID:         "test-run",
+		RunID:          "test-run",
 	})
 
 	jobs, err := o.buildHTTPGenericJobs()
@@ -63,4 +63,3 @@ func TestBuildGCPJobs_InvalidPath(t *testing.T) {
 		t.Error("expected error when CAI config path is invalid")
 	}
 }
-
