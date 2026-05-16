@@ -4,8 +4,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
@@ -14,8 +17,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/repositories/code",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
@@ -24,8 +30,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/containers",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
@@ -34,8 +43,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/virtual-machines",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
@@ -44,8 +56,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
@@ -54,8 +69,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/containers/${AIK_CONTAINER_ID}/licenses/export?format=sbom",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
@@ -64,8 +82,11 @@
     "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/virtual-machines/${AIK_VM_ID}/export/sbom",
-    "headers": {
-      "Authorization": "Bearer ${AIK_TOKEN}"
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
     "json_path": "$"
   },
