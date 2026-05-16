@@ -1,10 +1,21 @@
 package types
 
-// Evidence represents a Finding that has been mapped to a compliance framework.
+// Evidence represents a finalized, cryptographically verifiable artifact of
+// raw infrastructure state. It wraps a Finding with a content hash that
+// provides immutable proof of what was collected.
+//
+// Evidence objects are routed purely by ERL ID. There are no framework,
+// criteria, or control-type fields; downstream evaluation tools handle
+// compliance mapping via the OSCAL build-time generated maps.
 type Evidence struct {
-	Finding       Finding  `json:"finding"`
-	Framework     string   `json:"framework"`
-	Criteria      []string `json:"criteria"`
-	ControlType   string   `json:"control_type"`
-	MappingRuleID string   `json:"mapping_rule_id"`
+	// ErlID is the Evidence Request List identifier (e.g., "E-BCM-16").
+	// Duplicated from Finding for flat serialization and path routing.
+	ErlID string `json:"erl_id"`
+
+	// Finding contains the raw extraction data and metadata.
+	Finding Finding `json:"finding"`
+
+	// PayloadHash is the SHA-256 hash of Finding.RawData, providing
+	// cryptographic proof of the exact data that was collected.
+	PayloadHash string `json:"payload_hash"`
 }

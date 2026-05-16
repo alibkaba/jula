@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,27 +9,42 @@ import (
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/internal/platform"
-	"github.com/alibkaba/jula-evidence-collector/internal/providers"
+	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
+	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
 // RunConfig holds the validated configuration for a pipeline execution.
+// The "Collector Only" paradigm means there is no Framework field.
+// The engine blindly executes every ERL extraction defined in its config.
 type RunConfig struct {
-	Providers      []string
-	Framework      string
-	Target         string
-	Path           string
-	Concurrency    int
-	Timeout        time.Duration
-	RunID          string
-	ExceptionsPath string // Path to exceptions.json (optional).
+	Target      string
+	Path        string
+	Concurrency int
+	Timeout     time.Duration
+	RunID       string
+	// CAIConfigPath is the path to the GCP CAI declarative extraction config JSON.
+	CAIConfigPath string
+	// AWSConfigPath is the path to the AWS Config declarative extraction config JSON.
+	AWSConfigPath string
+}
+
+// extractionJob represents a single ERL extraction to be executed.
+// It abstracts over provider-specific details so the orchestrator can
+// dispatch GCP and AWS extractions through a single concurrent loop.
+type extractionJob struct {
+	erlID       string
+	description string
+	execute     func(ctx context.Context) (types.Finding, error)
 }
 
 // Orchestrator manages the execution of the evidence collection pipeline.
+// It loads declarative configs for all available providers and iterates
+// through every ERL ID, executing the corresponding extraction without
+// any framework filtering.
 type Orchestrator struct {
-	cfg        RunConfig
-	exceptions []types.Exception
-	envInfo    platform.EnvironmentInfo
+	cfg     RunConfig
+	envInfo platform.EnvironmentInfo
 }
 
 // New creates a new Orchestrator with the given configuration.
@@ -46,107 +60,59 @@ func (o *Orchestrator) Platform() platform.EnvironmentInfo {
 	return o.envInfo
 }
 
-// LoadExceptions reads and parses the exceptions file. If no path is
-// configured, this is a no-op.
-func (o *Orchestrator) LoadExceptions() error {
-	if o.cfg.ExceptionsPath == "" {
-		return nil
-	}
-
-	data, err := os.ReadFile(o.cfg.ExceptionsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			slog.Info("exceptions: file not found, skipping", "path", o.cfg.ExceptionsPath)
-			return nil
-		}
-		return fmt.Errorf("reading exceptions file: %w", err)
-	}
-
-	if err := json.Unmarshal(data, &o.exceptions); err != nil {
-		return fmt.Errorf("parsing exceptions file: %w", err)
-	}
-
-	slog.Info("exceptions: loaded", "count", len(o.exceptions))
-	return nil
-}
-
-// ApplyExceptions cross-references findings against loaded exceptions.
-// A FAIL finding that matches an active (non-expired) exception has its
-// status changed to EXCEPTED. Expired exceptions are ignored.
-func (o *Orchestrator) ApplyExceptions(findings []types.Finding, now time.Time) []types.Finding {
-	if len(o.exceptions) == 0 {
-		return findings
-	}
-
-	// Index active exceptions to avoid O(N*M) lookup.
-	type excKey struct {
-		ResourceIdentifier string
-		Check              string
-	}
-	activeExc := make(map[excKey]types.Exception, len(o.exceptions))
-	for _, exc := range o.exceptions {
-		if exc.IsActive(now) {
-			// In case of multiple active exceptions for the exact same resource and check,
-			// the original loop semantics match the *first* one found. Since we iterate forward,
-			// only insert if not already present.
-			key := excKey{exc.ResourceIdentifier, exc.Check}
-			if _, exists := activeExc[key]; !exists {
-				activeExc[key] = exc
-			}
-		}
-	}
-
-	if len(activeExc) == 0 {
-		return findings
-	}
-
-	for i := range findings {
-		if findings[i].Status != "FAIL" {
-			continue
-		}
-		key := excKey{findings[i].ResourceIdentifier, findings[i].Check}
-		if exc, ok := activeExc[key]; ok {
-			slog.Info("exceptions: applied",
-				"resource", exc.ResourceIdentifier,
-				"check", exc.Check,
-				"reason", exc.Reason,
-				"expires_at", exc.ExpiresAt,
-			)
-			findings[i].Status = "EXCEPTED"
-		}
-	}
-
-	return findings
-}
-
-// Extract runs all configured providers concurrently with bounded concurrency.
-// It collects findings from each provider and returns the aggregated results.
-// Context cancellation and per-provider timeouts are strictly enforced.
+// Extract loads declarative extraction configs for all available providers,
+// builds a unified job queue, and executes every ERL extraction concurrently
+// with bounded concurrency. It returns one Finding per ERL ID.
+//
+// This is the "blind extraction loop": no framework filtering, no evaluation.
+// Every ERL defined across all provider configs is executed unconditionally.
 func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
+	var jobs []extractionJob
+
+	// --- GCP CAI Provider ---
+	if o.cfg.CAIConfigPath != "" {
+		gcpJobs, err := o.buildGCPJobs(ctx)
+		if err != nil {
+			slog.Warn("orchestrator: skipping GCP CAI provider", "error", err)
+		} else {
+			jobs = append(jobs, gcpJobs...)
+		}
+	}
+
+	// --- AWS Config Provider ---
+	if o.cfg.AWSConfigPath != "" {
+		awsJobs, err := o.buildAWSJobs(ctx)
+		if err != nil {
+			slog.Warn("orchestrator: skipping AWS Config provider", "error", err)
+		} else {
+			jobs = append(jobs, awsJobs...)
+		}
+	}
+
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("no extraction jobs available: check provider configs and credentials")
+	}
+
+	return o.executeJobs(ctx, jobs)
+}
+
+// executeJobs runs a slice of extractionJobs concurrently with bounded
+// concurrency and per-job timeouts. It collects all successful Findings
+// and returns them. Partial failures are logged as warnings. Total failure
+// (zero findings) returns an error.
+func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([]types.Finding, error) {
 	var (
 		mu          sync.Mutex
 		allFindings []types.Finding
 		errs        []error
 	)
 
-	// Semaphore channel to bound concurrency.
 	sem := make(chan struct{}, o.cfg.Concurrency)
-
 	var wg sync.WaitGroup
 
-	for _, name := range o.cfg.Providers {
-		p, err := providers.Get(name)
-		if err != nil {
-			return nil, fmt.Errorf("provider lookup failed: %w", err)
-		}
-
-		// Validate credentials before launching the extraction goroutine.
-		if err := p.Validate(); err != nil {
-			return nil, fmt.Errorf("provider %q validation failed: %w", name, err)
-		}
-
+	for _, job := range jobs {
 		wg.Add(1)
-		go func(provider providers.Provider) {
+		go func(j extractionJob) {
 			defer wg.Done()
 
 			// Acquire semaphore slot.
@@ -155,48 +121,49 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
 				defer func() { <-sem }()
 			case <-ctx.Done():
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("provider %q: context cancelled before start", provider.Name()))
+				errs = append(errs, fmt.Errorf("erl %q: context cancelled before start", j.erlID))
 				mu.Unlock()
 				return
 			}
 
-			// Per-provider timeout context.
-			providerCtx, cancel := context.WithTimeout(ctx, o.cfg.Timeout)
+			// Per-ERL timeout context.
+			erlCtx, cancel := context.WithTimeout(ctx, o.cfg.Timeout)
 			defer cancel()
 
-			slog.Info("extract: starting provider",
-				"provider", provider.Name(),
+			slog.Info("extract: starting ERL extraction",
+				"erl_id", j.erlID,
+				"description", j.description,
 				"run_id", o.cfg.RunID,
 			)
 
-			findings, err := provider.Extract(providerCtx, o.cfg.RunID)
+			finding, err := j.execute(erlCtx)
 			if err != nil {
-				slog.Error("extract: provider failed",
-					"provider", provider.Name(),
+				slog.Error("extract: ERL extraction failed",
+					"erl_id", j.erlID,
 					"error", err,
 				)
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("provider %q: %w", provider.Name(), err))
+				errs = append(errs, fmt.Errorf("erl %q: %w", j.erlID, err))
 				mu.Unlock()
 				return
 			}
 
-			slog.Info("extract: provider completed",
-				"provider", provider.Name(),
-				"findings_count", len(findings),
+			slog.Info("extract: ERL extraction complete",
+				"erl_id", j.erlID,
+				"raw_data_bytes", len(finding.RawData),
 			)
 
 			mu.Lock()
-			allFindings = append(allFindings, findings...)
+			allFindings = append(allFindings, finding)
 			mu.Unlock()
-		}(p)
+		}(job)
 	}
 
 	wg.Wait()
 
 	if len(errs) > 0 && len(allFindings) == 0 {
-		// Total failure: no findings extracted from any provider.
-		return nil, fmt.Errorf("all providers failed: %v", errs)
+		// Total failure: no findings extracted from any ERL.
+		return nil, fmt.Errorf("all ERL extractions failed: %v", errs)
 	}
 
 	if len(errs) > 0 {
@@ -207,4 +174,67 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
 	}
 
 	return allFindings, nil
+}
+
+// buildGCPJobs loads the GCP CAI config and creates extraction jobs.
+func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error) {
+	configs, err := gcp.LoadCAIConfigs(o.cfg.CAIConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading GCP CAI configs: %w", err)
+	}
+
+	provider, err := gcp.NewUnifiedCAIProvider(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("initializing GCP CAI provider: %w", err)
+	}
+	// Note: provider.Close() is deferred by the caller after Extract completes.
+	// We register a cleanup via context cancellation or let the process exit handle it.
+
+	var jobs []extractionJob
+	for erlID, cfg := range configs {
+		id := erlID
+		c := cfg
+		jobs = append(jobs, extractionJob{
+			erlID:       id,
+			description: c.Description,
+			execute: func(ctx context.Context) (types.Finding, error) {
+				return provider.Extract(ctx, id, c, o.cfg.RunID)
+			},
+		})
+	}
+
+	return jobs, nil
+}
+
+// buildAWSJobs loads the AWS Config extraction config and creates extraction jobs.
+func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error) {
+	// Verify AWS credentials are available before attempting to load.
+	if os.Getenv("AWS_REGION") == "" && os.Getenv("AWS_DEFAULT_REGION") == "" {
+		return nil, fmt.Errorf("AWS_REGION or AWS_DEFAULT_REGION is required for AWS Config provider")
+	}
+
+	configs, err := awsconfig.LoadAWSConfigExtractions(o.cfg.AWSConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("loading AWS Config extractions: %w", err)
+	}
+
+	provider, err := awsconfig.NewUnifiedAWSConfigProvider(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("initializing AWS Config provider: %w", err)
+	}
+
+	var jobs []extractionJob
+	for erlID, cfg := range configs {
+		id := erlID
+		c := cfg
+		jobs = append(jobs, extractionJob{
+			erlID:       id,
+			description: c.Description,
+			execute: func(ctx context.Context) (types.Finding, error) {
+				return provider.Extract(ctx, id, c, o.cfg.RunID)
+			},
+		})
+	}
+
+	return jobs, nil
 }

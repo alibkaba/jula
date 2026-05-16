@@ -1,0 +1,51 @@
+{
+  "E-GOV-01": {
+    "description": "Cybersecurity Program Charter",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["cloudresourcemanager.googleapis.com/Project"],
+    "query": ""
+  },
+  "E-BCM-16": {
+    "description": "Encrypted Database Instances",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["sqladmin.googleapis.com/Instance"],
+    "query": "state:RUNNING"
+  },
+  "E-NET-05": {
+    "description": "Firewall Rules",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["compute.googleapis.com/Firewall"],
+    "query": ""
+  },
+  "E-CRY-04": {
+    "description": "KMS Encryption Keys",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["cloudkms.googleapis.com/CryptoKey"],
+    "query": ""
+  },
+  "E-IAM-03": {
+    "description": "IAM Service Accounts",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["iam.googleapis.com/ServiceAccount"],
+    "query": ""
+  },
+  "E-LOG-01": {
+    "description": "Audit Log Sinks",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["logging.googleapis.com/LogSink"],
+    "query": ""
+  },
+  "E-STG-02": {
+    "description": "Cloud Storage Buckets",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": ["storage.googleapis.com/Bucket"],
+    "query": ""
+  }
+}

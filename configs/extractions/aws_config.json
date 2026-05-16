@@ -1,0 +1,37 @@
+{
+  "E-STG-02": {
+    "description": "S3 Bucket Configurations",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
+  },
+  "E-NET-05": {
+    "description": "Security Groups",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::EC2::SecurityGroup'"
+  },
+  "E-IAM-03": {
+    "description": "IAM Roles",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::IAM::Role'"
+  },
+  "E-CRY-04": {
+    "description": "KMS Encryption Keys",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::KMS::Key'"
+  },
+  "E-LOG-01": {
+    "description": "CloudTrail Trails",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::CloudTrail::Trail'"
+  },
+  "E-BCM-16": {
+    "description": "RDS Database Instances",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::RDS::DBInstance'"
+  },
+  "E-GOV-01": {
+    "description": "AWS Account Configuration",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration WHERE resourceType = 'AWS::Config::ConfigurationRecorder'"
+  }
+}

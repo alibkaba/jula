@@ -25,12 +25,10 @@ type TokenProvider interface {
 
 // GCSReporter writes evidence artifacts to a Google Cloud Storage bucket.
 type GCSReporter struct {
-	BucketName       string
-	SigningKey       *ecdsa.PrivateKey
-	HTTPClient       *http.Client
-	TokenProvider    TokenProvider
-	Format           string
-	ConsolidatedOnly bool
+	BucketName    string
+	SigningKey    *ecdsa.PrivateKey
+	HTTPClient    *http.Client
+	TokenProvider TokenProvider
 	// baseURL allows overriding the GCS API endpoint for testing.
 	baseURL string
 }
@@ -92,16 +90,15 @@ func (r *GCSReporter) Validate(ctx context.Context) error {
 }
 
 // Deliver formats, signs, and uploads evidence to the GCS bucket.
-// Object path structure: {runDate}/{framework}/{criteria_id}/{finding_id}.json
+// Object path structure: {runDate}/evidence/{erl_id}/{hash}.json
+//
+// This routing is purely ERL-based. There are no framework or criteria paths.
 func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, runID string) (*types.Manifest, error) {
 	runDate := time.Now().UTC().Format("2006-01-02")
 	manifest := &types.Manifest{
 		RunID:     runID,
 		Timestamp: time.Now().UTC(),
 	}
-
-	providerSet := make(map[string]bool)
-	evidenceByFramework := make(map[string][]types.Evidence)
 
 	for _, ev := range evidence {
 		select {
@@ -110,83 +107,36 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		default:
 		}
 
-		providerSet[ev.Finding.Provider] = true
-		evidenceByFramework[ev.Framework] = append(evidenceByFramework[ev.Framework], ev)
-
-		criteria := ev.Criteria
-		if len(criteria) == 0 {
-			criteria = []string{"unmapped"}
-		}
-
-		if !r.ConsolidatedOnly {
-			data, err := json.MarshalIndent(ev, "", "  ")
-			if err != nil {
-				return nil, fmt.Errorf("marshalling evidence: %w", err)
-			}
-
-			for _, criterion := range criteria {
-				safeResource := SanitizeResourceID(ev.Finding.ResourceIdentifier)
-				objectName := fmt.Sprintf("%s/%s/%s/%s_%s_%s.json", runDate, ev.Framework, criterion, ev.Finding.ID, safeResource, runID)
-
-				if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
-					return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
-				}
-
-				manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-					Path:   objectName,
-					SHA256: crypto.HashFile(data),
-				})
-
-				slog.Debug("gcs: uploaded evidence",
-					"object", objectName,
-					"finding_id", ev.Finding.ID,
-					"criteria", criterion,
-				)
-			}
-		}
-	}
-
-	// Generate a consolidated JSON file for each framework
-	for f, frameworkEvidence := range evidenceByFramework {
-		aggregateData, err := json.MarshalIndent(frameworkEvidence, "", "  ")
+		data, err := json.MarshalIndent(ev, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("marshalling aggregate evidence: %w", err)
+			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
 		}
 
-		fileName := fmt.Sprintf("%s_all_controls.json", f)
-		objectName := fmt.Sprintf("%s/%s/%s", runDate, f, fileName)
-		if err := r.uploadObject(ctx, objectName, aggregateData, "application/json"); err != nil {
-			return nil, fmt.Errorf("uploading aggregate evidence %s: %w", objectName, err)
+		// Use the payload hash as the filename for immutability.
+		objectName := fmt.Sprintf("%s/evidence/%s/%s.json", runDate, ev.ErlID, ev.PayloadHash)
+
+		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
+			return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
 		}
 
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 			Path:   objectName,
-			SHA256: crypto.HashFile(aggregateData),
+			SHA256: crypto.HashFile(data),
 		})
 
-		slog.Debug("gcs: uploaded consolidated framework evidence", "object", objectName)
+		slog.Debug("gcs: uploaded evidence",
+			"object", objectName,
+			"erl_id", ev.ErlID,
+		)
 	}
-
-	// Generate CSV Ledger
-	csvData, err := FormatCSVReport(evidence, runDate, runID)
-	if err != nil {
-		return nil, fmt.Errorf("formatting csv report: %w", err)
-	}
-	csvObjectName := fmt.Sprintf("%s/evidence_ledger.csv", runDate)
-	if err := r.uploadObject(ctx, csvObjectName, csvData, "text/csv"); err != nil {
-		return nil, fmt.Errorf("uploading csv report: %w", err)
-	}
-	manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
-		Path:   csvObjectName,
-		SHA256: crypto.HashFile(csvData),
-	})
 
 	// Populate manifest metadata.
+	providerSet := make(map[string]bool)
+	for _, ev := range evidence {
+		providerSet[ev.Finding.Provider] = true
+	}
 	for p := range providerSet {
 		manifest.Providers = append(manifest.Providers, p)
-	}
-	for f := range evidenceByFramework {
-		manifest.Frameworks = append(manifest.Frameworks, f)
 	}
 
 	// Sign the manifest.

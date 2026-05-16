@@ -9,11 +9,11 @@ type FileChecksum struct {
 }
 
 // Manifest provides cryptographic proof of the evidence run.
+// In the "Collector Only" paradigm, there are no framework references.
 type Manifest struct {
 	RunID         string         `json:"run_id"`
 	Timestamp     time.Time      `json:"timestamp"`
 	Providers     []string       `json:"providers"`
-	Frameworks    []string       `json:"frameworks"`
 	EvidenceFiles []FileChecksum `json:"evidence_files"`
 	Signature     string         `json:"signature"`
 }
