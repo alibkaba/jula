@@ -14,7 +14,6 @@ env:
   IMAGE_NAME: jula
   AWS_REGISTRY: 352486518067.dkr.ecr.us-east-1.amazonaws.com
   AWS_REPOSITORY: jula-evidence-collector
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ==========================================
