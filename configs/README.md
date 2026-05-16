@@ -1,39 +1,23 @@
-# Configs: Declarative Rule System
+# Configs: Declarative Extraction System
 
-This directory contains the declarative configuration that drives the Jula Evidence Collector's policy evaluation engine. The Go code in `internal/` is stateless by design: all compliance logic, thresholds, and criteria mappings are defined here as data.
+This directory contains the declarative configurations that drive the **Jula Evidence Collector**. In the "Collector-Only" architecture, these files define *what* raw infrastructure state to extract, but they contain no evaluation logic or compliance mapping.
 
 ## File Reference
 
-| File | Purpose |
+| Directory | Purpose |
 | :--- | :--- |
-| `soc2_mapping.json` | **Current (Production):** Maps infrastructure findings to specific AICPA Trust Services Criteria (e.g., CC6.1, CC7.2). This is the primary rule file that determines which `Finding` satisfies which SOC 2 control. |
-| `iso27001_mapping.json`| **Next Up (Near-Term):** (In Development) Maps infrastructure findings to ISO 27001:2022 Annex A controls. This is the immediate roadmap priority for the Jula ecosystem. |
-| `gcp_policy.json` | Defines environment-specific policy thresholds, such as the maximum allowed age for KMS key rotation (90 days) or the required backup retention period for Cloud SQL instances. |
-| `exceptions.json` | Documents approved exceptions to policy rules. When a specific resource is intentionally non-compliant (e.g., a public-facing storage bucket for static assets), the exception is recorded here with a justification and expiration date. |
+| `extractions/` | **Core Extraction Rules:** JSON files defining the queries used by the GCP, AWS, and SaaS engines to pull raw state. |
+| `schemas/oscal/` | **Standardized Schemas:** OSCAL-formatted JSON definitions used by downstream tools (Jula EE) to map the raw ERL IDs to compliance frameworks (SCF, SOC 2, ISO 27001). |
 
-## Roadmap & Upcoming Rules
+## Extraction Configurations
 
-We ruthlessly prioritize mapping files that unblock enterprise revenue. The release schedule for new framework mappings is as follows:
+### 1. Cloud Infrastructure
+- **GCP (`gcp_cai.json`):** Defines the Resource Types and Content Types to extract via the Cloud Asset Inventory.
+- **AWS (`aws_config.json`):** Defines the SQL-like Advanced Queries used to extract resource configurations from AWS Config.
 
-1. **Immediate (v1.x):** `iso27001_mapping.json` (ISO 27001:2022 Annex A).
-2. **Future (v2.x+):** NIST CSF, CIS Foundations Benchmarks, PCI-DSS, and HIPAA.
+### 2. SaaS & External APIs
+- **SaaS (`saas_http.json`):** Defines the API endpoints, pagination logic, and authentication requirements for extracting state from third-party tools (e.g., GitHub, Aikido).
 
-## Schemas
+## Roadmap
 
-```
-configs/
-└── schemas/
-    └── byoe_vulnerability_scan.json
-```
-
-The `schemas/` subdirectory contains JSON Schema (draft-07) definitions used by the `filedrop` provider to validate inbound BYOE evidence. When a client drops a vulnerability scan JSON file into the FileDrop bucket, Jula validates it against the corresponding schema before parsing and evaluation.
-
-To add a new BYOE evidence type, create a new schema file in this directory and reference it from the filedrop provider's processing logic.
-
-## Editing Guidelines
-
-These files are the source of truth for the compliance engine. Changes to mapping rules or policy thresholds directly affect what Jula reports as PASS or FAIL.
-
-- **Adding a new control mapping:** Add an entry to `soc2_mapping.json` with the finding ID, criteria reference, and evaluation logic.
-- **Adjusting a threshold:** Modify the relevant value in `gcp_policy.json` (e.g., changing the rotation window from 90 to 60 days).
-- **Approving an exception:** Add a new entry to `exceptions.json` with the resource identifier, justification, approver, and expiration timestamp.
+The mapping of Evidence Request List (ERL) IDs to specific compliance frameworks (SOC 2, HIPAA, ISO 27001) is handled by the downstream **Jula EE** evaluator. This collector remains a high-performance, blind extraction engine that focuses purely on the cryptographic integrity and immutability of the evidence artifacts.
