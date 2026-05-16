@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.3.0...v1.4.0) (2026-05-16)
+
+
+### Features
+
+* add universal http engine, purge legacy csv/byoe/imperative providers ([ca4841f](https://github.com/alibkaba/jula-evidence-collector/commit/ca4841f768cd7858352a99e298f29a87ed33c878))
+* migrate to collector-only architecture with aws config integration ([53c95b4](https://github.com/alibkaba/jula-evidence-collector/commit/53c95b4a5348c8f6cb47c7bcab4014ff42820e1d))
+* migrate to collector-only architecture with aws config integration ([91a0f44](https://github.com/alibkaba/jula-evidence-collector/commit/91a0f4475e10f27efc7aed67365de124ad95f348))
+
+
+### Bug Fixes
+
+* rewrite run_test.go for collector-only architecture, remove legacy provider/framework tests ([34fdf0a](https://github.com/alibkaba/jula-evidence-collector/commit/34fdf0a1544d81530ef38b2207c94e06476ad1ff))
+
 ## [1.3.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.2.0...v1.3.0) (2026-05-13)
 
 
