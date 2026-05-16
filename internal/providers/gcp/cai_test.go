@@ -2,8 +2,13 @@ package gcp
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strings"
 	"testing"
+
+	"cloud.google.com/go/asset/apiv1/assetpb"
+	"google.golang.org/api/iterator"
 )
 
 func TestLoadCAIConfigs_Invalid(t *testing.T) {
@@ -86,6 +91,94 @@ func TestInterpolateEnvVars(t *testing.T) {
 			got := interpolateEnvVars(tt.input)
 			if got != tt.expected {
 				t.Errorf("interpolateEnvVars() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+type mockResourceIterator struct {
+	Items []*assetpb.ResourceSearchResult
+	Err   error
+	pos   int
+}
+
+func (m *mockResourceIterator) Next() (*assetpb.ResourceSearchResult, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	if m.pos >= len(m.Items) {
+		return nil, iterator.Done
+	}
+	item := m.Items[m.pos]
+	m.pos++
+	return item, nil
+}
+
+type mockAssetSearcher struct {
+	Iter *mockResourceIterator
+}
+
+func (m *mockAssetSearcher) SearchAllResources(ctx context.Context, req *assetpb.SearchAllResourcesRequest) ResourceIterator {
+	return m.Iter
+}
+
+func (m *mockAssetSearcher) Close() error {
+	return nil
+}
+
+func TestUnifiedCAIProvider_Extract(t *testing.T) {
+	tests := []struct {
+		name          string
+		mockItems     []*assetpb.ResourceSearchResult
+		mockErr       error
+		expectErrStr  string
+		expectRawData string
+	}{
+		{
+			name: "Success with items",
+			mockItems: []*assetpb.ResourceSearchResult{
+				{Name: "projects/123/assets/foo"},
+			},
+			expectRawData: `projects/123/assets/foo`,
+		},
+		{
+			name: "Success empty",
+			mockItems: []*assetpb.ResourceSearchResult{},
+			expectRawData: `[]`,
+		},
+		{
+			name: "Iterator error",
+			mockErr:      fmt.Errorf("cai api error"),
+			expectErrStr: "cai api error",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			iter := &mockResourceIterator{
+				Items: tc.mockItems,
+				Err:   tc.mockErr,
+			}
+			provider := &UnifiedCAIProvider{
+				client: &mockAssetSearcher{Iter: iter},
+			}
+
+			finding, err := provider.Extract(context.Background(), "E-TEST", CAIConfig{Scope: "projects/123"}, "test-run")
+			if tc.expectErrStr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.expectErrStr) {
+					t.Errorf("expected error containing %q, got %v", tc.expectErrStr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			
+			if len(tc.mockItems) > 0 && !strings.Contains(string(finding.RawData), tc.expectRawData) {
+				t.Errorf("expected RawData to contain %s, got %s", tc.expectRawData, string(finding.RawData))
+			}
+			if len(tc.mockItems) == 0 && string(finding.RawData) != "[]" {
+				t.Errorf("expected [], got %s", string(finding.RawData))
 			}
 		})
 	}

@@ -56,8 +56,33 @@ type CAIConfig struct {
 //
 // This provider is not registered via init() because it requires
 // explicit configuration loading and client initialization.
-type UnifiedCAIProvider struct {
+// ResourceIterator abstracts the CAI result pagination.
+type ResourceIterator interface {
+	Next() (*assetpb.ResourceSearchResult, error)
+}
+
+// AssetSearcher abstracts the CAI API client.
+type AssetSearcher interface {
+	SearchAllResources(ctx context.Context, req *assetpb.SearchAllResourcesRequest) ResourceIterator
+	Close() error
+}
+
+type defaultAssetSearcher struct {
 	client *asset.Client
+}
+
+func (s *defaultAssetSearcher) SearchAllResources(ctx context.Context, req *assetpb.SearchAllResourcesRequest) ResourceIterator {
+	return s.client.SearchAllResources(ctx, req)
+}
+
+func (s *defaultAssetSearcher) Close() error {
+	return s.client.Close()
+}
+
+// UnifiedCAIProvider implements the evidence extraction engine using
+// Google Cloud Asset Inventory's SearchAllResources API.
+type UnifiedCAIProvider struct {
+	client AssetSearcher
 }
 
 // NewUnifiedCAIProvider creates a new CAI provider with an authenticated
@@ -69,7 +94,7 @@ func NewUnifiedCAIProvider(ctx context.Context) (*UnifiedCAIProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initializing CAI client: %w", err)
 	}
-	return &UnifiedCAIProvider{client: client}, nil
+	return &UnifiedCAIProvider{client: &defaultAssetSearcher{client: client}}, nil
 }
 
 // Close releases the underlying gRPC connection to the CAI API.
@@ -109,7 +134,7 @@ func (p *UnifiedCAIProvider) Extract(ctx context.Context, erlID string, config C
 	// Execute the search and iterate through all pages of results.
 	it := p.client.SearchAllResources(ctx, req)
 
-	var resources []map[string]any
+	resources := make([]map[string]any, 0)
 	for {
 		resource, err := it.Next()
 		if err == iterator.Done {

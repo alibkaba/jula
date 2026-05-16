@@ -45,7 +45,7 @@ type AWSConfigExtraction struct {
 // This provider strictly uses the github.com/aws/aws-sdk-go-v2/service/configservice
 // package and AWS-native pagination via NewSelectResourceConfigPaginator.
 type UnifiedAWSConfigProvider struct {
-	client *configservice.Client
+	client configservice.SelectResourceConfigAPIClient
 	region string
 }
 
