@@ -7,8 +7,13 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func generateTestKey() (string, error) {
@@ -27,6 +32,10 @@ func generateTestKey() (string, error) {
 	return string(pem.EncodeToMemory(pemBlock)), nil
 }
 
+// TestHandleRun_HappyPath verifies that handleRun passes CLI validation
+// (PEM parsing, target/path resolution) before reaching the extraction
+// stage. It is expected to fail at extraction since no cloud credentials
+// or config files are available in CI.
 func TestHandleRun_HappyPath(t *testing.T) {
 	key, err := generateTestKey()
 	if err != nil {
@@ -34,105 +43,64 @@ func TestHandleRun_HappyPath(t *testing.T) {
 	}
 
 	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
 
 	err = handleRun([]string{})
 
-	// It's expected to fail downstream (e.g., at extraction if no real creds),
-	// but we want to make sure it doesn't fail at PEM parsing or CLI validation.
+	// It's expected to fail at extraction (no configs/creds in CI),
+	// but should NOT fail at CLI validation.
 	if err != nil {
 		if strings.Contains(err.Error(), "failed to decode PEM block") ||
 			strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY") ||
-			strings.Contains(err.Error(), "provider is required") ||
-			strings.Contains(err.Error(), "framework is required") ||
 			strings.Contains(err.Error(), "target is required") {
 			t.Errorf("handleRun() failed at CLI validation stage: %v", err)
 		}
 	}
 }
 
-func TestHandleRun_ValidationFailures(t *testing.T) {
+// TestHandleRun_MissingTarget verifies that handleRun requires a target.
+func TestHandleRun_MissingTarget(t *testing.T) {
 	key, _ := generateTestKey()
 	t.Setenv("JULA_SIGNING_KEY", key)
+	t.Setenv("JULA_OUTPUT_TARGET", "")
+	t.Setenv("JULA_OUTPUT_PATH", "/tmp")
 
-	tests := []struct {
-		name    string
-		env     map[string]string
-		wantErr string
-	}{
-		{
-			name: "empty provider",
-			env: map[string]string{
-				"JULA_PROVIDER":      "",
-				"JULA_FRAMEWORK":     "soc2",
-				"JULA_OUTPUT_TARGET": "local",
-				"JULA_OUTPUT_PATH":   "/tmp",
-			},
-			wantErr: "provider is required",
-		},
-		{
-			name: "invalid provider",
-			env: map[string]string{
-				"JULA_PROVIDER":      "azure",
-				"JULA_FRAMEWORK":     "soc2",
-				"JULA_OUTPUT_TARGET": "local",
-				"JULA_OUTPUT_PATH":   "/tmp",
-			},
-			wantErr: "unknown provider",
-		},
-		{
-			name: "empty framework",
-			env: map[string]string{
-				"JULA_PROVIDER":      "gcp",
-				"JULA_FRAMEWORK":     "",
-				"JULA_OUTPUT_TARGET": "local",
-				"JULA_OUTPUT_PATH":   "/tmp",
-			},
-			wantErr: "framework is required",
-		},
-		{
-			name: "invalid framework",
-			env: map[string]string{
-				"JULA_PROVIDER":      "gcp",
-				"JULA_FRAMEWORK":     "hipaa",
-				"JULA_OUTPUT_TARGET": "local",
-				"JULA_OUTPUT_PATH":   "/tmp",
-			},
-			wantErr: "unknown framework",
-		},
-		{
-			name: "empty target",
-			env: map[string]string{
-				"JULA_PROVIDER":      "gcp",
-				"JULA_FRAMEWORK":     "soc2",
-				"JULA_OUTPUT_TARGET": "",
-				"JULA_OUTPUT_PATH":   "/tmp",
-			},
-			wantErr: "target is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for k, v := range tt.env {
-				t.Setenv(k, v)
-			}
-			err := handleRun([]string{})
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("handleRun() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	err := handleRun([]string{})
+	if err == nil || !strings.Contains(err.Error(), "target is required") {
+		t.Errorf("expected 'target is required' error, got: %v", err)
 	}
 }
 
+// TestHandleRun_MissingPath verifies that handleRun requires a path.
+func TestHandleRun_MissingPath(t *testing.T) {
+	key, _ := generateTestKey()
+	t.Setenv("JULA_SIGNING_KEY", key)
+	t.Setenv("JULA_OUTPUT_TARGET", "local")
+	t.Setenv("JULA_OUTPUT_PATH", "")
+
+	err := handleRun([]string{})
+	if err == nil || !strings.Contains(err.Error(), "path is required") {
+		t.Errorf("expected 'path is required' error, got: %v", err)
+	}
+}
+
+// TestHandleRun_UnknownTarget verifies that unknown delivery targets are rejected.
+func TestHandleRun_UnknownTarget(t *testing.T) {
+	key, _ := generateTestKey()
+	t.Setenv("JULA_SIGNING_KEY", key)
+	t.Setenv("JULA_OUTPUT_TARGET", "s3")
+	t.Setenv("JULA_OUTPUT_PATH", "s3://test-bucket")
+
+	err := handleRun([]string{})
+	if err == nil || !strings.Contains(err.Error(), "unknown target") {
+		t.Errorf("expected 'unknown target' error, got: %v", err)
+	}
+}
+
+// TestHandleRun_InvalidKey verifies that a non-PEM signing key is rejected.
 func TestHandleRun_InvalidKey(t *testing.T) {
 	t.Setenv("JULA_SIGNING_KEY", "invalid-hex-garbage")
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
 
@@ -145,31 +113,14 @@ func TestHandleRun_InvalidKey(t *testing.T) {
 	}
 }
 
-func TestHandleRun_GCSTarget(t *testing.T) {
-	key, _ := generateTestKey()
-	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
-	t.Setenv("JULA_OUTPUT_TARGET", "gcs")
-	t.Setenv("JULA_OUTPUT_PATH", "gs://test-bucket")
-	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
-
-	err := handleRun([]string{})
-	if err != nil && (strings.Contains(err.Error(), "failed to decode PEM block") || strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY")) {
-		t.Errorf("expected no PEM parsing error, got: %v", err)
-	}
-}
-
+// TestHandleRun_WrongKeyType verifies that an RSA key is rejected (we require EC).
 func TestHandleRun_WrongKeyType(t *testing.T) {
-	// RSA key in PEM block
 	privKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	der := x509.MarshalPKCS1PrivateKey(privKey)
 	pemBlock := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: der}
 	pemString := string(pem.EncodeToMemory(pemBlock))
 
 	t.Setenv("JULA_SIGNING_KEY", pemString)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
 
@@ -182,32 +133,12 @@ func TestHandleRun_WrongKeyType(t *testing.T) {
 	}
 }
 
-func TestHandleRun_S3Target(t *testing.T) {
+// TestHandleRun_GCSTarget verifies that the GCS target passes CLI validation.
+func TestHandleRun_GCSTarget(t *testing.T) {
 	key, _ := generateTestKey()
 	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
-	t.Setenv("JULA_OUTPUT_TARGET", "s3")
-	t.Setenv("JULA_OUTPUT_PATH", "s3://test-bucket")
-	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
-
-	err := handleRun([]string{})
-	if err == nil {
-		t.Fatal("expected error for s3 target (not implemented)")
-	}
-	if !strings.Contains(err.Error(), "reporter not implemented for target: s3") {
-		t.Errorf("expected reporter not implemented error, got: %v", err)
-	}
-}
-
-func TestHandleRun_MultipleProviders(t *testing.T) {
-	key, _ := generateTestKey()
-	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp,aws")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
-	t.Setenv("JULA_OUTPUT_TARGET", "local")
-	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
+	t.Setenv("JULA_OUTPUT_TARGET", "gcs")
+	t.Setenv("JULA_OUTPUT_PATH", "gs://test-bucket")
 
 	err := handleRun([]string{})
 	if err != nil && (strings.Contains(err.Error(), "failed to decode PEM block") || strings.Contains(err.Error(), "parsing JULA_SIGNING_KEY")) {
@@ -215,29 +146,10 @@ func TestHandleRun_MultipleProviders(t *testing.T) {
 	}
 }
 
-func TestHandleRun_ISO27001Framework(t *testing.T) {
-	key, _ := generateTestKey()
-	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "iso27001")
-	t.Setenv("JULA_OUTPUT_TARGET", "local")
-	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
-	t.Setenv("JULA_ENVIRONMENT_ID", "test-project")
-
-	err := handleRun([]string{})
-	if err == nil {
-		t.Fatal("expected error for iso27001 framework (mapper not implemented)")
-	}
-	if !strings.Contains(err.Error(), "mapper not implemented for framework: iso27001") {
-		t.Errorf("expected mapper not implemented error, got: %v", err)
-	}
-}
-
+// TestHandleRun_InvalidTimeout verifies that invalid timeout durations are rejected.
 func TestHandleRun_InvalidTimeout(t *testing.T) {
 	key, _ := generateTestKey()
 	t.Setenv("JULA_SIGNING_KEY", key)
-	t.Setenv("JULA_PROVIDER", "gcp")
-	t.Setenv("JULA_FRAMEWORK", "soc2")
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", "/tmp")
 
@@ -247,9 +159,80 @@ func TestHandleRun_InvalidTimeout(t *testing.T) {
 	}
 }
 
+// TestHandleRun_BadFlagParsing verifies that unknown CLI flags are rejected.
 func TestHandleRun_BadFlagParsing(t *testing.T) {
 	err := handleRun([]string{"--unknown-flag"})
 	if err == nil {
 		t.Fatal("expected error for unknown flag")
+	}
+}
+
+// TestHandleRun_NoExtractionsAvailable verifies that when all provider configs
+// are missing and no credentials are set, the engine returns a clear error
+// rather than a panic or nil pointer.
+func TestHandleRun_NoExtractionsAvailable(t *testing.T) {
+	key, _ := generateTestKey()
+	t.Setenv("JULA_SIGNING_KEY", key)
+	t.Setenv("JULA_OUTPUT_TARGET", "local")
+	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
+
+	err := handleRun([]string{})
+	if err == nil {
+		t.Fatal("expected error when no extraction configs are available")
+	}
+	if !strings.Contains(err.Error(), "no extraction jobs available") {
+		t.Errorf("expected 'no extraction jobs available' error, got: %v", err)
+	}
+}
+
+// TestHandleRun_FullExecution tests the full pipeline through extraction and delivery
+// by utilizing a mocked SaaS HTTP endpoint to guarantee a successful extraction.
+func TestHandleRun_FullExecution(t *testing.T) {
+	// 1. Setup Mock HTTP Server to act as our SaaS provider
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "success", "data": "mock_evidence"}`))
+	}))
+	defer ts.Close()
+
+	// 2. Create a temporary SaaS configuration pointing to our mock server
+	outDir := t.TempDir()
+	saasConfigPath := filepath.Join(outDir, "saas_mock.json")
+	mockConfig := []byte(`{
+		"E-MOCK-01": {
+			"description": "Mock HTTP Extraction",
+			"provider": "saas_http",
+			"method": "GET",
+			"url": "` + ts.URL + `"
+		}
+	}`)
+	if err := os.WriteFile(saasConfigPath, mockConfig, 0644); err != nil {
+		t.Fatalf("failed to write mock config: %v", err)
+	}
+
+	// 3. Setup environment variables
+	key, _ := generateTestKey()
+	t.Setenv("JULA_SIGNING_KEY", key)
+	t.Setenv("JULA_OUTPUT_TARGET", "local")
+	t.Setenv("JULA_OUTPUT_PATH", outDir)
+	
+	// Force the engine to use our mock config and ignore GCP/AWS
+	t.Setenv("JULA_SAAS_CONFIG_PATH", saasConfigPath)
+	t.Setenv("JULA_CAI_CONFIG_PATH", filepath.Join(outDir, "missing_cai.json"))
+	t.Setenv("JULA_AWS_CONFIG_PATH", filepath.Join(outDir, "missing_aws.json"))
+
+	// 4. Run the command
+	err := handleRun([]string{})
+
+	// 5. Assertions
+	if err != nil {
+		t.Fatalf("expected full execution to succeed, but got error: %v", err)
+	}
+
+	// 8. Verify that the output was generated (checking for the manifest.json file)
+	runDate := time.Now().UTC().Format("2006-01-02")
+	manifestPath := filepath.Join(outDir, runDate, "manifest.json")
+	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
+		t.Errorf("expected manifest.json to be created at %s", manifestPath)
 	}
 }

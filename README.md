@@ -8,7 +8,7 @@
 
 **Primary Language:** Go (Golang)
 
-A high-performance, open-source CLI tool that programmatically extracts infrastructure state to generate continuous compliance telemetry. 
+A high-performance, open-source CLI tool that programmatically extracts infrastructure state from multiple cloud providers to generate continuous compliance telemetry. Jula operates as a "Collector-Only" engine: it extracts raw infrastructure configuration, cryptographically signs it, and stores immutable evidence artifacts. No evaluation, no dashboards, no opinions.
 
 ## The Philosophy: Attestation Engineering vs. Traditional GRC
 
@@ -16,13 +16,13 @@ Modern compliance platforms charge massive premiums for monolithic dashboards, f
 
 Of the five core pillars of traditional Governance, Risk, and Compliance (GRC), we deliberately built Jula to attack only two.
 
-### 🎯 What We Attack (The Revenue Blockers)
+### What We Attack (The Revenue Blockers)
 We focus exclusively on the two pillars that drain engineering sprint velocity and directly block you from passing audits to close enterprise deals. You don't need another shiny dashboard; you need cryptographic proof of your infrastructure. By programmatically extracting evidence directly from your APIs, we create an "Operational Buffer" that keeps auditors out of your CI/CD pipeline.
 
 1. **IT Risk & Compliance (ITRM):** Mapping technical controls directly to frameworks like SOC 2.
 2. **Audit Management:** Programmatically gathering, hashing, and storing cryptographic evidence.
 
-### 🛑 What We Intentionally Ignore (Bring Your Own Tools)
+### What We Intentionally Ignore (Bring Your Own Tools)
 Why pay a massive premium for redundant software? Traditional GRCs justify $30k+ annual contracts by bundling the remaining three pillars, forcing you to migrate workflows into their proprietary systems. We intentionally leave these out to eliminate software overhead, allowing you to leverage the tools your organization already pays for:
 
 * **Policy Management:** You don't need a specialized SaaS platform to host an Information Security Policy. Write it in Google Workspace, Notion, or Confluence, and use their native version history and access controls.
@@ -33,81 +33,110 @@ By pairing this containerized evidence collector with your existing tooling, you
 
 ---
 
-### Supported Frameworks
+## Architecture: The Collector-Only Paradigm
 
-We ruthlessly prioritize frameworks that unblock B2B enterprise revenue. 
+Jula uses a **declarative, config-driven** architecture. Instead of writing Go code for every new cloud resource you want to inspect, you simply add a SQL query to a JSON configuration file and the engine handles the rest.
 
-* **Current:** **SOC 2 (Type II)** (Full programmatic extraction for CC-Series, Confidentiality, and Availability).
-* **Next Up:** **ISO 27001:2022** (Annex A mapping is in active development).
-* **Future Roadmap:** NIST CSF (Executive maturity dashboards), CIS Foundations, PCI-DSS, and HIPAA.
+### Multi-Cloud Extraction Engine
+
+The orchestrator dispatches extraction jobs to all configured cloud providers **concurrently** with bounded concurrency. A single run produces a unified evidence set across your entire multi-cloud footprint.
+
+| Provider | Engine | Config File | API |
+|---|---|---|---|
+| **Google Cloud (GCP)** | `internal/providers/gcp/cai.go` | `configs/extractions/gcp_cai.json` | Cloud Asset Inventory (gRPC) |
+| **Amazon Web Services (AWS)** | `internal/providers/aws/config.go` | `configs/extractions/aws_config.json` | AWS Config Advanced Queries (SDK v2) |
+| **SaaS & External APIs** | `internal/providers/http_generic/engine.go` | `configs/extractions/saas_http.json` | Universal HTTP Engine (REST/GraphQL) |
+
+### How It Works
+
+1. **Declare:** Define what you want to extract in a JSON config file. Each entry maps an Evidence Request List (ERL) ID to a cloud-native query.
+2. **Extract:** The orchestrator loads all provider configs, initializes authenticated clients, and runs every extraction concurrently.
+3. **Sign:** Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing immutability and perfect deduplication.
+4. **Store:** Evidence files are written to `evidence-output/{date}/evidence/{ERL-ID}/`, namespaced by provider (e.g., `gcp_cai_{hash}.json`, `aws_config_{hash}.json`).
+5. **Manifest:** A cryptographically signed `manifest.json` is generated for the entire run, providing tamper-evident proof of collection.
+
+### Immutable Evidence & Cross-Cloud Deduplication
+
+Because filenames are derived from the SHA-256 hash of the raw data and prefixed with the provider name:
+
+- **Multiple clouds, same ERL:** If `E-BCM-16` (Databases) is extracted from both GCP and AWS, both files coexist in the `E-BCM-16/` directory without overwriting each other.
+- **Perfect deduplication:** Running the collector 100 times against unchanged infrastructure produces the exact same hash, silently overwriting the same file with identical data.
+- **Tamper detection:** If anyone manually modifies an evidence file, the contents will no longer match the filename hash, instantly flagging it as compromised.
 
 ## Quick Start
+
 ```bash
-go run cmd/jula/main.go
+# Build the Docker image
+docker build -t jula-evidence-collector:latest .
+
+# Run with GCP and AWS credentials
+docker run --rm \
+  -e JULA_GCP_PROJECT_ID="your-project-id" \
+  -e JULA_SIGNING_KEY="$JULA_SIGNING_KEY" \
+  -e AWS_REGION="us-east-1" \
+  -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+  -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/keys/sa.json \
+  -v ./keys:/keys:ro \
+  -v ./evidence-output:/evidence-output \
+  jula-evidence-collector:latest \
+  run -target local -path /evidence-output
 ```
-
-## Architecture
-
-1. **The Core Engine:** Handles CLI execution, concurrent Go routines, logging, and JSON report generation.
-2. **The Providers:** Isolated modules that handle API authentication and state extraction.
-3. **The Mappers:** Configuration files that map the raw telemetry from Providers to specific compliance frameworks.
-4. **The Reporters:** Deliver signed, cryptographically verifiable evidence directly to the client's own cloud storage vault (S3, GCS, Azure Blob), giving auditors direct access without a SaaS middleman.
-5. **Deployment & Compatibility:** The architecture is fundamentally cloud-agnostic and compiles to a standard Docker container.
-    * **Google Cloud (GCP):** Fully configured, rigorously tested, and actively deployed in production via Artifact Registry.
-    * **Amazon Web Services (AWS):** Integrated via a "Dual-Push" CI/CD strategy targeting ECR, enabling multi-cloud redundancy.
-    * **Azure:** Core extraction engine supports the environment; native API providers are currently on the roadmap.
 
 ## Directory Structure
 
 ```
 jula-evidence-collector/
 ├── cmd/jula/                  # CLI entrypoint, command parsing, and flag validation.
-├── internal/                  # Core domain logic (engine, providers, mappers, reporter).
-│   ├── engine/                #   Orchestrator: concurrent extraction pipeline.
-│   ├── providers/             #   Cloud API extractors (GCP) and BYOE FileDrop.
-│   ├── mappers/               #   SOC 2 policy evaluation and criteria mapping.
-│   └── reporter/              #   Output formatting (stdout, GCS upload).
+├── internal/                  # Core domain logic (engine, providers, reporter).
+│   ├── engine/                #   Orchestrator: multi-provider concurrent extraction pipeline.
+│   ├── providers/             #   Cloud API extractors.
+│   │   ├── gcp/               #     GCP Cloud Asset Inventory (CAI) engine.
+│   │   ├── aws/               #     AWS Config Advanced Queries engine.
+│   │   └── http_generic/      #     Universal HTTP engine for SaaS APIs (GitHub, Aikido, etc).
+│   ├── platform/              #   Runtime environment detection (GCP, AWS, Local).
+│   └── reporter/              #   Output: local filesystem with signed manifests.
 ├── pkg/                       # Shared libraries (crypto, types) importable by external tools.
-├── configs/                   # Declarative rules: mapping configs, policies, and JSON schemas.
-│   └── schemas/               #   BYOE validation schemas (e.g., vulnerability scans).
-├── frameworks/                # Public compliance framework documentation and control status.
-│   └── soc2/                  #   SOC 2 TSC control-by-control coverage tracking.
-├── remediation/               # Parameterized Terraform templates for fixing violations (gcp_, aws_).
-├── deploy/terraform/          # Internal IaC for deploying Jula itself (Cloud Run, Scheduler).
-├── Dockerfile                 # Multi-stage build: golang:alpine → scratch (zero attack surface).
+├── configs/                   # Declarative extraction configs.
+│   ├── extractions/           #   gcp_cai.json, aws_config.json, saas_http.json
+│   └── schemas/oscal/         #   JSON schemas for downstream mapping (Jula EE)
+├── keys/                      # Service account credentials (gitignored).
+├── evidence-output/           # Generated evidence artifacts (gitignored).
+├── Dockerfile                 # Multi-stage build: golang:alpine -> scratch (zero attack surface).
 └── LICENSE                    # Business Source License (BSL 1.1).
 ```
 
-Each major directory contains its own `README.md` with localized context for contributors and evaluators. Start with [`internal/README.md`](internal/README.md) for the Go engine, [`configs/README.md`](configs/README.md) for the declarative rule system, [`remediation/README.md`](remediation/README.md) for compliance fix templates, or [`deploy/terraform/README.md`](deploy/terraform/README.md) for infrastructure operations.
+## Adding a New Extraction
 
-## Supported SOC 2 Trust Services Criteria (TSC)
+No Go code required. Simply add an entry to the appropriate JSON config file.
 
-Jula Evidence Collector is designed to programmatically fulfill the evidentiary requirements for specific SOC 2 Trust Services Criteria.
+**Example: Adding an AWS Lambda extraction**
 
-### Scope
+```json
+{
+  "E-CMP-01": {
+    "description": "Lambda Function Configurations",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::Lambda::Function'"
+  }
+}
+```
 
-Our current implementation strictly targets the following criteria categories:
+Rebuild the Docker image and run. The orchestrator will automatically pick up the new ERL and execute it alongside all other extractions.
 
-* **Security (Common Criteria)**
-* **Confidentiality**
-* **Availability**
+## Testing
 
-> **Note:** Privacy and Processing Integrity are currently **out of scope** for automated collection and are not supported.
+```bash
+# Run the orchestrator test suite
+docker run --rm -v "$(pwd):/build" -w /build golang:1.25-alpine go test ./internal/engine/... -v
+```
 
-### How We Map Controls
+The test suite validates:
 
-We utilize two distinct architectural patterns to gather evidence across diverse environments without relying on brittle third-party APIs:
-
-1. **Native Infrastructure Extraction (Specific Values):** For cloud-native controls (e.g., IAM, Encryption at Rest, Firewalls), Jula directly queries AWS, GCP, and Azure APIs. We parse the telemetry to generate deterministic, pass/fail state evaluations.
-2. **Bring Your Own Evidence (BYOE) / FileDrop:** For tools lacking native APIs, procedural controls, or HR policies, Jula watches a designated cloud storage bucket (S3/GCS) and processes files in two ways:
-    * **Data Parsing:** Ingests standardized JSON (like vulnerability scans), validates the schema, and evaluates the specific values.
-    * **Cryptographic Hashing:** Treats PDFs, CSVs, and Text files (like HR Handbooks, NDAs, or Access Matrices) as opaque artifacts. Jula generates a SHA-256 hash and timestamp to cryptographically prove the document's existence and maintenance cadence without ever reading sensitive internal text.
-
-### Detailed Control Mappings
-
-For a granular, control-by-control breakdown of our coverage, please refer to our dedicated framework documentation:
-
-* [SOC 2 TSC Control Status](frameworks/soc2/README.md)
+- **All-success scenarios** (10 concurrent jobs, all return findings)
+- **Partial failure resilience** (3 pass, 2 fail, system returns the 3)
+- **Total failure abort** (all jobs fail, system returns a descriptive error)
+- **Concurrency bounding** (verifies the semaphore never exceeds the configured limit)
 
 ## Licensing
 

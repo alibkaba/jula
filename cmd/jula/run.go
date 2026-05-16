@@ -2,70 +2,32 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/internal/engine"
-	"github.com/alibkaba/jula-evidence-collector/internal/mappers"
-	"github.com/alibkaba/jula-evidence-collector/internal/providers"
 	"github.com/alibkaba/jula-evidence-collector/internal/reporter"
-
-	// Import the providers so their init() registers them.
-	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/aikido"
-	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
-	"github.com/alibkaba/jula-evidence-collector/internal/providers/filedrop"
-	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
-	_ "github.com/alibkaba/jula-evidence-collector/internal/providers/github"
+	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
 func handleRun(args []string) error {
 	runCmd := flag.NewFlagSet("run", flag.ContinueOnError)
 
-	providerFlag := runCmd.String("provider", os.Getenv("JULA_PROVIDER"), "Comma-separated provider(s) to execute (aws, gcp, github)")
-	frameworkFlag := runCmd.String("framework", os.Getenv("JULA_FRAMEWORK"), "Target compliance framework (soc2, iso27001)")
-	targetFlag := runCmd.String("target", os.Getenv("JULA_OUTPUT_TARGET"), "Delivery target: local, s3, gcs")
+	targetFlag := runCmd.String("target", os.Getenv("JULA_OUTPUT_TARGET"), "Delivery target: local, gcs")
 	pathFlag := runCmd.String("path", os.Getenv("JULA_OUTPUT_PATH"), "Target path or bucket URI")
-	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent provider goroutines")
-	timeoutFlag := runCmd.String("timeout", "5m", "Per-provider timeout duration")
-	defaultFormat := os.Getenv("JULA_OUTPUT_FORMAT")
-	if defaultFormat == "" {
-		defaultFormat = "json"
-	}
-	formatFlag := runCmd.String("format", defaultFormat, "Output format (json)")
-	consolidatedFlag := runCmd.Bool("consolidated-only", os.Getenv("JULA_CONSOLIDATED_ONLY") == "true", "Skip individual finding files and only output consolidated framework evidence")
+	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent ERL extraction goroutines")
+	timeoutFlag := runCmd.String("timeout", "5m", "Per-ERL extraction timeout duration")
 
 	if err := runCmd.Parse(args); err != nil {
 		return fmt.Errorf("parsing run flags: %w", err)
-	}
-
-	// Validate provider.
-	if *providerFlag == "" {
-		return fmt.Errorf("provider is required: use -provider or set JULA_PROVIDER")
-	}
-	providersList := strings.Split(*providerFlag, ",")
-	for _, p := range providersList {
-		p = strings.TrimSpace(p)
-		if !isValidProvider(p) {
-			return fmt.Errorf("unknown provider: %q", p)
-		}
-	}
-
-	// Validate framework.
-	if *frameworkFlag == "" {
-		return fmt.Errorf("framework is required: use -framework or set JULA_FRAMEWORK")
-	}
-	if !isValidFramework(*frameworkFlag) {
-		return fmt.Errorf("unknown framework: %q", *frameworkFlag)
-	}
-	if *frameworkFlag != "soc2" {
-		return fmt.Errorf("mapper not implemented for framework: %s", *frameworkFlag)
 	}
 
 	// Validate target.
@@ -74,9 +36,6 @@ func handleRun(args []string) error {
 	}
 	if !isValidTarget(*targetFlag) {
 		return fmt.Errorf("unknown target: %q", *targetFlag)
-	}
-	if *targetFlag == "s3" {
-		return fmt.Errorf("reporter not implemented for target: s3")
 	}
 
 	// Validate path.
@@ -102,67 +61,58 @@ func handleRun(args []string) error {
 		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
 	}
 
+	// Resolve GCP CAI config path.
+	caiConfigPath := os.Getenv("JULA_CAI_CONFIG_PATH")
+	if caiConfigPath == "" {
+		caiConfigPath = "/configs/extractions/gcp_cai.json"
+	}
+	if _, err := os.Stat(caiConfigPath); os.IsNotExist(err) {
+		caiConfigPath = "configs/extractions/gcp_cai.json"
+	}
+
+	// Resolve AWS Config extraction path.
+	awsConfigPath := os.Getenv("JULA_AWS_CONFIG_PATH")
+	if awsConfigPath == "" {
+		awsConfigPath = "/configs/extractions/aws_config.json"
+	}
+	if _, err := os.Stat(awsConfigPath); os.IsNotExist(err) {
+		awsConfigPath = "configs/extractions/aws_config.json"
+	}
+
+	// Resolve SaaS HTTP extraction path.
+	saasConfigPath := os.Getenv("JULA_SAAS_CONFIG_PATH")
+	if saasConfigPath == "" {
+		saasConfigPath = "/configs/extractions/saas_http.json"
+	}
+	if _, err := os.Stat(saasConfigPath); os.IsNotExist(err) {
+		saasConfigPath = "configs/extractions/saas_http.json"
+	}
+
 	// Generate a unique run ID.
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
 
-	slog.Info("run: full pipeline starting",
-		"providers", providersList,
-		"framework", *frameworkFlag,
+	slog.Info("run: pipeline starting",
 		"target", *targetFlag,
 		"path", *pathFlag,
 		"concurrency", *concurrencyFlag,
 		"timeout", *timeoutFlag,
+		"cai_config", caiConfigPath,
+		"aws_config", awsConfigPath,
+		"saas_config", saasConfigPath,
 		"run_id", runID,
 	)
 
-	// --- Step 0: Exceptions & Runtime Configs ---
-	exceptionsPath := "/configs/exceptions.json"
-	if _, err := os.Stat(exceptionsPath); os.IsNotExist(err) {
-		exceptionsPath = "configs/exceptions.json"
-	}
-
-	hasFiledrop := false
-	for _, p := range providersList {
-		if p == "filedrop" {
-			hasFiledrop = true
-			break
-		}
-	}
-
-	if hasFiledrop {
-		bucketURI := os.Getenv("JULA_FILEDROP_BUCKET")
-		prefix := os.Getenv("JULA_FILEDROP_PREFIX")
-		if bucketURI == "" {
-			return fmt.Errorf("JULA_FILEDROP_BUCKET is required when using the filedrop provider")
-		}
-		if prefix == "" {
-			prefix = "evidence/byoe/" // fallback
-		}
-
-		factory := filedrop.NewFactory()
-		storageClient, bucketName, err := factory.NewStorageReader(context.Background(), bucketURI)
-		if err != nil {
-			return fmt.Errorf("failed to initialize filedrop storage: %w", err)
-		}
-
-		providers.Register(filedrop.New(bucketName, prefix, storageClient))
-	}
-
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Providers:      providersList,
-		Framework:      *frameworkFlag,
-		Target:         *targetFlag,
-		Path:           *pathFlag,
-		Concurrency:    *concurrencyFlag,
-		Timeout:        timeout,
+		Target:        *targetFlag,
+		Path:          *pathFlag,
+		Concurrency:   *concurrencyFlag,
+		Timeout:       timeout,
 		RunID:          runID,
-		ExceptionsPath: exceptionsPath,
+		CAIConfigPath:  caiConfigPath,
+		AWSConfigPath:  awsConfigPath,
+		SaaSConfigPath: saasConfigPath,
 	})
-
-	if err := orch.LoadExceptions(); err != nil {
-		return fmt.Errorf("loading exceptions: %w", err)
-	}
 
 	ctx := context.Background()
 	findings, err := orch.Extract(ctx)
@@ -171,54 +121,33 @@ func handleRun(args []string) error {
 	}
 	slog.Info("run: extraction complete", "findings_count", len(findings))
 
-	// --- Step 1.5: Apply Exceptions ---
-	findings = orch.ApplyExceptions(findings, time.Now())
-
-	// --- Step 2: Map ---
-	var mapper mappers.Mapper
-	switch *frameworkFlag {
-	case "soc2":
-		mapper = &mappers.SOC2Mapper{}
-	default:
-		return fmt.Errorf("mapper not implemented for framework: %s", *frameworkFlag)
+	// --- Step 2: Convert Findings to Evidence (hash raw data) ---
+	evidence := make([]types.Evidence, 0, len(findings))
+	for _, f := range findings {
+		hash := sha256.Sum256(f.RawData)
+		evidence = append(evidence, types.Evidence{
+			ErlID:       f.ErlID,
+			Finding:     f,
+			PayloadHash: hex.EncodeToString(hash[:]),
+		})
 	}
-
-	configPath := fmt.Sprintf("/configs/%s_mapping.json", *frameworkFlag)
-	// Fall back to local path for development.
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		configPath = fmt.Sprintf("configs/%s_mapping.json", *frameworkFlag)
-	}
-
-	if err := mapper.LoadRules(configPath); err != nil {
-		return fmt.Errorf("loading mapping rules: %w", err)
-	}
-
-	evidence, err := mapper.Map(findings)
-	if err != nil {
-		return fmt.Errorf("mapping failed: %w", err)
-	}
-	slog.Info("run: mapping complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
 	var rep reporter.Reporter
 	switch *targetFlag {
 	case "local":
 		rep = &reporter.LocalReporter{
-			OutputDir:        *pathFlag,
-			SigningKey:       signingKey,
-			Format:           *formatFlag,
-			ConsolidatedOnly: *consolidatedFlag,
+			OutputDir:  *pathFlag,
+			SigningKey: signingKey,
 		}
 	case "gcs":
 		bucketName := reporter.ParseBucketName(*pathFlag)
 		tokenProvider := reporter.NewMetadataTokenProvider(&http.Client{})
 		rep = &reporter.GCSReporter{
-			BucketName:       bucketName,
-			SigningKey:       signingKey,
-			HTTPClient:       &http.Client{},
-			TokenProvider:    tokenProvider,
-			Format:           *formatFlag,
-			ConsolidatedOnly: *consolidatedFlag,
+			BucketName:    bucketName,
+			SigningKey:    signingKey,
+			HTTPClient:    &http.Client{},
+			TokenProvider: tokenProvider,
 		}
 	default:
 		return fmt.Errorf("reporter not implemented for target: %s", *targetFlag)
@@ -234,41 +163,25 @@ func handleRun(args []string) error {
 	}
 
 	// --- Step 4: Structured Audit Summary ---
-	passed, failed, excepted, errored := 0, 0, 0, 0
-	for _, f := range findings {
-		switch f.Status {
-		case "PASS":
-			passed++
-		case "FAIL":
-			failed++
-		case "EXCEPTED":
-			excepted++
-		case "ERROR":
-			errored++
-		}
-	}
-
-	overallStatus := "PASS"
-	if failed > 0 || errored > 0 {
-		overallStatus = "FAIL"
-	}
-
-	slog.Info("audit_execution_summary",
+	slog.Info("collection_summary",
 		"run_id", runID,
 		"timestamp", time.Now().UTC().Format(time.RFC3339),
 		"environment", orch.Platform().ID,
 		"platform_type", orch.Platform().Type,
-		"framework", *frameworkFlag,
-		"overall_status", overallStatus,
-		"total_controls_checked", len(findings),
-		"passed", passed,
-		"failed", failed,
-		"excepted", excepted,
-		"errored", errored,
+		"total_erl_extractions", len(findings),
 		"evidence_files", len(manifest.EvidenceFiles),
 		"evidence_location", *pathFlag,
 		"signature", manifest.Signature[:16]+"...",
 	)
 
 	return nil
+}
+
+func isValidTarget(name string) bool {
+	switch name {
+	case "local", "gcs":
+		return true
+	default:
+		return false
+	}
 }

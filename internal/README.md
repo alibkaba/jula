@@ -31,6 +31,8 @@ The `filedrop` provider is not registered via `init()` because it requires runti
 
 The mapping engine evaluates raw `Finding` objects against declarative rules defined in `configs/soc2_mapping.json`. It resolves each finding to specific AICPA Trust Services Criteria (e.g., CC6.1, CC7.1) and applies policy thresholds from `configs/gcp_policy.json`.
 
+Additionally, we utilize a `go:generate` build tool (`tools/gen_oscal`) that streams large OSCAL JSON schemas (Secure Controls Framework) at build time to produce a hardcoded `oscal_map.go`. This enables the engine to instantly resolve Evidence Request List (ERL) IDs to multiple framework controls at runtime without the overhead of parsing multi-megabyte JSON files.
+
 ### reporter/
 
 Handles final output serialization. The standard reporter writes structured JSON to stdout. The GCS reporter uploads cryptographically signed evidence bundles directly to the client's own cloud storage vault.

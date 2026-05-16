@@ -23,19 +23,14 @@ func (s *staticToken) Token() (string, error) { return s.token, nil }
 func gcsTestEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
+			PayloadHash: "abc123hash",
 			Finding: types.Finding{
-				ID:        "gcp.audit_logging.enabled",
+				ErlID:     "E-TEST-01",
 				Provider:  "gcp",
-				Resource:  "audit_logging",
-				Check:     "enabled",
-				Status:    "PASS",
+				RawData:   []byte(`{"status":"ok"}`),
 				Timestamp: time.Now().UTC(),
 				RunID:     "test-run",
 			},
-			Framework:     "soc2",
-			Criteria:      []string{"CC2.1"},
-			ControlType:   "AUTOMATED",
-			MappingRuleID: "soc2-cc2.1-audit-logging",
 		},
 	}
 }
@@ -133,74 +128,53 @@ func TestGCSReporter_Validate_Success(t *testing.T) {
 func TestGCSReporter_Deliver(t *testing.T) {
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
-	tests := []struct {
-		name           string
-		format         string
-		expectedSuffix string
-		expectedCount  int
-	}{
-		{
-			name:           "Deliver with JSON Format",
-			format:         "json",
-			expectedSuffix: ".json",
-			expectedCount:  4, // 1 individual + 1 consolidated + 1 manifest + 1 csv
-		},
+	var uploadedPaths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			uploadedPaths = append(uploadedPaths, r.URL.Query().Get("name"))
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	r := &GCSReporter{
+		BucketName:    "test-bucket",
+		SigningKey:    privKey,
+		TokenProvider: &staticToken{"test-token"},
+		HTTPClient:    server.Client(),
+		baseURL:       server.URL,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var uploadedPaths []string
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPost {
-					uploadedPaths = append(uploadedPaths, r.URL.Query().Get("name"))
-				}
-				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
-			}))
-			defer server.Close()
+	manifest, err := r.Deliver(context.Background(), gcsTestEvidence(), "test-run")
+	if err != nil {
+		t.Fatalf("deliver failed: %v", err)
+	}
 
-			r := &GCSReporter{
-				BucketName:    "test-bucket",
-				SigningKey:    privKey,
-				TokenProvider: &staticToken{"test-token"},
-				HTTPClient:    server.Client(),
-				baseURL:       server.URL,
-				Format:        tt.format,
-			}
+	// 1 evidence file + 1 manifest file = 2 uploads total
+	if len(uploadedPaths) != 2 {
+		t.Errorf("expected 2 uploads, got %d: %v", len(uploadedPaths), uploadedPaths)
+	}
 
-			manifest, err := r.Deliver(context.Background(), gcsTestEvidence(), "test-run-"+tt.format)
-			if err != nil {
-				t.Fatalf("deliver failed: %v", err)
-			}
+	foundEvidence := false
+	foundManifest := false
+	for _, p := range uploadedPaths {
+		if strings.HasSuffix(p, "abc123hash.json") {
+			foundEvidence = true
+		}
+		if strings.HasSuffix(p, "manifest.json") {
+			foundManifest = true
+		}
+	}
+	if !foundEvidence {
+		t.Error("evidence file hash not found in uploaded paths")
+	}
+	if !foundManifest {
+		t.Error("manifest.json not found in uploaded paths")
+	}
 
-			if len(uploadedPaths) != tt.expectedCount {
-				t.Errorf("expected %d uploads, got %d: %v", tt.expectedCount, len(uploadedPaths), uploadedPaths)
-			}
-
-			found := false
-			for _, f := range manifest.EvidenceFiles {
-				if strings.HasSuffix(f.Path, tt.expectedSuffix) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("%s not found in manifest evidence files", tt.expectedSuffix)
-			}
-
-			if tt.format == "json" {
-				consolidatedFound := false
-				for _, f := range manifest.EvidenceFiles {
-					if strings.Contains(f.Path, "soc2_all_controls.json") {
-						consolidatedFound = true
-						break
-					}
-				}
-				if !consolidatedFound {
-					t.Error("soc2_all_controls.json not found in manifest")
-				}
-			}
-		})
+	if len(manifest.EvidenceFiles) != 1 {
+		t.Errorf("expected 1 evidence file logged in manifest, got %d", len(manifest.EvidenceFiles))
 	}
 }
 

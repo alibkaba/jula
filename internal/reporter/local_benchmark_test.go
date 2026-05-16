@@ -22,26 +22,22 @@ func BenchmarkLocalReporter_Deliver(b *testing.B) {
 	tmpDir := b.TempDir()
 
 	numEvidence := 1000
-	numFrameworks := 10
 	evidence := make([]types.Evidence, numEvidence)
 	for i := 0; i < numEvidence; i++ {
-		framework := fmt.Sprintf("framework-%d", i%numFrameworks)
 		evidence[i] = types.Evidence{
+			PayloadHash: fmt.Sprintf("hash-%d", i),
 			Finding: types.Finding{
-				ID:                 fmt.Sprintf("finding-%d", i),
-				Provider:           "gcp",
-				ResourceIdentifier: fmt.Sprintf("res-%d", i),
-				Timestamp:          time.Now().UTC(),
+				ErlID:     fmt.Sprintf("E-TEST-%d", i),
+				Provider:  "gcp",
+				Timestamp: time.Now().UTC(),
+				RawData:   []byte(`{"status":"ok"}`),
 			},
-			Framework: framework,
-			Criteria:  []string{"C1", "C2", "C3", "C4", "C5"}, // Multiple criteria
 		}
 	}
 
 	r := &LocalReporter{
-		OutputDir:        tmpDir,
-		SigningKey:       privKey,
-		ConsolidatedOnly: false, // Benchmark the inner loop logic
+		OutputDir:  tmpDir,
+		SigningKey: privKey,
 	}
 
 	b.ResetTimer()
