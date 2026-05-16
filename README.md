@@ -45,6 +45,7 @@ The orchestrator dispatches extraction jobs to all configured cloud providers **
 |---|---|---|---|
 | **Google Cloud (GCP)** | `internal/providers/gcp/cai.go` | `configs/extractions/gcp_cai.json` | Cloud Asset Inventory (gRPC) |
 | **Amazon Web Services (AWS)** | `internal/providers/aws/config.go` | `configs/extractions/aws_config.json` | AWS Config Advanced Queries (SDK v2) |
+| **SaaS & External APIs** | `internal/providers/http_generic/engine.go` | `configs/extractions/saas_http.json` | Universal HTTP Engine (REST/GraphQL) |
 
 ### How It Works
 
@@ -91,12 +92,14 @@ jula-evidence-collector/
 │   ├── engine/                #   Orchestrator: multi-provider concurrent extraction pipeline.
 │   ├── providers/             #   Cloud API extractors.
 │   │   ├── gcp/               #     GCP Cloud Asset Inventory (CAI) engine.
-│   │   └── aws/               #     AWS Config Advanced Queries engine.
+│   │   ├── aws/               #     AWS Config Advanced Queries engine.
+│   │   └── http_generic/      #     Universal HTTP engine for SaaS APIs (GitHub, Aikido, etc).
 │   ├── platform/              #   Runtime environment detection (GCP, AWS, Local).
 │   └── reporter/              #   Output: local filesystem with signed manifests.
 ├── pkg/                       # Shared libraries (crypto, types) importable by external tools.
 ├── configs/                   # Declarative extraction configs.
-│   └── extractions/           #   gcp_cai.json, aws_config.json
+│   ├── extractions/           #   gcp_cai.json, aws_config.json, saas_http.json
+│   └── schemas/oscal/         #   JSON schemas for downstream mapping (Jula EE)
 ├── keys/                      # Service account credentials (gitignored).
 ├── evidence-output/           # Generated evidence artifacts (gitignored).
 ├── Dockerfile                 # Multi-stage build: golang:alpine -> scratch (zero attack surface).
