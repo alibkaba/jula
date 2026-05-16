@@ -7,6 +7,7 @@ package httpgeneric
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,22 @@ type ExtractionConfig struct {
 	JSONPath    string            `json:"json_path"`
 	// Pagination defines optional cursor-based pagination settings.
 	Pagination *PaginationConfig `json:"pagination,omitempty"`
+	// Auth defines optional OAuth 2.0 client_credentials token exchange.
+	Auth *AuthConfig `json:"auth,omitempty"`
+}
+
+// AuthConfig defines OAuth 2.0 client_credentials token exchange settings.
+// When present, the engine will exchange the client ID and secret for a
+// short-lived bearer token before making the API call.
+type AuthConfig struct {
+	// Type must be "oauth2_client_credentials".
+	Type string `json:"type"`
+	// TokenURL is the OAuth token endpoint (e.g., "https://app.aikido.dev/api/oauth/token").
+	TokenURL string `json:"token_url"`
+	// ClientIDEnv is the environment variable name containing the client ID.
+	ClientIDEnv string `json:"client_id_env"`
+	// ClientSecretEnv is the environment variable name containing the client secret.
+	ClientSecretEnv string `json:"client_secret_env"`
 }
 
 // PaginationConfig defines how the engine should paginate through results.
@@ -99,6 +116,15 @@ func (e *Engine) Extract(ctx context.Context, erlID string, cfg ExtractionConfig
 	headers := make(map[string]string, len(cfg.Headers))
 	for k, v := range cfg.Headers {
 		headers[k] = InterpolateEnvVars(v)
+	}
+
+	// If OAuth auth is configured, exchange credentials for a bearer token.
+	if cfg.Auth != nil && cfg.Auth.Type == "oauth2_client_credentials" {
+		token, err := e.resolveAuth(ctx, cfg.Auth)
+		if err != nil {
+			return types.Finding{}, fmt.Errorf("auth token exchange for %s: %w", erlID, err)
+		}
+		headers["Authorization"] = "Bearer " + token
 	}
 
 	// Validate that no unresolved env vars remain in auth headers.
@@ -259,4 +285,65 @@ func extractNextURL(body json.RawMessage, fieldPath string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// resolveAuth performs an OAuth 2.0 client_credentials token exchange.
+// It sends a POST request with Basic Auth (client_id:client_secret) to the
+// configured token URL and returns the access_token from the response.
+func (e *Engine) resolveAuth(ctx context.Context, auth *AuthConfig) (string, error) {
+	clientID := os.Getenv(auth.ClientIDEnv)
+	clientSecret := os.Getenv(auth.ClientSecretEnv)
+	if clientID == "" || clientSecret == "" {
+		return "", fmt.Errorf(
+			"missing credentials: %s and %s must be set", auth.ClientIDEnv, auth.ClientSecretEnv,
+		)
+	}
+
+	body := strings.NewReader(`{"grant_type":"client_credentials"}`)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, auth.TokenURL, body)
+	if err != nil {
+		return "", fmt.Errorf("creating token request: %w", err)
+	}
+
+	// Aikido expects Basic Auth with client_id:client_secret base64-encoded.
+	credentials := base64.StdEncoding.EncodeToString([]byte(clientID + ":" + clientSecret))
+	req.Header.Set("Authorization", "Basic "+credentials)
+	req.Header.Set("Content-Type", "application/json")
+
+	slog.Debug("oauth: exchanging credentials for bearer token",
+		"token_url", auth.TokenURL,
+		"client_id_env", auth.ClientIDEnv,
+	)
+
+	resp, err := e.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("token exchange request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading token response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token exchange returned HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(respBody, &tokenResp); err != nil {
+		return "", fmt.Errorf("parsing token response: %w", err)
+	}
+
+	if tokenResp.AccessToken == "" {
+		return "", fmt.Errorf("token response missing access_token field")
+	}
+
+	slog.Info("oauth: token exchange successful",
+		"token_url", auth.TokenURL,
+	)
+
+	return tokenResp.AccessToken, nil
 }

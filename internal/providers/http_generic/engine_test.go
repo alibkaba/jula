@@ -347,3 +347,145 @@ func TestEngine_Extract_PaginationMaxPages(t *testing.T) {
 		t.Errorf("expected exactly 3 page fetches (max_pages), got %d", pageCount)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// OAuth 2.0 Client Credentials Tests
+// ---------------------------------------------------------------------------
+
+func TestExtract_OAuthClientCredentials_Success(t *testing.T) {
+	// Mock OAuth token server.
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		auth := r.Header.Get("Authorization")
+		if auth == "" {
+			t.Error("expected Authorization header on token request")
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"access_token":"mock-jwt-token-12345"}`))
+	}))
+	defer tokenServer.Close()
+
+	// Mock API server that validates the bearer token.
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth != "Bearer mock-jwt-token-12345" {
+			t.Errorf("expected 'Bearer mock-jwt-token-12345', got %q", auth)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer apiServer.Close()
+
+	t.Setenv("TEST_AIK_ID", "test-client-id")
+	t.Setenv("TEST_AIK_SECRET", "test-client-secret")
+
+	engine := NewEngine()
+	cfg := ExtractionConfig{
+		Description: "OAuth Test",
+		Provider:    "aikido",
+		Method:      "GET",
+		URL:         apiServer.URL,
+		Auth: &AuthConfig{
+			Type:            "oauth2_client_credentials",
+			TokenURL:        tokenServer.URL,
+			ClientIDEnv:     "TEST_AIK_ID",
+			ClientSecretEnv: "TEST_AIK_SECRET",
+		},
+	}
+
+	finding, err := engine.Extract(context.Background(), "E-OAUTH-01", cfg, "test-run")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(finding.RawData) != `{"status":"ok"}` {
+		t.Errorf("unexpected raw data: %s", string(finding.RawData))
+	}
+}
+
+func TestExtract_OAuthClientCredentials_MissingCreds(t *testing.T) {
+	t.Setenv("TEST_AIK_ID", "")
+	t.Setenv("TEST_AIK_SECRET", "")
+
+	engine := NewEngine()
+	cfg := ExtractionConfig{
+		Description: "OAuth Missing Creds",
+		Provider:    "aikido",
+		Method:      "GET",
+		URL:         "https://example.com",
+		Auth: &AuthConfig{
+			Type:            "oauth2_client_credentials",
+			TokenURL:        "https://example.com/token",
+			ClientIDEnv:     "TEST_AIK_ID",
+			ClientSecretEnv: "TEST_AIK_SECRET",
+		},
+	}
+
+	_, err := engine.Extract(context.Background(), "E-OAUTH-02", cfg, "test-run")
+	if err == nil {
+		t.Fatal("expected error for missing credentials")
+	}
+}
+
+func TestExtract_OAuthClientCredentials_ServerError(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"server error"}`))
+	}))
+	defer tokenServer.Close()
+
+	t.Setenv("TEST_AIK_ID_ERR", "test-id")
+	t.Setenv("TEST_AIK_SECRET_ERR", "test-secret")
+
+	engine := NewEngine()
+	cfg := ExtractionConfig{
+		Description: "OAuth Server Error",
+		Provider:    "aikido",
+		Method:      "GET",
+		URL:         "https://example.com",
+		Auth: &AuthConfig{
+			Type:            "oauth2_client_credentials",
+			TokenURL:        tokenServer.URL,
+			ClientIDEnv:     "TEST_AIK_ID_ERR",
+			ClientSecretEnv: "TEST_AIK_SECRET_ERR",
+		},
+	}
+
+	_, err := engine.Extract(context.Background(), "E-OAUTH-03", cfg, "test-run")
+	if err == nil {
+		t.Fatal("expected error for token server 500")
+	}
+}
+
+func TestExtract_OAuthClientCredentials_MalformedResponse(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`not-json`))
+	}))
+	defer tokenServer.Close()
+
+	t.Setenv("TEST_AIK_ID_BAD", "test-id")
+	t.Setenv("TEST_AIK_SECRET_BAD", "test-secret")
+
+	engine := NewEngine()
+	cfg := ExtractionConfig{
+		Description: "OAuth Bad JSON",
+		Provider:    "aikido",
+		Method:      "GET",
+		URL:         "https://example.com",
+		Auth: &AuthConfig{
+			Type:            "oauth2_client_credentials",
+			TokenURL:        tokenServer.URL,
+			ClientIDEnv:     "TEST_AIK_ID_BAD",
+			ClientSecretEnv: "TEST_AIK_SECRET_BAD",
+		},
+	}
+
+	_, err := engine.Extract(context.Background(), "E-OAUTH-04", cfg, "test-run")
+	if err == nil {
+		t.Fatal("expected error for malformed token response")
+	}
+}
