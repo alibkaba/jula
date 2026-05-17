@@ -1,12 +1,12 @@
 {
-  "E-GOV-01": { // The validated Secure Controls Framework (SCF) ERL ID mapped to this extraction rule
-    "description": "Cybersecurity Program Charter", // A human-readable scope explaining the collected evidence objective
-    "provider": "gcp_cai", // The specific third-party provider identifier mapped by the extractor
-    "scope": "projects/{{GCP_PROJECT_ID}}", // The GCP resource scope to query (e.g. project, folder, organization)
+  "E-GOV-01": {
+    "description": "Cybersecurity Program Charter",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
     "asset_types": [
       "cloudresourcemanager.googleapis.com/Project"
-    ], // The GCP Cloud Asset Inventory resource types to list and discover
-    "query": "" // An optional filter query statement conforming to CAI search parameters
+    ],
+    "query": ""
   },
   "E-BCM-16": {
     "description": "Encrypted Database Instances",
