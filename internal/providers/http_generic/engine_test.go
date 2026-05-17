@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -487,5 +488,34 @@ func TestExtract_OAuthClientCredentials_MalformedResponse(t *testing.T) {
 	_, err := engine.Extract(context.Background(), "E-OAUTH-04", cfg, "test-run")
 	if err == nil {
 		t.Fatal("expected error for malformed token response")
+	}
+}
+
+func TestLoadSaaSConfigs_TableDriven(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	validPath := filepath.Join(tmpDir, "valid.json")
+	os.WriteFile(validPath, []byte(`{"E-1": {"provider": "test"}}`), 0644)
+
+	invalidPath := filepath.Join(tmpDir, "invalid.json")
+	os.WriteFile(invalidPath, []byte(`{ invalid }`), 0644)
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"missing file", filepath.Join(tmpDir, "nonexistent.json"), true},
+		{"invalid json", invalidPath, true},
+		{"valid json", validPath, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := LoadSaaSConfigs(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadSaaSConfigs() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
