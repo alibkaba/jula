@@ -59,7 +59,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 
 		// Build the ERL-based directory path.
 		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", sanitizedErlID)
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
+		if err := os.MkdirAll(dirPath, 0700); err != nil {
 			return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 		}
 
@@ -74,7 +74,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		fileName := fmt.Sprintf("%s_%s.json", sanitizedProvider, ev.PayloadHash)
 		filePath := filepath.Join(dirPath, fileName)
 
-		if err := os.WriteFile(filePath, data, 0644); err != nil {
+		if err := os.WriteFile(filePath, data, 0600); err != nil {
 			return nil, fmt.Errorf("writing evidence file: %w", err)
 		}
 
@@ -111,7 +111,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 	if err != nil {
 		return nil, fmt.Errorf("marshalling manifest: %w", err)
 	}
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
+	if err := os.WriteFile(manifestPath, manifestData, 0600); err != nil {
 		return nil, fmt.Errorf("writing manifest: %w", err)
 	}
 
