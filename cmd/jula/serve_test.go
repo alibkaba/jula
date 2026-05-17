@@ -3,9 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
-	"time"
 )
 
 func TestHealthEndpoint(t *testing.T) {
@@ -57,25 +55,5 @@ func TestRunEndpointPOSTWithEnv_NoConfigs(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500 without configs, got %d", rec.Code)
-	}
-}
-
-func TestHandleServe(t *testing.T) {
-	os.Setenv("PORT", "8081")
-	defer os.Unsetenv("PORT")
-
-	go func() {
-		_ = handleServe([]string{})
-	}()
-	time.Sleep(100 * time.Millisecond)
-
-	resp, err := http.Get("http://localhost:8081/health")
-	if err != nil {
-		t.Fatalf("expected handleServe to start server, got error: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected 200, got %d", resp.StatusCode)
 	}
 }

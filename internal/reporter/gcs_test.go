@@ -271,3 +271,39 @@ func TestParseBucketName(t *testing.T) {
 		}
 	}
 }
+
+func TestGCSReporter_URLs_TableDriven(t *testing.T) {
+	tests := []struct {
+		name          string
+		baseURL       string
+		wantUploadURL string
+		wantAPIURL    string
+	}{
+		{
+			name:          "default urls",
+			baseURL:       "",
+			wantUploadURL: "https://storage.googleapis.com/upload/storage/v1",
+			wantAPIURL:    "https://storage.googleapis.com/storage/v1",
+		},
+		{
+			name:          "overridden urls",
+			baseURL:       "http://localhost:8080",
+			wantUploadURL: "http://localhost:8080",
+			wantAPIURL:    "http://localhost:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reporter := &GCSReporter{baseURL: tt.baseURL}
+
+			if got := reporter.gcsUploadURL(); got != tt.wantUploadURL {
+				t.Errorf("gcsUploadURL() = %v, want %v", got, tt.wantUploadURL)
+			}
+
+			if got := reporter.gcsAPIURL(); got != tt.wantAPIURL {
+				t.Errorf("gcsAPIURL() = %v, want %v", got, tt.wantAPIURL)
+			}
+		})
+	}
+}
