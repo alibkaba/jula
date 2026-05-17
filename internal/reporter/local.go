@@ -1,14 +1,14 @@
 package reporter
 
 import (
-	"context"
-	"crypto/ecdsa"
-	"encoding/json"
-	"fmt"
+	context "context"
+	stdcrypto "crypto"
+	json "encoding/json"
+	fmt "fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"time"
+	os "os"
+	filepath "path/filepath"
+	time "time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
@@ -18,7 +18,7 @@ import (
 // Intended for development, testing, and local validation.
 type LocalReporter struct {
 	OutputDir  string
-	SigningKey *ecdsa.PrivateKey
+	SigningKey stdcrypto.Signer
 }
 
 // Name returns the reporter identifier.

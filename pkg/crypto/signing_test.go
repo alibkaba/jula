@@ -155,8 +155,8 @@ func TestSignManifest_Negative(t *testing.T) {
 	manifest := &types.Manifest{RunID: "test-run"}
 
 	err := SignManifest(manifest, nil)
-	if err == nil || err.Error() != "private key is nil" {
-		t.Errorf("expected 'private key is nil' error, got %v", err)
+	if err == nil || err.Error() != "signer is nil" {
+		t.Errorf("expected 'signer is nil' error, got %v", err)
 	}
 }
 

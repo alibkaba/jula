@@ -1,18 +1,18 @@
 package reporter
 
 import (
-	"bytes"
-	"context"
-	"crypto/ecdsa"
-	"encoding/json"
-	"fmt"
-	"io"
+	bytes "bytes"
+	context "context"
+	stdcrypto "crypto"
+	json "encoding/json"
+	fmt "fmt"
+	io "io"
 	"log/slog"
-	"net/http"
-	"net/url"
-	"path/filepath"
-	"strings"
-	"time"
+	http "net/http"
+	url "net/url"
+	filepath "path/filepath"
+	strings "strings"
+	time "time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
@@ -27,7 +27,7 @@ type TokenProvider interface {
 // GCSReporter writes evidence artifacts to a Google Cloud Storage bucket.
 type GCSReporter struct {
 	BucketName    string
-	SigningKey    *ecdsa.PrivateKey
+	SigningKey    stdcrypto.Signer
 	HTTPClient    *http.Client
 	TokenProvider TokenProvider
 	// baseURL allows overriding the GCS API endpoint for testing.
