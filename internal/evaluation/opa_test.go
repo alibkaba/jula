@@ -82,3 +82,132 @@ func TestOPAEvaluator_Evaluate(t *testing.T) {
 		t.Errorf("expected FAILED (Null-State violation) verdict, got: %s", findings[0].Verdict)
 	}
 }
+
+func TestOPAEvaluator_DualGCSBuckets(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. Initialize evaluator and load two separate policies for E-DCH-10.
+	evaluator := NewOPAEvaluator()
+	evaluator.policyModules["gcp/storage_security.rego"] = `
+		package gcp.storage_security
+		import rego.v1
+		default compliant = false
+		erl_id := "E-DCH-10"
+		compliant if {
+			input.erl_id == erl_id
+			buckets := input.finding.raw_data
+			buckets[_].resource.data.publicAccessPrevention == "enforced"
+		}
+	`
+	evaluator.policyModules["gcp/storage_lifecycle.rego"] = `
+		package gcp.storage_lifecycle
+		import rego.v1
+		default compliant = false
+		erl_id := "E-DCH-10"
+		compliant if {
+			input.erl_id == erl_id
+			buckets := input.finding.raw_data
+			buckets[_].additionalAttributes.lifecycle.rule[_].action.type == "Delete"
+		}
+	`
+
+	if err := evaluator.Compile(ctx); err != nil {
+		t.Fatalf("failed to compile dual policies: %v", err)
+	}
+
+	// 2. Assert both packages got registered under E-DCH-10.
+	pkgPaths := evaluator.erlPackageMap["E-DCH-10"]
+	if len(pkgPaths) != 2 {
+		t.Fatalf("expected 2 packages registered under E-DCH-10, got %d", len(pkgPaths))
+	}
+
+	// 3. Setup mock manifest and compliant payload.
+	path := "evidence/E-DCH-10/storage.json"
+	manifest := &types.Manifest{
+		RunID:     "dual-test-run",
+		Timestamp: time.Now(),
+		EvidenceFiles: []types.FileChecksum{
+			{Path: path, SHA256: "somehash"},
+		},
+	}
+
+	payloads := map[string][]byte{
+		path: []byte(`[
+			{
+				"name": "//storage.googleapis.com/jula-sensitive",
+				"resource": {
+					"data": {
+						"publicAccessPrevention": "enforced"
+					}
+				},
+				"additionalAttributes": {
+					"lifecycle": {
+						"rule": [
+							{
+								"action": {"type": "Delete"}
+							}
+						]
+					}
+				}
+			}
+		]`),
+	}
+
+	// 4. Test Compliant Scenario: Both security and lifecycle should pass.
+	findings, err := evaluator.Evaluate(ctx, manifest, payloads)
+	if err != nil {
+		t.Fatalf("evaluation failed: %v", err)
+	}
+
+	if len(findings) != 2 {
+		t.Fatalf("expected exactly 2 findings for the single evidence file, got %d", len(findings))
+	}
+
+	for _, f := range findings {
+		if f.Verdict != VerdictCompliant {
+			t.Errorf("expected COMPLIANT verdict for package, got: %s (details: %s)", f.Verdict, f.Details)
+		}
+	}
+
+	// 5. Test Partial Compliance: Tamper with lifecycle rule (non-compliant lifecycle).
+	payloads[path] = []byte(`[
+		{
+			"name": "//storage.googleapis.com/jula-sensitive",
+			"resource": {
+				"data": {
+					"publicAccessPrevention": "enforced"
+				}
+			},
+			"additionalAttributes": {
+				"lifecycle": {
+					"rule": []
+				}
+			}
+		}
+	]`)
+
+	findings, err = evaluator.Evaluate(ctx, manifest, payloads)
+	if err != nil {
+		t.Fatalf("evaluation failed: %v", err)
+	}
+
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d", len(findings))
+	}
+
+	// One should be compliant (security) and one should be non-compliant (lifecycle)
+	compliantCount := 0
+	nonCompliantCount := 0
+	for _, f := range findings {
+		if f.Verdict == VerdictCompliant {
+			compliantCount++
+		} else if f.Verdict == VerdictNonCompliant {
+			nonCompliantCount++
+		}
+	}
+
+	if compliantCount != 1 || nonCompliantCount != 1 {
+		t.Errorf("expected 1 compliant and 1 non-compliant finding, got: compliant=%d, non_compliant=%d", compliantCount, nonCompliantCount)
+	}
+}
+

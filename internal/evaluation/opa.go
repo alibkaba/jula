@@ -35,14 +35,14 @@ type ControlFinding struct {
 // OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
 type OPAEvaluator struct {
 	policyModules map[string]string
-	erlPackageMap map[string]string // ERL ID -> OPA Package path (e.g. "data.gcp.db_encryption")
+	erlPackageMap map[string][]string // ERL ID -> List of OPA Package paths (e.g. ["data.gcp.storage_security", "data.gcp.storage_lifecycle"])
 }
 
 // NewOPAEvaluator creates a new OPAEvaluator.
 func NewOPAEvaluator() *OPAEvaluator {
 	return &OPAEvaluator{
 		policyModules: make(map[string]string),
-		erlPackageMap: make(map[string]string),
+		erlPackageMap: make(map[string][]string),
 	}
 }
 
@@ -111,7 +111,7 @@ func (e *OPAEvaluator) Compile(ctx context.Context) error {
 	}
 
 	// Reset the mapping.
-	e.erlPackageMap = make(map[string]string)
+	e.erlPackageMap = make(map[string][]string)
 
 	for _, result := range results {
 		erlIDVal, ok := result.Expressions[0].Value.(string)
@@ -123,7 +123,7 @@ func (e *OPAEvaluator) Compile(ctx context.Context) error {
 		rule, ok2 := result.Bindings["rule"].(string)
 		if ok1 && ok2 {
 			pkgPath := fmt.Sprintf("data.%s.%s", provider, rule)
-			e.erlPackageMap[erlIDVal] = pkgPath
+			e.erlPackageMap[erlIDVal] = append(e.erlPackageMap[erlIDVal], pkgPath)
 			slog.Info("evaluation: registered policy map", "erl_id", erlIDVal, "package", pkgPath)
 		}
 	}
@@ -178,8 +178,8 @@ func (e *OPAEvaluator) Evaluate(ctx context.Context, manifest *types.Manifest, p
 		}
 
 		// Resolve target package path mapped to this ERL ID.
-		pkgPath, exists := e.erlPackageMap[erlID]
-		if !exists {
+		pkgPaths, exists := e.erlPackageMap[erlID]
+		if !exists || len(pkgPaths) == 0 {
 			slog.Warn("evaluation: no Rego policy is mapped for ERL ID", "erl_id", erlID)
 			findings = append(findings, ControlFinding{
 				ErlID:       erlID,
@@ -212,69 +212,72 @@ func (e *OPAEvaluator) Evaluate(ctx context.Context, manifest *types.Manifest, p
 			},
 		}
 
-		// Compile and run the OPA engine targeting exactly our resolved package compliant rule
-		queryStr := fmt.Sprintf("%s.compliant", pkgPath)
-		queryOptions := append(regoOptions,
-			rego.Query(queryStr),
-			rego.Input(regoInput),
-		)
+		// Evaluate each registered policy package mapped to this ERL ID
+		for _, pkgPath := range pkgPaths {
+			// Compile and run the OPA engine targeting exactly our resolved package compliant rule
+			queryStr := fmt.Sprintf("%s.compliant", pkgPath)
+			queryOptions := append(regoOptions,
+				rego.Query(queryStr),
+				rego.Input(regoInput),
+			)
 
-		r := rego.New(queryOptions...)
-		pq, err := r.PrepareForEval(ctx)
-		if err != nil {
-			slog.Error("evaluation: OPA compilation error", "erl_id", erlID, "error", err.Error())
+			r := rego.New(queryOptions...)
+			pq, err := r.PrepareForEval(ctx)
+			if err != nil {
+				slog.Error("evaluation: OPA compilation error", "erl_id", erlID, "error", err.Error())
+				findings = append(findings, ControlFinding{
+					ErlID:       erlID,
+					Verdict:     VerdictFailed,
+					Details:     fmt.Sprintf("OPA compilation error for package %q: %v", pkgPath, err),
+					EvaluatedAt: now,
+				})
+				continue
+			}
+
+			results, err := pq.Eval(ctx)
+			if err != nil {
+				slog.Error("evaluation: OPA evaluation execution error", "erl_id", erlID, "error", err.Error())
+				findings = append(findings, ControlFinding{
+					ErlID:       erlID,
+					Verdict:     VerdictFailed,
+					Details:     fmt.Sprintf("OPA execution error for package %q: %v", pkgPath, err),
+					EvaluatedAt: now,
+				})
+				continue
+			}
+
+			if len(results) == 0 {
+				slog.Error("evaluation: OPA returned empty results for target query", "erl_id", erlID, "query", queryStr)
+				findings = append(findings, ControlFinding{
+					ErlID:       erlID,
+					Verdict:     VerdictFailed,
+					Details:     fmt.Sprintf("OPA returned empty evaluation result for query %q", queryStr),
+					EvaluatedAt: now,
+				})
+				continue
+			}
+
+			// Resolve compliance verdict from expression output
+			isCompliant := false
+			if val, ok := results[0].Expressions[0].Value.(bool); ok {
+				isCompliant = val
+			}
+
+			verdict := VerdictNonCompliant
+			details := fmt.Sprintf("Evaluation failed under policy package %q", pkgPath)
+			if isCompliant {
+				verdict = VerdictCompliant
+				details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
+			}
+
+			slog.Info("evaluation: evaluated control policy", "erl_id", erlID, "verdict", verdict, "package", pkgPath)
 			findings = append(findings, ControlFinding{
 				ErlID:       erlID,
-				Verdict:     VerdictFailed,
-				Details:     fmt.Sprintf("OPA compilation error: %v", err),
+				Verdict:     verdict,
+				Details:     details,
 				EvaluatedAt: now,
 			})
-			continue
 		}
-
-		results, err := pq.Eval(ctx)
-		if err != nil {
-			slog.Error("evaluation: OPA evaluation execution error", "erl_id", erlID, "error", err.Error())
-			findings = append(findings, ControlFinding{
-				ErlID:       erlID,
-				Verdict:     VerdictFailed,
-				Details:     fmt.Sprintf("OPA execution error: %v", err),
-				EvaluatedAt: now,
-			})
-			continue
-		}
-
-		if len(results) == 0 {
-			slog.Error("evaluation: OPA returned empty results for target query", "erl_id", erlID, "query", queryStr)
-			findings = append(findings, ControlFinding{
-				ErlID:       erlID,
-				Verdict:     VerdictFailed,
-				Details:     fmt.Sprintf("OPA returned empty evaluation result for query %q", queryStr),
-				EvaluatedAt: now,
-			})
-			continue
-		}
-
-		// Resolve compliance verdict from expression output
-		isCompliant := false
-		if val, ok := results[0].Expressions[0].Value.(bool); ok {
-			isCompliant = val
-		}
-
-		verdict := VerdictNonCompliant
-		details := fmt.Sprintf("Evaluation failed under policy package %q", pkgPath)
-		if isCompliant {
-			verdict = VerdictCompliant
-			details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
-		}
-
-		slog.Info("evaluation: evaluated control policy", "erl_id", erlID, "verdict", verdict, "package", pkgPath)
-		findings = append(findings, ControlFinding{
-			ErlID:       erlID,
-			Verdict:     verdict,
-			Details:     details,
-			EvaluatedAt: now,
-		})
 	}
 
 	return findings, nil

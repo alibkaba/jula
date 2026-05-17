@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
 )
 
 func testManifest() *types.Manifest {
