@@ -51,7 +51,3 @@ vendor/
 *.tfplan
 terraform.tfvars
 !terraform.tfvars.example
-
-# Schemas
-schemas/
-

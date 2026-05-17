@@ -1,8 +1,8 @@
 {
-  "E-STG-02": {
-    "description": "S3 Bucket Configurations",
-    "provider": "aws_config",
-    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
+  "E-DCH-10": { // The validated Secure Controls Framework (SCF) ERL ID mapped to this extraction rule
+    "description": "S3 Bucket Configurations", // A human-readable scope explaining the collected evidence objective
+    "provider": "aws_config", // The specific third-party provider identifier mapped by the extractor
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'" // The AWS Config Advanced Query SQL statement to list and filter resource assets
   },
   "E-NET-05": {
     "description": "Security Groups",
@@ -14,12 +14,12 @@
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::IAM::Role'"
   },
-  "E-CRY-04": {
+  "E-CRY-02": {
     "description": "KMS Encryption Keys",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::KMS::Key'"
   },
-  "E-LOG-01": {
+  "E-MON-01": {
     "description": "CloudTrail Trails",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::CloudTrail::Trail'"
@@ -33,5 +33,15 @@
     "description": "AWS Account Configuration",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration WHERE resourceType = 'AWS::Config::ConfigurationRecorder'"
+  },
+  "E-AST-01": {
+    "description": "EC2 Instances and RDS Database Instances Inventory",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::EC2::Instance' OR resourceType = 'AWS::RDS::DBInstance'"
+  },
+  "E-CRY-01": {
+    "description": "S3 Buckets Server-Side Encryption Status",
+    "provider": "aws_config",
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket' AND configuration.bucketEncryption.serverSideEncryptionConfiguration.rules IS NOT NULL"
   }
 }
