@@ -1,16 +1,16 @@
 {
-  "E-VPM-11": { // The validated Secure Controls Framework (SCF) ERL ID mapped to this extraction rule
-    "description": "Aikido Open Vulnerability Scan", // A human-readable scope explaining the collected evidence objective
-    "provider": "aikido", // The specific third-party provider identifier mapped by the extractor
-    "method": "GET", // The HTTP request verb required to fetch resources from the target API
-    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open", // The remote URL endpoint, supporting variable placeholders
+  "E-VPM-11": {
+    "description": "Aikido Open Vulnerability Scan",
+    "provider": "aikido",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open",
     "auth": {
-      "type": "oauth2_client_credentials", // The standard credentials flow style to trigger token requests
-      "token_url": "https://app.aikido.dev/api/oauth/token", // The authentication provider token gateway address
-      "client_id_env": "AIK_CLIENT_ID", // The host environment variable name holding client identifiers
-      "client_secret_env": "AIK_SECRET_KEY" // The host environment variable name holding client secret keys
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
     },
-    "json_path": "$" // The JSONPath filter statement used to query and extract raw payloads
+    "json_path": "$"
   },
   "E-VPM-05": {
     "description": "Aikido Code Repository Inventory",
