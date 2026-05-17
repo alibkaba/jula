@@ -1,6 +1,6 @@
 # Jula Controls: Compliance Policies
 
-This repository houses the version-controlled compliance policies and controls mapping written in Open Policy Agent (OPA) Rego language. It serves as the single source of truth for all security compliance evaluation rules executed by the downstream **Jula Evidence Evaluator (Jula EE)** Assurance Engine.
+This repository houses the version-controlled compliance policies and controls mapping written in Open Policy Agent (OPA) Rego language. It serves as the single source of truth for all security compliance evaluation rules executed by the downstream **[Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator)** Assurance Engine. Raw security evidence is programmatically extracted from cloud and SaaS environments using the upstream **[Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector)**.
 
 ## Repository Structure
 
