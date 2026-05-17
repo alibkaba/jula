@@ -31,9 +31,9 @@ keys/
 coverage.out
 c.out
 
-# Local Evidence Output Folder
-evidence-output/
-evidence-output-*
+# Local Evidence Ledger Folder
+evidence-ledger/
+evidence-ledger-*
 
 # IDEs
 .idea/
