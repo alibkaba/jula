@@ -36,13 +36,40 @@ By pairing this containerized evidence suite with your existing tooling, you eli
 Jula Controls operates as a two-stage decoupled pipeline, cleanly separating raw evidence attestation from compliance evaluation.
 
 ```mermaid
-graph TD
-    A["Cloud APIs & SaaS"] --> B["Jula Evidence Collector"]
-    B -->|1. Extract & Sign| C["Raw Evidence Artifacts"]
-    B -->|2. Attest| D["Signed Manifest"]
-    D --> E["Jula Evidence Evaluator"]
-    C --> E
-    E -->|3. Evaluate| F["OSCAL Assurance Report"]
+flowchart TB
+    subgraph Upstream ["1. Attestation Layer (Collector)"]
+        direction LR
+        APIs["Cloud APIs <br> (AWS, GCP, SaaS)"] -->|Extract Configs| EC["Jula Evidence Collector"]
+        EC -->|1. Generate SHA-256 Hashes| H["Raw JSON Payloads"]
+        EC -->|2. Asymmetric Signing| M["Signed Manifest.json"]
+    end
+
+    subgraph Ledger ["2. Cryptographic Evidence Ledger (GCS)"]
+        direction TB
+        GCS["Google Cloud Storage <br> (gs://jula-evidence-ledger)"]
+        H -->|Upload| GCS
+        M -->|Upload| GCS
+    end
+
+    subgraph Policies ["3. Policy-as-Code Registry"]
+        PR["jula-compliance-policies <br> (Versioned Rego & OPA Tests)"]
+    end
+
+    subgraph Downstream ["4. Continuous Assurance Layer (Evaluator)"]
+        direction TB
+        EE["Jula Evidence Evaluator <br> (Stateless CLI Go Runtime)"]
+        GK["Gatekeeper Module <br> (ECDSA PEM Signature Check)"]
+        NS["Null-State Verification <br> (Set-Theory Integrity Check)"]
+        OPA["Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        
+        EE --> GK
+        GK --> NS
+        NS --> OPA
+    end
+
+    GCS -->|Pull Manifest & Payloads| EE
+    PR -->|Load Dynamic Policies| EE
+    OPA -->|Output| Findings["Standardized Findings Ledger <br> (COMPLIANT / NON_COMPLIANT)"]
 ```
 
 ### 1. Jula Evidence Collector (The Attestation Engine)
