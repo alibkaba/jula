@@ -8,7 +8,6 @@
 ## Provider Integrations & Extractions
 
 - [ ] **Complete Universal HTTP Configurations:** Finalize the remaining endpoints in `configs/extractions/saas_http.json` for any other SaaS tools needed (e.g., Slack, Vanta, Google Workspace).
-- [ ] **Validate Extraction SCF Identifiers:** Review the JSON configuration files (`saas_http.json`, `gcp_cai.json`, `aws_config.json`) and validate that all extraction `E-` identifiers properly map to their corresponding Secure Controls Framework (SCF) identifiers.
 
 ## Architecture & Quality
 
@@ -20,12 +19,3 @@
 
 - [ ] **Jula EE Scaffolding:** Begin scaffolding the downstream Jula EE engine that will ingest the raw evidence hashes from this collector.
 - [ ] **OSCAL Schema Re-Integration:** Implement the logic in Jula EE to consume the `configs/schemas/oscal/` JSON definitions to perform the actual SCF framework mapping.
-
-## Jules Night Runner Tasks
-
-The following tasks are safe for autonomous execution and validation:
-
-- [ ] **Run `go vet ./...`** inside Docker to check for any static analysis warnings across the entire codebase.
-- [ ] **Run `go test ./... -v`** inside Docker to verify all test suites pass.
-- [ ] **Verify Docker build** compiles cleanly with `docker build -t jula-evidence-collector:latest .`
-- [ ] **Review `go.mod`:** Check for any unused dependencies that `go mod tidy` should clean up. Run `go mod tidy` inside Docker and report if `go.mod` or `go.sum` changed.

@@ -116,7 +116,8 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		sanitizedErlID := filepath.Base(ev.ErlID)
 
 		// Use the payload hash as the filename for immutability.
-		objectName := fmt.Sprintf("%s/evidence/%s/%s.json", runDate, sanitizedErlID, ev.PayloadHash)
+		sanitizedProvider := filepath.Base(ev.Finding.Provider)
+		objectName := fmt.Sprintf("%s/evidence/%s/%s_%s.json", runDate, sanitizedErlID, sanitizedProvider, ev.PayloadHash)
 
 		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
