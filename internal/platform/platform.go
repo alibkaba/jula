@@ -22,7 +22,7 @@ func GetEnvironmentInfo() EnvironmentInfo {
 	}
 
 	// 2. GCP Context
-	if projectID := os.Getenv("JULA_GCP_PROJECT_ID"); projectID != "" {
+	if projectID := os.Getenv("GCP_PROJECT_ID"); projectID != "" {
 		return EnvironmentInfo{
 			ID:   projectID,
 			Type: "GCP",

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	asset "cloud.google.com/go/asset/apiv1"
@@ -129,6 +130,13 @@ func (p *UnifiedCAIProvider) Extract(ctx context.Context, erlID string, cfg CAIE
 	}
 	if scope == "" {
 		return types.Finding{}, fmt.Errorf("no scope defined in config and JULA_GCP_SCOPE is unset")
+	}
+
+	// Interpolate project ID placeholders.
+	projectID := os.Getenv("GCP_PROJECT_ID")
+	if projectID != "" {
+		scope = strings.ReplaceAll(scope, "{{GCP_PROJECT_ID}}", projectID)
+		scope = strings.ReplaceAll(scope, "${GCP_PROJECT_ID}", projectID)
 	}
 
 	req := &assetpb.SearchAllResourcesRequest{
