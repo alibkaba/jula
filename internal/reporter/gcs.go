@@ -222,8 +222,5 @@ func (r *GCSReporter) gcsAPIURL() string {
 
 // ParseBucketName extracts the bucket name from a gs:// URI or raw name.
 func ParseBucketName(path string) string {
-	path = strings.TrimSpace(path)
-	path = strings.TrimPrefix(path, "gs://")
-	path = strings.TrimSuffix(path, "/")
-	return path
+	return strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(path), "gs://"), "/")
 }

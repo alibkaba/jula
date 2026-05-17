@@ -174,12 +174,11 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 
 	wg.Wait()
 
-	if len(errs) > 0 && len(allFindings) == 0 {
-		// Total failure: no findings extracted from any ERL.
-		return nil, fmt.Errorf("all ERL extractions failed: %v", errs)
-	}
-
 	if len(errs) > 0 {
+		if len(allFindings) == 0 {
+			// Total failure: no findings extracted from any ERL.
+			return nil, fmt.Errorf("all ERL extractions failed: %v", errs)
+		}
 		// Partial failure: log warnings but return what we have.
 		for _, e := range errs {
 			slog.Warn("extract: partial failure", "error", e)
