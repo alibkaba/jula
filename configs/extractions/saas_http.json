@@ -136,7 +136,7 @@
   },
   "E-VPM-02": {
     "description": "Aikido Vulnerability Scan Report",
-    "provider": "saas_http",
+    "provider": "aikido",
     "method": "GET",
     "url": "https://app.aikido.dev/api/public/v1/report/ciScans",
     "auth": {
@@ -149,7 +149,7 @@
   },
   "E-CHG-05": {
     "description": "GitHub Closed and Merged Pull Requests",
-    "provider": "saas_http",
+    "provider": "github",
     "method": "GET",
     "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=closed&per_page=100",
     "headers": {
@@ -160,7 +160,7 @@
   },
   "E-IAM-03": {
     "description": "GitHub Organization Administrators",
-    "provider": "saas_http",
+    "provider": "github",
     "method": "GET",
     "url": "https://api.github.com/orgs/${GITHUB_ORG}/members?role=admin&per_page=100",
     "headers": {

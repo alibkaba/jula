@@ -1,143 +1,91 @@
-# Jula Evidence Collector
+# Jula Controls
 
-[![CI/CD Pipeline](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml)
-[![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-collector/releases)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-collector?logo=go)](https://go.dev/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-collector)
-[![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE)
+**Programmatic Compliance, Attestation, and Continuous Assurance**
 
-**Primary Language:** Go (Golang)
+| Component | Build & Release | Quality & Tech | License |
+| :--- | :--- | :--- | :--- |
+| **Jula Evidence Collector** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-collector/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-collector?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-collector) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
+| **Jula Evidence Evaluator** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evidence-evaluator/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evidence-evaluator/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-evaluator?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-evaluator/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-evaluator?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-evaluator)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-evaluator) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 
-A high-performance, open-source CLI tool that programmatically extracts infrastructure state from multiple cloud providers to generate continuous compliance telemetry. Jula operates as a "Collector-Only" engine: it extracts raw infrastructure configuration, cryptographically signs it, and stores immutable evidence artifacts. No evaluation, no dashboards, no opinions.
+
+Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
 
 ## The Philosophy: Attestation Engineering vs. Traditional GRC
 
-Modern compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. The **Jula Evidence Collector** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
-
-Of the five core pillars of traditional Governance, Risk, and Compliance (GRC), we deliberately built Jula to attack only two.
+Of the five core pillars of traditional Governance, Risk, and Compliance (GRC), Jula Controls attacks only two: IT Risk & Compliance (ITRM) and Audit Management.
 
 ### What We Attack (The Revenue Blockers)
-We focus exclusively on the two pillars that drain engineering sprint velocity and directly block you from passing audits to close enterprise deals. You don't need another shiny dashboard; you need cryptographic proof of your infrastructure. By programmatically extracting evidence directly from your APIs, we create an "Operational Buffer" that keeps auditors out of your CI/CD pipeline.
+We focus exclusively on the two pillars that drain engineering sprint velocity and directly block you from passing audits to close enterprise deals. You do not need another shiny dashboard; you need cryptographic proof of your infrastructure. By programmatically extracting evidence directly from your APIs, we create an operational buffer that keeps auditors out of your CI/CD pipeline.
 
-1. **IT Risk & Compliance (ITRM):** Mapping technical controls directly to frameworks like SOC 2.
+1. **IT Risk & Compliance (ITRM):** Mapping technical controls directly to framework specifications.
 2. **Audit Management:** Programmatically gathering, hashing, and storing cryptographic evidence.
 
 ### What We Intentionally Ignore (Bring Your Own Tools)
-Why pay a massive premium for redundant software? Traditional GRCs justify $30k+ annual contracts by bundling the remaining three pillars, forcing you to migrate workflows into their proprietary systems. We intentionally leave these out to eliminate software overhead, allowing you to leverage the tools your organization already pays for:
+Why pay a massive premium for redundant software? Traditional GRCs justify heavy annual contracts by bundling the remaining three pillars, forcing you to migrate workflows into their proprietary systems. We intentionally leave these out to eliminate software overhead, allowing you to leverage the tools your organization already pays for:
 
-* **Policy Management:** You don't need a specialized SaaS platform to host an Information Security Policy. Write it in Google Workspace, Notion, or Confluence, and use their native version history and access controls.
-* **Third-Party Risk (TPRM):** Standardized intake forms routed through existing IT ticketing (Jira/Zendesk) are vastly superior and less noisy than "continuous dark web vendor scanning."
+* **Policy Management:** You do not need a specialized SaaS platform to host an Information Security Policy. Write it in Google Workspace, Notion, or Confluence, and use their native version history and access controls.
+* **Third-Party Risk (TPRM):** Standardized intake forms routed through existing IT ticketing (Jira or Zendesk) are vastly superior and less noisy than third-party scanning portals.
 * **Enterprise Risk (ERM):** Formal financial risk modeling is overkill for scaling startups. That risk tracking belongs at the board level.
 
-By pairing this containerized evidence collector with your existing tooling, you eliminate redundant SaaS overhead. Stop wasting time organizing policies in a vendor's portal, and start generating the actual evidence required to pass your audit and close enterprise deals.
+By pairing this containerized evidence suite with your existing tooling, you eliminate redundant SaaS overhead. Stop wasting time organizing policies in a vendor's portal, and start generating the actual evidence required to pass your audit and close enterprise deals.
 
 ---
 
-## Architecture: The Collector-Only Paradigm
+## Decoupled Architecture: The Attestation & Assurance Paradigm
 
-Jula uses a **declarative, config-driven** architecture. Instead of writing Go code for every new cloud resource you want to inspect, you simply add a SQL query to a JSON configuration file and the engine handles the rest.
+Jula Controls operates as a two-stage decoupled pipeline, cleanly separating raw evidence attestation from compliance evaluation.
 
-### Multi-Cloud Extraction Engine
-
-The orchestrator dispatches extraction jobs to all configured cloud providers **concurrently** with bounded concurrency. A single run produces a unified evidence set across your entire multi-cloud footprint.
-
-| Provider | Engine | Config File | API |
-|---|---|---|---|
-| **Google Cloud (GCP)** | `internal/providers/gcp/cai.go` | `configs/extractions/gcp_cai.json` | Cloud Asset Inventory (gRPC) |
-| **Amazon Web Services (AWS)** | `internal/providers/aws/config.go` | `configs/extractions/aws_config.json` | AWS Config Advanced Queries (SDK v2) |
-| **SaaS & External APIs** | `internal/providers/http_generic/engine.go` | `configs/extractions/saas_http.json` | Universal HTTP Engine (REST/GraphQL) |
-
-### How It Works
-
-1. **Declare:** Define what you want to extract in a JSON config file. Each entry maps an Evidence Request List (ERL) ID to a cloud-native query.
-2. **Extract:** The orchestrator loads all provider configs, initializes authenticated clients, and runs every extraction concurrently.
-3. **Sign:** Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing immutability and perfect deduplication.
-4. **Store:** Evidence files are written to `evidence-output/{date}/evidence/{ERL-ID}/`, namespaced by provider (e.g., `gcp_cai_{hash}.json`, `aws_config_{hash}.json`).
-5. **Manifest:** A cryptographically signed `manifest.json` is generated for the entire run, providing tamper-evident proof of collection.
-
-### Immutable Evidence & Cross-Cloud Deduplication
-
-Because filenames are derived from the SHA-256 hash of the raw data and prefixed with the provider name:
-
-- **Multiple clouds, same ERL:** If `E-BCM-16` (Databases) is extracted from both GCP and AWS, both files coexist in the `E-BCM-16/` directory without overwriting each other.
-- **Perfect deduplication:** Running the collector 100 times against unchanged infrastructure produces the exact same hash, silently overwriting the same file with identical data.
-- **Tamper detection:** If anyone manually modifies an evidence file, the contents will no longer match the filename hash, instantly flagging it as compromised.
-
-## Quick Start
-
-```bash
-# Build the Docker image
-docker build -t jula-evidence-collector:latest .
-
-# Run with GCP and AWS credentials
-docker run --rm \
-  -e JULA_GCP_PROJECT_ID="your-project-id" \
-  -e JULA_SIGNING_KEY="$JULA_SIGNING_KEY" \
-  -e AWS_REGION="us-east-1" \
-  -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-  -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-  -e GOOGLE_APPLICATION_CREDENTIALS=/keys/sa.json \
-  -v ./keys:/keys:ro \
-  -v ./evidence-output:/evidence-output \
-  jula-evidence-collector:latest \
-  run -target local -path /evidence-output
+```mermaid
+graph TD
+    A["Cloud APIs & SaaS"] --> B["Jula Evidence Collector"]
+    B -->|1. Extract & Sign| C["Raw Evidence Artifacts"]
+    B -->|2. Attest| D["Signed Manifest"]
+    D --> E["Jula Evidence Evaluator"]
+    C --> E
+    E -->|3. Evaluate| F["OSCAL Assurance Report"]
 ```
 
-## Directory Structure
+### 1. Jula Evidence Collector (The Attestation Engine)
+The Collector programmatically extracts infrastructure configurations from multiple cloud environments and SaaS tools, generates SHA-256 hashes of the raw payloads, and outputs an immutable set of evidence files. It also signs a secure runtime manifest containing all hashes, proving that the raw evidence was collected at a specific timestamp and has not been altered.
 
-```
-jula-evidence-collector/
-├── cmd/jula/                  # CLI entrypoint, command parsing, and flag validation.
-├── internal/                  # Core domain logic (engine, providers, reporter).
-│   ├── engine/                #   Orchestrator: multi-provider concurrent extraction pipeline.
-│   ├── providers/             #   Cloud API extractors.
-│   │   ├── gcp/               #     GCP Cloud Asset Inventory (CAI) engine.
-│   │   ├── aws/               #     AWS Config Advanced Queries engine.
-│   │   └── http_generic/      #     Universal HTTP engine for SaaS APIs (GitHub, Aikido, etc).
-│   ├── platform/              #   Runtime environment detection (GCP, AWS, Local).
-│   └── reporter/              #   Output: local filesystem with signed manifests.
-├── pkg/                       # Shared libraries (crypto, types) importable by external tools.
-├── configs/                   # Declarative extraction configs.
-│   ├── extractions/           #   gcp_cai.json, aws_config.json, saas_http.json
-│   └── schemas/oscal/         #   JSON schemas for downstream mapping (Jula EE)
-├── keys/                      # Service account credentials (gitignored).
-├── evidence-output/           # Generated evidence artifacts (gitignored).
-├── Dockerfile                 # Multi-stage build: golang:alpine -> scratch (zero attack surface).
-└── LICENSE                    # Business Source License (BSL 1.1).
-```
+### 2. Jula Evidence Evaluator (The Assurance Engine)
+The Evaluator consumes the cryptographically signed manifests and raw evidence artifacts generated by the Collector. It validates the manifest signature and parses the evidence against standardized Open Security Controls Assessment Language (OSCAL) schemas to evaluate technical control adherence and generate audit-ready assurance files.
 
-## Adding a New Extraction
+---
 
-No Go code required. Simply add an entry to the appropriate JSON config file.
+## The Continuous Compliance Pipeline
 
-**Example: Adding an AWS Lambda extraction**
+1. **Declare:** Define what you want to extract in declarative JSON configuration files. Each entry maps an Evidence Request List (ERL) ID to a cloud-native query or SaaS endpoint.
 
+2. **Extract & Hash:** The Collector runs queries concurrently across AWS, GCP, and SaaS APIs. Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing perfect data deduplication.
+
+3. **Sign & Attest:** The Collector compiles all hashes into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
+
+4. **Verify & Evaluate:** The Evaluator verifies the manifest signature using the corresponding public key and processes the evidence against target compliance rules to produce automated pass/fail results.
+
+---
+
+## Declarative Multi-Cloud Configurations
+
+Jula Controls uses a config-driven schema. Adding new resource checks requires zero Go code changes. You simply add a SQL query or REST specification to a configuration file:
+
+* **Google Cloud (GCP CAI):** Define resource discovery scopes and asset filters.
+* **Amazon Web Services (AWS Config):** Specify SQL queries targeting specific AWS configuration recorders.
+* **SaaS & External APIs:** Map generic HTTP REST/GraphQL configurations to target APIs with oauth2 authentication.
+
+### Configuration Example (AWS S3 Bucket Rule)
 ```json
 {
-  "E-CMP-01": {
-    "description": "Lambda Function Configurations",
+  "E-DCH-10": {
+    "description": "S3 Bucket Configurations",
     "provider": "aws_config",
-    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::Lambda::Function'"
+    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
   }
 }
 ```
 
-Rebuild the Docker image and run. The orchestrator will automatically pick up the new ERL and execute it alongside all other extractions.
-
-## Testing
-
-```bash
-# Run the orchestrator test suite
-docker run --rm -v "$(pwd):/build" -w /build golang:1.25-alpine go test ./internal/engine/... -v
-```
-
-The test suite validates:
-
-- **All-success scenarios** (10 concurrent jobs, all return findings)
-- **Partial failure resilience** (3 pass, 2 fail, system returns the 3)
-- **Total failure abort** (all jobs fail, system returns a descriptive error)
-- **Concurrency bounding** (verifies the semaphore never exceeds the configured limit)
+---
 
 ## Licensing
 
-This project is licensed under the Business Source License (BSL 1.1). See the [LICENSE](LICENSE) file for details.
+Jula Controls is licensed under the Business Source License (BSL 1.1). See the `LICENSE` file for details.
