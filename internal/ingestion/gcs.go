@@ -127,6 +127,12 @@ func (r *GCSReader) ReadPayloads(ctx context.Context, bucketURL string, manifest
 				localPath := strings.TrimPrefix(bucketURL, "file://")
 				filePath := filepath.Join(localPath, path)
 				content, err = os.ReadFile(filePath)
+				if err != nil && os.IsNotExist(err) {
+					// Fallback: if run folder is duplicated in path, resolve against parent directory
+					parentPath := filepath.Dir(localPath)
+					filePath = filepath.Join(parentPath, path)
+					content, err = os.ReadFile(filePath)
+				}
 				if err != nil {
 					errs <- fmt.Errorf("reading local file %s: %w", path, err)
 					return
