@@ -1,18 +1,18 @@
 {
-  "E-VUL-01": {
-    "description": "Aikido Open Vulnerability Scan",
-    "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open",
+  "E-VPM-11": { // The validated Secure Controls Framework (SCF) ERL ID mapped to this extraction rule
+    "description": "Aikido Open Vulnerability Scan", // A human-readable scope explaining the collected evidence objective
+    "provider": "aikido", // The specific third-party provider identifier mapped by the extractor
+    "method": "GET", // The HTTP request verb required to fetch resources from the target API
+    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open", // The remote URL endpoint, supporting variable placeholders
     "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
+      "type": "oauth2_client_credentials", // The standard credentials flow style to trigger token requests
+      "token_url": "https://app.aikido.dev/api/oauth/token", // The authentication provider token gateway address
+      "client_id_env": "AIK_CLIENT_ID", // The host environment variable name holding client identifiers
+      "client_secret_env": "AIK_SECRET_KEY" // The host environment variable name holding client secret keys
     },
-    "json_path": "$"
+    "json_path": "$" // The JSONPath filter statement used to query and extract raw payloads
   },
-  "E-VUL-02": {
+  "E-VPM-05": {
     "description": "Aikido Code Repository Inventory",
     "provider": "aikido",
     "method": "GET",
@@ -25,7 +25,7 @@
     },
     "json_path": "$"
   },
-  "E-VUL-03": {
+  "E-VPM-01": {
     "description": "Aikido Container Inventory",
     "provider": "aikido",
     "method": "GET",
@@ -38,7 +38,7 @@
     },
     "json_path": "$"
   },
-  "E-VUL-04": {
+  "E-VPM-10": {
     "description": "Aikido Virtual Machine Inventory",
     "provider": "aikido",
     "method": "GET",
@@ -51,7 +51,7 @@
     },
     "json_path": "$"
   },
-  "E-SBOM-01": {
+  "E-TDA-11": {
     "description": "Aikido Code Repository SBOM",
     "provider": "aikido",
     "method": "GET",
@@ -64,7 +64,7 @@
     },
     "json_path": "$"
   },
-  "E-SBOM-02": {
+  "E-TDA-03": {
     "description": "Aikido Container SBOM",
     "provider": "aikido",
     "method": "GET",
@@ -77,7 +77,7 @@
     },
     "json_path": "$"
   },
-  "E-SBOM-03": {
+  "E-TDA-15": {
     "description": "Aikido Virtual Machine SBOM",
     "provider": "aikido",
     "method": "GET",
@@ -128,6 +128,41 @@
     "provider": "github",
     "method": "GET",
     "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/contents/CODEOWNERS",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_TOKEN}",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    "json_path": "$"
+  },
+  "E-VPM-02": {
+    "description": "Aikido Vulnerability Scan Report",
+    "provider": "saas_http",
+    "method": "GET",
+    "url": "https://app.aikido.dev/api/public/v1/report/ciScans",
+    "auth": {
+      "type": "oauth2_client_credentials",
+      "token_url": "https://app.aikido.dev/api/oauth/token",
+      "client_id_env": "AIK_CLIENT_ID",
+      "client_secret_env": "AIK_SECRET_KEY"
+    },
+    "json_path": "$"
+  },
+  "E-CHG-05": {
+    "description": "GitHub Closed and Merged Pull Requests",
+    "provider": "saas_http",
+    "method": "GET",
+    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=closed&per_page=100",
+    "headers": {
+      "Authorization": "Bearer ${GITHUB_TOKEN}",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    "json_path": "$"
+  },
+  "E-IAM-03": {
+    "description": "GitHub Organization Administrators",
+    "provider": "saas_http",
+    "method": "GET",
+    "url": "https://api.github.com/orgs/${GITHUB_ORG}/members?role=admin&per_page=100",
     "headers": {
       "Authorization": "Bearer ${GITHUB_TOKEN}",
       "Accept": "application/vnd.github.v3+json"
