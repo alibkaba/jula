@@ -2,7 +2,12 @@ package engine
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -276,5 +281,160 @@ func TestOrchestrator_BuildAWSJobs_NoRegion(t *testing.T) {
 	_, err := o.buildAWSJobs(context.Background())
 	if err == nil || err.Error() != "AWS_REGION or AWS_DEFAULT_REGION is required for AWS Config provider" {
 		t.Errorf("expected missing AWS_REGION error, got %v", err)
+	}
+}
+
+// TestOrchestrator_BuildGCPJobs tests the building of GCP CAI extraction jobs.
+func TestOrchestrator_BuildGCPJobs(t *testing.T) {
+	// A structurally valid JSON credential file to satisfy Google's application default credentials.
+	// Note: We need a valid RSA private key to prevent ParseKey errors.
+
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	keyBytes := x509.MarshalPKCS1PrivateKey(key)
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	credData := fmt.Sprintf(`{
+		"type": "service_account",
+		"project_id": "test-project",
+		"private_key_id": "123",
+		"private_key": %q,
+		"client_email": "test@test-project.iam.gserviceaccount.com",
+		"client_id": "123",
+		"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+		"token_uri": "https://oauth2.googleapis.com/token",
+		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+		"client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%%40test-project.iam.gserviceaccount.com"
+	}`, string(pemBytes))
+
+	credFile := t.TempDir() + "/creds.json"
+	if err := os.WriteFile(credFile, []byte(credData), 0644); err != nil {
+		t.Fatalf("failed to write fake creds: %v", err)
+	}
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile)
+
+	validConfigPath := t.TempDir() + "/cai_valid.json"
+	validConfigData := `{
+		"E-TEST-GCP": {
+			"description": "Test GCP",
+			"scope": "projects/test-project",
+			"query": "state:ACTIVE"
+		}
+	}`
+	if err := os.WriteFile(validConfigPath, []byte(validConfigData), 0644); err != nil {
+		t.Fatalf("failed to write valid config: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		configPath   string
+		expectErr    bool
+		expectedJobs int
+	}{
+		{
+			name:         "Success",
+			configPath:   validConfigPath,
+			expectErr:    false,
+			expectedJobs: 1,
+		},
+		{
+			name:         "Invalid Config Path",
+			configPath:   "nonexistent_cai.json",
+			expectErr:    true,
+			expectedJobs: 0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			o := New(RunConfig{
+				CAIConfigPath: tc.configPath,
+				RunID:         "test-run",
+			})
+
+			jobs, err := o.buildGCPJobs(context.Background())
+
+			if tc.expectErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+				if len(jobs) != tc.expectedJobs {
+					t.Errorf("expected %d jobs, got %d", tc.expectedJobs, len(jobs))
+				}
+				if len(jobs) > 0 && jobs[0].erlID != "E-TEST-GCP" {
+					t.Errorf("expected job erlID to be E-TEST-GCP, got %s", jobs[0].erlID)
+				}
+			}
+		})
+	}
+}
+
+// TestOrchestrator_BuildAWSJobs tests the building of AWS Config extraction jobs.
+func TestOrchestrator_BuildAWSJobs(t *testing.T) {
+	// Need to ensure AWS Region is set to get past the early guard rail
+	t.Setenv("AWS_REGION", "us-east-1")
+
+	validConfigPath := t.TempDir() + "/aws_valid.json"
+	validConfigData := `{
+		"E-TEST-AWS": {
+			"description": "Test AWS",
+			"query": "SELECT resourceId"
+		}
+	}`
+	if err := os.WriteFile(validConfigPath, []byte(validConfigData), 0644); err != nil {
+		t.Fatalf("failed to write valid config: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		configPath   string
+		expectErr    bool
+		expectedJobs int
+	}{
+		{
+			name:         "Success",
+			configPath:   validConfigPath,
+			expectErr:    false,
+			expectedJobs: 1,
+		},
+		{
+			name:         "Invalid Config Path",
+			configPath:   "nonexistent_aws.json",
+			expectErr:    true,
+			expectedJobs: 0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			o := New(RunConfig{
+				AWSConfigPath: tc.configPath,
+				RunID:         "test-run",
+			})
+
+			jobs, err := o.buildAWSJobs(context.Background())
+
+			if tc.expectErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+				if len(jobs) != tc.expectedJobs {
+					t.Errorf("expected %d jobs, got %d", tc.expectedJobs, len(jobs))
+				}
+				if len(jobs) > 0 && jobs[0].erlID != "E-TEST-AWS" {
+					t.Errorf("expected job erlID to be E-TEST-AWS, got %s", jobs[0].erlID)
+				}
+			}
+		})
 	}
 }
