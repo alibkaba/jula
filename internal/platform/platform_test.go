@@ -21,9 +21,9 @@ func TestGetEnvironmentInfo(t *testing.T) {
 			wantType: "CUSTOM",
 		},
 		{
-			name: "GCP fallback",
+			name: "GCP standard project",
 			env: map[string]string{
-				"JULA_GCP_PROJECT_ID": "gcp-project",
+				"GCP_PROJECT_ID": "gcp-project",
 			},
 			wantID:   "gcp-project",
 			wantType: "GCP",
@@ -57,7 +57,7 @@ func TestGetEnvironmentInfo(t *testing.T) {
 			// Clear all potential env vars first
 			t.Setenv("JULA_ENVIRONMENT_ID", "")
 			t.Setenv("JULA_PLATFORM_TYPE", "")
-			t.Setenv("JULA_GCP_PROJECT_ID", "")
+			t.Setenv("GCP_PROJECT_ID", "")
 			t.Setenv("AWS_ACCOUNT_ID", "")
 			t.Setenv("AWS_REGION", "")
 

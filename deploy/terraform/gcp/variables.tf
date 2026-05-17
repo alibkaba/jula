@@ -56,18 +56,6 @@ variable "github_token_secret_id" {
   default     = "jula-github-token"
 }
 
-variable "filedrop_bucket_name" {
-  description = "Name of the GCS bucket for bringing your own evidence (BYOE)."
-  type        = string
-  default     = "jula-evidence-byoe-494603"
-}
-
-variable "filedrop_prefix" {
-  description = "Prefix within the BYOE bucket to scan for policies."
-  type        = string
-  default     = "evidence/byoe/"
-}
-
 variable "scheduler_cron" {
   description = "Cron expression for the Cloud Scheduler trigger."
   type        = string

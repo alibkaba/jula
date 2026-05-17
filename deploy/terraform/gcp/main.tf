@@ -103,25 +103,6 @@ resource "google_storage_bucket_iam_member" "jula_runner_storage" {
 }
 
 # ──────────────────────────────────────────────────────────────
-# 4.5 FileDrop (BYOE) Storage Bucket
-# ──────────────────────────────────────────────────────────────
-
-resource "google_storage_bucket" "filedrop" {
-  name     = var.filedrop_bucket_name
-  project  = var.project_id
-  location = var.region
-
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-}
-
-resource "google_storage_bucket_iam_member" "jula_runner_filedrop" {
-  bucket = google_storage_bucket.filedrop.name
-  role   = "roles/storage.objectViewer"
-  member = "serviceAccount:${google_service_account.jula_runner.email}"
-}
-
-# ──────────────────────────────────────────────────────────────
 # 5. Secret Manager – Secrets
 # ──────────────────────────────────────────────────────────────
 
@@ -240,15 +221,7 @@ resource "google_cloud_run_v2_service" "jula" {
       }
       env {
         name  = "JULA_PROVIDER"
-        value = "gcp,aikido,github,filedrop"
-      }
-      env {
-        name  = "JULA_FILEDROP_BUCKET"
-        value = google_storage_bucket.filedrop.name
-      }
-      env {
-        name  = "JULA_FILEDROP_PREFIX"
-        value = var.filedrop_prefix
+        value = "gcp,aikido,github"
       }
       env {
         name  = "GITHUB_REPO"
