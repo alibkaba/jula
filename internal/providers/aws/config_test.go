@@ -105,7 +105,7 @@ func TestUnifiedAWSConfigProvider_Extract(t *testing.T) {
 			name: "Success Multiple Pages",
 			mockOutputs: []*configservice.SelectResourceConfigOutput{
 				{
-					Results: []string{`{"resourceId":"1"}`},
+					Results:   []string{`{"resourceId":"1"}`},
 					NextToken: ptr("token1"),
 				},
 				{
@@ -115,7 +115,7 @@ func TestUnifiedAWSConfigProvider_Extract(t *testing.T) {
 			expectRawData: `[{"resourceId":"1"},{"resourceId":"2"}]`,
 		},
 		{
-			name: "Client Error",
+			name:         "Client Error",
 			mockErr:      fmt.Errorf("aws api error"),
 			expectErrStr: "aws api error",
 		},

@@ -1,51 +1,83 @@
 {
-  "E-GOV-01": {
-    "description": "Cybersecurity Program Charter",
-    "provider": "gcp_cai",
-    "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["cloudresourcemanager.googleapis.com/Project"],
-    "query": ""
+  "E-GOV-01": { // The validated Secure Controls Framework (SCF) ERL ID mapped to this extraction rule
+    "description": "Cybersecurity Program Charter", // A human-readable scope explaining the collected evidence objective
+    "provider": "gcp_cai", // The specific third-party provider identifier mapped by the extractor
+    "scope": "projects/{{GCP_PROJECT_ID}}", // The GCP resource scope to query (e.g. project, folder, organization)
+    "asset_types": [
+      "cloudresourcemanager.googleapis.com/Project"
+    ], // The GCP Cloud Asset Inventory resource types to list and discover
+    "query": "" // An optional filter query statement conforming to CAI search parameters
   },
   "E-BCM-16": {
     "description": "Encrypted Database Instances",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["sqladmin.googleapis.com/Instance"],
+    "asset_types": [
+      "sqladmin.googleapis.com/Instance"
+    ],
     "query": "state:RUNNING"
   },
   "E-NET-05": {
     "description": "Firewall Rules",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["compute.googleapis.com/Firewall"],
+    "asset_types": [
+      "compute.googleapis.com/Firewall"
+    ],
     "query": ""
   },
-  "E-CRY-04": {
+  "E-CRY-02": {
     "description": "KMS Encryption Keys",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["cloudkms.googleapis.com/CryptoKey"],
+    "asset_types": [
+      "cloudkms.googleapis.com/CryptoKey"
+    ],
     "query": ""
   },
   "E-IAM-03": {
     "description": "IAM Service Accounts",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["iam.googleapis.com/ServiceAccount"],
+    "asset_types": [
+      "iam.googleapis.com/ServiceAccount"
+    ],
     "query": ""
   },
-  "E-LOG-01": {
+  "E-MON-01": {
     "description": "Audit Log Sinks",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["logging.googleapis.com/LogSink"],
+    "asset_types": [
+      "logging.googleapis.com/LogSink"
+    ],
     "query": ""
   },
-  "E-STG-02": {
+  "E-DCH-10": {
     "description": "Cloud Storage Buckets",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
-    "asset_types": ["storage.googleapis.com/Bucket"],
+    "asset_types": [
+      "storage.googleapis.com/Bucket"
+    ],
+    "query": ""
+  },
+  "E-AST-01": {
+    "description": "GCP Compute Engine Instances",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "compute.googleapis.com/Instance"
+    ],
+    "query": ""
+  },
+  "E-IAM-02": {
+    "description": "GCP IAM Service Accounts",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "iam.googleapis.com/ServiceAccount"
+    ],
     "query": ""
   }
 }
