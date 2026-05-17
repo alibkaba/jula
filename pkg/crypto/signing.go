@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	stdcrypto "crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -11,12 +12,12 @@ import (
 	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
 )
 
-// SignManifest computes the ECDSA signature for a Manifest.
-// The privateKey MUST come from a securely managed source.
+// SignManifest computes the signature for a Manifest using a standard crypto.Signer.
+// The Signer MUST come from a securely managed source.
 // The Signature field is excluded from the signing input by zeroing it first.
-func SignManifest(manifest *types.Manifest, privateKey *ecdsa.PrivateKey) error {
-	if privateKey == nil {
-		return fmt.Errorf("private key is nil")
+func SignManifest(manifest *types.Manifest, signer stdcrypto.Signer) error {
+	if signer == nil {
+		return fmt.Errorf("signer is nil")
 	}
 
 	// Zero the signature before computing so it is excluded from the hash.
@@ -28,7 +29,7 @@ func SignManifest(manifest *types.Manifest, privateKey *ecdsa.PrivateKey) error 
 	}
 
 	hash := sha256.Sum256(canonical)
-	sigBytes, err := ecdsa.SignASN1(rand.Reader, privateKey, hash[:])
+	sigBytes, err := signer.Sign(rand.Reader, hash[:], nil)
 	if err != nil {
 		return fmt.Errorf("failed to sign manifest: %w", err)
 	}
