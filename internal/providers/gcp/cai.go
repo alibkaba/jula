@@ -27,6 +27,9 @@ type CAIExtractionConfig struct {
 	// AssetTypes restricts the search to specific GCP resource types.
 	// E.g., ["compute.googleapis.com/Instance"]. Optional.
 	AssetTypes []string `json:"asset_types,omitempty"`
+	// SearchType specifies whether to search resources ("resource") or IAM policies ("iam").
+	// Defaults to "resource" if empty.
+	SearchType string `json:"search_type,omitempty"`
 }
 
 // CAIConfigMap maps ERL IDs to their corresponding extraction configurations.
@@ -61,9 +64,24 @@ func (i *defaultResourceIterator) Next() (*assetpb.ResourceSearchResult, error) 
 	return i.it.Next()
 }
 
+// IamPolicyIterator defines the interface for iterating over CAI IAM search results.
+type IamPolicyIterator interface {
+	Next() (*assetpb.IamPolicySearchResult, error)
+}
+
+// defaultIamPolicyIterator wraps the concrete GCP iterator to implement the IamPolicyIterator interface.
+type defaultIamPolicyIterator struct {
+	it *asset.IamPolicySearchResultIterator
+}
+
+func (i *defaultIamPolicyIterator) Next() (*assetpb.IamPolicySearchResult, error) {
+	return i.it.Next()
+}
+
 // AssetClient defines the interface for interacting with the Google Cloud Asset API.
 type AssetClient interface {
 	SearchAllResources(ctx context.Context, req *assetpb.SearchAllResourcesRequest, opts ...option.ClientOption) ResourceIterator
+	SearchAllIamPolicies(ctx context.Context, req *assetpb.SearchAllIamPoliciesRequest, opts ...option.ClientOption) IamPolicyIterator
 	Close() error
 }
 
@@ -73,11 +91,13 @@ type defaultAssetClient struct {
 }
 
 func (c *defaultAssetClient) SearchAllResources(ctx context.Context, req *assetpb.SearchAllResourcesRequest, opts ...option.ClientOption) ResourceIterator {
-	// Note: We ignore the opts here for the simple wrapper since the signature doesn't perfectly align with the grpc method without unwrapping.
-	// For production we map the grpc options appropriately.
-	// We call the underlying grpc method.
 	it := c.c.SearchAllResources(ctx, req)
 	return &defaultResourceIterator{it: it}
+}
+
+func (c *defaultAssetClient) SearchAllIamPolicies(ctx context.Context, req *assetpb.SearchAllIamPoliciesRequest, opts ...option.ClientOption) IamPolicyIterator {
+	it := c.c.SearchAllIamPolicies(ctx, req)
+	return &defaultIamPolicyIterator{it: it}
 }
 
 func (c *defaultAssetClient) Close() error {
@@ -95,7 +115,6 @@ type UnifiedCAIProvider struct {
 // It attempts to authenticate via default credentials but requires JULA_GCP_SCOPE to be set
 // if individual configs do not provide a scope.
 func NewUnifiedCAIProvider(ctx context.Context) (*UnifiedCAIProvider, error) {
-	// Support an optional explicit credentials file via env var (useful for local execution).
 	var clientOpts []option.ClientOption
 	if credFile := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); credFile != "" {
 		clientOpts = append(clientOpts, option.WithCredentialsFile(credFile))
@@ -139,58 +158,92 @@ func (p *UnifiedCAIProvider) Extract(ctx context.Context, erlID string, cfg CAIE
 		scope = strings.ReplaceAll(scope, "${GCP_PROJECT_ID}", projectID)
 	}
 
-	req := &assetpb.SearchAllResourcesRequest{
-		Scope:      scope,
-		Query:      cfg.Query,
-		AssetTypes: cfg.AssetTypes,
-	}
-
-	it := p.client.SearchAllResources(ctx, req)
 	var resources []map[string]interface{}
 
-	for {
-		resp, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return types.Finding{}, fmt.Errorf("executing CAI search: %w", err)
+	if strings.ToLower(cfg.SearchType) == "iam" || strings.ToLower(cfg.SearchType) == "iam_policy" {
+		req := &assetpb.SearchAllIamPoliciesRequest{
+			Scope:      scope,
+			Query:      cfg.Query,
+			AssetTypes: cfg.AssetTypes,
 		}
 
-		// Convert the gRPC response into a generic map for JSON serialization.
-		// Since we are "Collector Only", we don't care about strongly-typed fields;
-		// we just want to deliver the raw representation to the GRC tool.
-		resMap := map[string]interface{}{
-			"name":         resp.Name,
-			"assetType":    resp.AssetType,
-			"project":      resp.Project,
-			"location":     resp.Location,
-			"state":        resp.State,
-			"labels":       resp.Labels,
-			"networkTags":  resp.NetworkTags,
-			"kmsKey":       resp.KmsKey,
-			"folders":      resp.Folders,
-			"organization": resp.Organization,
-		}
-
-		if resp.CreateTime != nil {
-			resMap["createTime"] = resp.CreateTime.AsTime().Format(time.RFC3339)
-		}
-		if resp.UpdateTime != nil {
-			resMap["updateTime"] = resp.UpdateTime.AsTime().Format(time.RFC3339)
-		}
-
-		// Attempt to parse the AdditionalAttributes struct if present.
-		if resp.AdditionalAttributes != nil {
-			attrMap := make(map[string]interface{})
-			b, err := resp.AdditionalAttributes.MarshalJSON()
-			if err == nil {
-				json.Unmarshal(b, &attrMap)
-				resMap["additionalAttributes"] = attrMap
+		it := p.client.SearchAllIamPolicies(ctx, req)
+		for {
+			resp, err := it.Next()
+			if err == iterator.Done {
+				break
 			}
+			if err != nil {
+				return types.Finding{}, fmt.Errorf("executing CAI IAM search: %w", err)
+			}
+
+			resMap := map[string]interface{}{
+				"resource":     resp.Resource,
+				"project":      resp.Project,
+				"assetType":    resp.AssetType,
+				"folders":      resp.Folders,
+				"organization": resp.Organization,
+			}
+
+			if resp.Policy != nil {
+				policyMap := make(map[string]interface{})
+				b, err := json.Marshal(resp.Policy)
+				if err == nil {
+					json.Unmarshal(b, &policyMap)
+					resMap["policy"] = policyMap
+				}
+			}
+
+			resources = append(resources, resMap)
+		}
+	} else {
+		req := &assetpb.SearchAllResourcesRequest{
+			Scope:      scope,
+			Query:      cfg.Query,
+			AssetTypes: cfg.AssetTypes,
 		}
 
-		resources = append(resources, resMap)
+		it := p.client.SearchAllResources(ctx, req)
+		for {
+			resp, err := it.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				return types.Finding{}, fmt.Errorf("executing CAI search: %w", err)
+			}
+
+			resMap := map[string]interface{}{
+				"name":         resp.Name,
+				"assetType":    resp.AssetType,
+				"project":      resp.Project,
+				"location":     resp.Location,
+				"state":        resp.State,
+				"labels":       resp.Labels,
+				"networkTags":  resp.NetworkTags,
+				"kmsKey":       resp.KmsKey,
+				"folders":      resp.Folders,
+				"organization": resp.Organization,
+			}
+
+			if resp.CreateTime != nil {
+				resMap["createTime"] = resp.CreateTime.AsTime().Format(time.RFC3339)
+			}
+			if resp.UpdateTime != nil {
+				resMap["updateTime"] = resp.UpdateTime.AsTime().Format(time.RFC3339)
+			}
+
+			if resp.AdditionalAttributes != nil {
+				attrMap := make(map[string]interface{})
+				b, err := resp.AdditionalAttributes.MarshalJSON()
+				if err == nil {
+					json.Unmarshal(b, &attrMap)
+					resMap["additionalAttributes"] = attrMap
+				}
+			}
+
+			resources = append(resources, resMap)
+		}
 	}
 
 	// Wrapper to ensure valid JSON even if empty.

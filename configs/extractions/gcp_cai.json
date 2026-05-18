@@ -36,13 +36,14 @@
     "query": ""
   },
   "E-IAM-03": {
-    "description": "IAM Service Accounts",
+    "description": "Privileged User Inventory (GCP IAM Policies)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
     "asset_types": [
-      "iam.googleapis.com/ServiceAccount"
+      "cloudresourcemanager.googleapis.com/Project"
     ],
-    "query": ""
+    "query": "policy:roles/owner OR policy:roles/editor",
+    "search_type": "iam"
   },
   "E-MON-01": {
     "description": "Audit Log Sinks",
@@ -72,11 +73,58 @@
     "query": ""
   },
   "E-IAM-02": {
-    "description": "GCP IAM Service Accounts",
+    "description": "GCP Project IAM Policy Bindings (RBAC)",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "cloudresourcemanager.googleapis.com/Project"
+    ],
+    "query": "",
+    "search_type": "iam"
+  },
+  "E-AST-06": {
+    "description": "Asset Inventories - Cloud Service Provider (CSP)",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "cloudresourcemanager.googleapis.com/Project"
+    ],
+    "query": ""
+  },
+  "E-CRY-01": {
+    "description": "Cryptographic Protections (KMS Crypto Keys)",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "cloudkms.googleapis.com/CryptoKey"
+    ],
+    "query": ""
+  },
+  "E-IAM-01": {
+    "description": "GCP Access Permission Review (IAM Policies)",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "cloudresourcemanager.googleapis.com/Project"
+    ],
+    "query": "",
+    "search_type": "iam"
+  },
+  "E-IAM-04": {
+    "description": "GCP User & Service Inventory (Service Accounts)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
     "asset_types": [
       "iam.googleapis.com/ServiceAccount"
+    ],
+    "query": ""
+  },
+  "E-NET-04": {
+    "description": "GCP Network Security Controls (Firewall Rules)",
+    "provider": "gcp_cai",
+    "scope": "projects/{{GCP_PROJECT_ID}}",
+    "asset_types": [
+      "compute.googleapis.com/Firewall"
     ],
     "query": ""
   }

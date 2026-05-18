@@ -35,13 +35,36 @@ func (m *mockResourceIterator) Next() (*assetpb.ResourceSearchResult, error) {
 	return res, nil
 }
 
+type mockIamPolicyIterator struct {
+	results []*assetpb.IamPolicySearchResult
+	err     error
+	index   int
+}
+
+func (m *mockIamPolicyIterator) Next() (*assetpb.IamPolicySearchResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if m.index >= len(m.results) {
+		return nil, iterator.Done
+	}
+	res := m.results[m.index]
+	m.index++
+	return res, nil
+}
+
 type mockAssetClient struct {
-	iterator *mockResourceIterator
-	closeErr error
+	iterator    *mockResourceIterator
+	iamIterator *mockIamPolicyIterator
+	closeErr    error
 }
 
 func (m *mockAssetClient) SearchAllResources(ctx context.Context, req *assetpb.SearchAllResourcesRequest, opts ...option.ClientOption) ResourceIterator {
 	return m.iterator
+}
+
+func (m *mockAssetClient) SearchAllIamPolicies(ctx context.Context, req *assetpb.SearchAllIamPoliciesRequest, opts ...option.ClientOption) IamPolicyIterator {
+	return m.iamIterator
 }
 
 func (m *mockAssetClient) Close() error {
@@ -215,5 +238,43 @@ func TestUnifiedCAIProvider_Close(t *testing.T) {
 	providerNil := &UnifiedCAIProvider{client: nil}
 	if err := providerNil.Close(); err != nil {
 		t.Errorf("expected nil error on nil client close, got %v", err)
+	}
+}
+
+func TestExtract_IamPolicySuccess(t *testing.T) {
+	mockIamResults := []*assetpb.IamPolicySearchResult{
+		{
+			Resource:  "//cloudresourcemanager.googleapis.com/projects/my-project",
+			AssetType: "cloudresourcemanager.googleapis.com/Project",
+			Project:   "projects/my-project",
+		},
+	}
+
+	mockClient := &mockAssetClient{
+		iamIterator: &mockIamPolicyIterator{
+			results: mockIamResults,
+		},
+	}
+
+	provider := &UnifiedCAIProvider{
+		client:       mockClient,
+		defaultScope: "projects/my-project",
+	}
+
+	cfg := CAIExtractionConfig{
+		Query:      "policy:roles/owner",
+		SearchType: "iam",
+	}
+
+	finding, err := provider.Extract(context.Background(), "E-TEST-03", cfg, "run-456")
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	if finding.ErlID != "E-TEST-03" {
+		t.Errorf("expected ErlID E-TEST-03, got %s", finding.ErlID)
+	}
+	if len(finding.RawData) == 0 {
+		t.Error("expected RawData to be populated, got empty")
 	}
 }
