@@ -131,7 +131,7 @@ func (e *Engine) Extract(ctx context.Context, erlID string, cfg ExtractionConfig
 	for k, v := range headers {
 		if strings.Contains(v, "${") {
 			return types.Finding{}, fmt.Errorf(
-				"unresolved environment variable in header %q: %s", k, v,
+				"unresolved environment variable in header %q", k,
 			)
 		}
 	}
@@ -193,8 +193,7 @@ func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers ma
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("HTTP %d from %s: %s", resp.StatusCode, url, string(body))
+		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -327,7 +326,7 @@ func (e *Engine) resolveAuth(ctx context.Context, auth *AuthConfig) (string, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("token exchange returned HTTP %d: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("token exchange returned HTTP %d", resp.StatusCode)
 	}
 
 	var tokenResp struct {
