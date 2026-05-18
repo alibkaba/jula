@@ -9,10 +9,16 @@ import (
 	"time"
 
 	"cloud.google.com/go/asset/apiv1/assetpb"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"strings"
 )
 
 // --- Mocks ---
@@ -276,5 +282,92 @@ func TestExtract_IamPolicySuccess(t *testing.T) {
 	}
 	if len(finding.RawData) == 0 {
 		t.Error("expected RawData to be populated, got empty")
+	}
+}
+
+func TestNewUnifiedCAIProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Generate a dummy RSA key dynamically to avoid hardcoding secrets
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate dummy RSA key: %v", err)
+	}
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("failed to marshal key: %v", err)
+	}
+	pemBlock := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: keyBytes,
+	}
+	pemBytes := pem.EncodeToMemory(pemBlock)
+	privateKeyStr := strings.ReplaceAll(string(pemBytes), "\n", "\\n")
+
+	dummyCreds := fmt.Sprintf(`{
+		"type": "service_account",
+		"project_id": "test-project",
+		"private_key_id": "test-key-id",
+		"private_key": "%s",
+		"client_email": "test@test-project.iam.gserviceaccount.com",
+		"client_id": "12345",
+		"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+		"token_uri": "https://oauth2.googleapis.com/token",
+		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+		"client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%%40test-project.iam.gserviceaccount.com"
+	}`, privateKeyStr)
+
+	validCredPath := filepath.Join(tmpDir, "dummy_creds.json")
+	if err := os.WriteFile(validCredPath, []byte(dummyCreds), 0644); err != nil {
+		t.Fatalf("failed to write dummy creds: %v", err)
+	}
+
+	invalidCredPath := filepath.Join(tmpDir, "invalid_creds.json")
+	if err := os.WriteFile(invalidCredPath, []byte("invalid json data"), 0644); err != nil {
+		t.Fatalf("failed to write invalid creds: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		credPath      string
+		scope         string
+		expectedScope string
+		wantErr       bool
+	}{
+		{
+			name:          "happy path - valid credentials",
+			credPath:      validCredPath,
+			scope:         "projects/test-project",
+			expectedScope: "projects/test-project",
+			wantErr:       false,
+		},
+		{
+			name:          "error path - invalid credentials",
+			credPath:      invalidCredPath,
+			scope:         "projects/test-project",
+			expectedScope: "",
+			wantErr:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tt.credPath)
+			t.Setenv("JULA_GCP_SCOPE", tt.scope)
+
+			provider, err := NewUnifiedCAIProvider(context.Background())
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewUnifiedCAIProvider() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if err == nil {
+				if provider == nil {
+					t.Error("expected provider to be non-nil")
+				} else if provider.defaultScope != tt.expectedScope {
+					t.Errorf("expected scope %s, got %s", tt.expectedScope, provider.defaultScope)
+				}
+			}
+		})
 	}
 }
