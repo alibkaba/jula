@@ -47,7 +47,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("evaluator: starting Jula EE assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
+	slog.Info("evaluator: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
 
 	// Validate the JULA_PUBLIC_KEY env variable early.
 	pubKeyPEM := os.Getenv("JULA_PUBLIC_KEY")
