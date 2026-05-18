@@ -77,7 +77,7 @@ func (p *metadataTokenProvider) Token() (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("metadata server returned HTTP %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("metadata server returned HTTP %d", resp.StatusCode)
 	}
 
 	var tokenResp metadataTokenResponse

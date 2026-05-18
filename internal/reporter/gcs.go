@@ -6,7 +6,6 @@ import (
 	stdcrypto "crypto"
 	json "encoding/json"
 	fmt "fmt"
-	io "io"
 	"log/slog"
 	http "net/http"
 	url "net/url"
@@ -82,8 +81,7 @@ func (r *GCSReporter) Validate(ctx context.Context) error {
 		return fmt.Errorf("insufficient permissions on bucket %q (ensure the service account has roles/storage.objectAdmin)", r.BucketName)
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("bucket probe returned HTTP %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("bucket probe returned HTTP %d", resp.StatusCode)
 	}
 
 	slog.Info("gcs: bucket validated", "bucket", r.BucketName)
@@ -197,8 +195,7 @@ func (r *GCSReporter) uploadObject(ctx context.Context, objectName string, data 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("GCS upload returned HTTP %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("GCS upload returned HTTP %d", resp.StatusCode)
 	}
 
 	return nil
