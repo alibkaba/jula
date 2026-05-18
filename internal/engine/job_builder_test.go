@@ -10,13 +10,23 @@ func TestBuildHTTPGenericJobs(t *testing.T) {
 	// Create a temp config file
 	tmpDir := t.TempDir()
 	configPath := tmpDir + "/saas_http.json"
+	providersPath := tmpDir + "/providers.json"
+
+	providersData := `{
+		"saas_http": {
+			"base_url": "https://api.example.com",
+			"headers": {}
+		}
+	}`
+	if err := os.WriteFile(providersPath, []byte(providersData), 0644); err != nil {
+		t.Fatalf("failed to write temp providers config: %v", err)
+	}
 
 	configData := `{
 		"E-TEST-SaaS": {
 			"description": "Test SaaS",
 			"provider": "saas_http",
-			"method": "GET",
-			"url": "https://api.example.com/data"
+			"path": "/data"
 		}
 	}`
 	err := os.WriteFile(configPath, []byte(configData), 0644)

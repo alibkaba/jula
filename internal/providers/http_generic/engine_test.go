@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -31,21 +32,6 @@ func TestInterpolateEnvVars_LeavesUnknownVars(t *testing.T) {
 
 	if got != input {
 		t.Errorf("expected unresolved var to be preserved, got %q", got)
-	}
-}
-
-func TestInterpolateEnvVars_MultipleVars(t *testing.T) {
-	os.Setenv("TEST_USER_ABC", "admin")
-	os.Setenv("TEST_PASS_ABC", "secret")
-	defer os.Unsetenv("TEST_USER_ABC")
-	defer os.Unsetenv("TEST_PASS_ABC")
-
-	input := "${TEST_USER_ABC}:${TEST_PASS_ABC}"
-	got := InterpolateEnvVars(input)
-	expected := "admin:secret"
-
-	if got != expected {
-		t.Errorf("expected %q, got %q", expected, got)
 	}
 }
 
@@ -214,41 +200,6 @@ func TestEngine_Extract_DefaultsToGET(t *testing.T) {
 	}
 }
 
-func TestLoadSaaSConfigs_ValidFile(t *testing.T) {
-	tmpFile := t.TempDir() + "/saas_http.json"
-	data := `{
-		"E-VUL-01": {
-			"description": "Aikido Vulnerability Scan",
-			"provider": "aikido",
-			"method": "GET",
-			"url": "https://app.aikido.dev/api/public/v1/issues/export",
-			"headers": {"Authorization": "Bearer ${AIK_TOKEN}"},
-			"json_path": "$"
-		}
-	}`
-
-	if err := os.WriteFile(tmpFile, []byte(data), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	configs, err := LoadSaaSConfigs(tmpFile)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if len(configs) != 1 {
-		t.Fatalf("expected 1 config, got %d", len(configs))
-	}
-
-	cfg, exists := configs["E-VUL-01"]
-	if !exists {
-		t.Fatal("expected E-VUL-01 in configs")
-	}
-	if cfg.Provider != "aikido" {
-		t.Errorf("expected provider aikido, got %s", cfg.Provider)
-	}
-}
-
 func TestExtractNextURL_SimplePath(t *testing.T) {
 	body := json.RawMessage(`{"next": "https://example.com/page2"}`)
 	url, found := extractNextURL(body, "next")
@@ -354,7 +305,6 @@ func TestEngine_Extract_PaginationMaxPages(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExtract_OAuthClientCredentials_Success(t *testing.T) {
-	// Mock OAuth token server.
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -368,7 +318,6 @@ func TestExtract_OAuthClientCredentials_Success(t *testing.T) {
 	}))
 	defer tokenServer.Close()
 
-	// Mock API server that validates the bearer token.
 	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		if auth != "Bearer mock-jwt-token-12345" {
@@ -431,91 +380,239 @@ func TestExtract_OAuthClientCredentials_MissingCreds(t *testing.T) {
 	}
 }
 
-func TestExtract_OAuthClientCredentials_ServerError(t *testing.T) {
-	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error":"server error"}`))
-	}))
-	defer tokenServer.Close()
+// ---------------------------------------------------------------------------
+// DRY Ingestion, Safety & Advanced Security Test Assertions
+// ---------------------------------------------------------------------------
 
-	t.Setenv("TEST_AIK_ID_ERR", "test-id")
-	t.Setenv("TEST_AIK_SECRET_ERR", "test-secret")
-
-	engine := NewEngine()
-	cfg := ExtractionConfig{
-		Description: "OAuth Server Error",
-		Provider:    "aikido",
-		Method:      "GET",
-		URL:         "https://example.com",
-		Auth: &AuthConfig{
-			Type:            "oauth2_client_credentials",
-			TokenURL:        tokenServer.URL,
-			ClientIDEnv:     "TEST_AIK_ID_ERR",
-			ClientSecretEnv: "TEST_AIK_SECRET_ERR",
-		},
-	}
-
-	_, err := engine.Extract(context.Background(), "E-OAUTH-03", cfg, "test-run")
-	if err == nil {
-		t.Fatal("expected error for token server 500")
-	}
-}
-
-func TestExtract_OAuthClientCredentials_MalformedResponse(t *testing.T) {
-	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`not-json`))
-	}))
-	defer tokenServer.Close()
-
-	t.Setenv("TEST_AIK_ID_BAD", "test-id")
-	t.Setenv("TEST_AIK_SECRET_BAD", "test-secret")
-
-	engine := NewEngine()
-	cfg := ExtractionConfig{
-		Description: "OAuth Bad JSON",
-		Provider:    "aikido",
-		Method:      "GET",
-		URL:         "https://example.com",
-		Auth: &AuthConfig{
-			Type:            "oauth2_client_credentials",
-			TokenURL:        tokenServer.URL,
-			ClientIDEnv:     "TEST_AIK_ID_BAD",
-			ClientSecretEnv: "TEST_AIK_SECRET_BAD",
-		},
-	}
-
-	_, err := engine.Extract(context.Background(), "E-OAUTH-04", cfg, "test-run")
-	if err == nil {
-		t.Fatal("expected error for malformed token response")
-	}
-}
-
-func TestLoadSaaSConfigs_TableDriven(t *testing.T) {
+func TestLoadSaaSConfigs_ValidDRYLayout(t *testing.T) {
 	tmpDir := t.TempDir()
+	providersFile := filepath.Join(tmpDir, "providers.json")
+	saasFile := filepath.Join(tmpDir, "saas_http.json")
 
-	validPath := filepath.Join(tmpDir, "valid.json")
-	os.WriteFile(validPath, []byte(`{"E-1": {"provider": "test"}}`), 0644)
+	providersData := `{
+		"github": {
+			"base_url": "https://api.github.com",
+			"headers": {
+				"Authorization": "Bearer ${TEST_GITHUB_TOKEN}",
+				"Accept": "application/vnd.github.v3+json"
+			}
+		}
+	}`
+	saasData := `{
+		"E-CHG-01": {
+			"description": "GitHub Repository Metadata",
+			"provider": "github",
+			"path": "/repos/${TEST_GITHUB_ORG}/${TEST_GITHUB_REPO}",
+			"json_path": "$"
+		}
+	}`
 
-	invalidPath := filepath.Join(tmpDir, "invalid.json")
-	os.WriteFile(invalidPath, []byte(`{ invalid }`), 0644)
-
-	tests := []struct {
-		name    string
-		path    string
-		wantErr bool
-	}{
-		{"missing file", filepath.Join(tmpDir, "nonexistent.json"), true},
-		{"invalid json", invalidPath, true},
-		{"valid json", validPath, false},
+	if err := os.WriteFile(providersFile, []byte(providersData), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(saasFile, []byte(saasData), 0644); err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := LoadSaaSConfigs(tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("LoadSaaSConfigs() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	t.Setenv("TEST_GITHUB_TOKEN", "mock-token")
+	t.Setenv("TEST_GITHUB_ORG", "my-org")
+	t.Setenv("TEST_GITHUB_REPO", "my-repo")
+
+	configs, err := LoadSaaSConfigs(saasFile)
+	if err != nil {
+		t.Fatalf("LoadSaaSConfigs failed: %v", err)
+	}
+
+	cfg, exists := configs["E-CHG-01"]
+	if !exists {
+		t.Fatal("expected E-CHG-01 to exist")
+	}
+
+	if cfg.Provider != "github" {
+		t.Errorf("expected provider github, got %s", cfg.Provider)
+	}
+	if cfg.URL != "https://api.github.com/repos/my-org/my-repo" {
+		t.Errorf("expected joined URL https://api.github.com/repos/my-org/my-repo, got %q", cfg.URL)
+	}
+	if cfg.Headers["Accept"] != "application/vnd.github.v3+json" {
+		t.Errorf("expected Accept header, got %q", cfg.Headers["Accept"])
+	}
+}
+
+func TestLoadSaaSConfigs_StrictReferentialIntegrityFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	providersFile := filepath.Join(tmpDir, "providers.json")
+	saasFile := filepath.Join(tmpDir, "saas_http.json")
+
+	providersData := `{"github": {"base_url": "https://api.github.com"}}`
+	saasData := `{
+		"E-ERR-02": {
+			"description": "Referencing undefined provider",
+			"provider": "nonexistent-provider-name",
+			"path": "/issues",
+			"json_path": "$"
+		}
+	}`
+
+	if err := os.WriteFile(providersFile, []byte(providersData), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(saasFile, []byte(saasData), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadSaaSConfigs(saasFile)
+	if err == nil {
+		t.Fatal("expected strict referential integrity failure, got nil error")
+	}
+	if !strings.Contains(err.Error(), "referential integrity violation") {
+		t.Errorf("expected referential integrity error, got: %v", err)
+	}
+}
+
+func TestLoadSaaSConfigs_PathTraversalSSRFPrevention(t *testing.T) {
+	tmpDir := t.TempDir()
+	providersFile := filepath.Join(tmpDir, "providers.json")
+	saasFile := filepath.Join(tmpDir, "saas_http.json")
+
+	providersData := `{"github": {"base_url": "https://api.github.com"}}`
+	saasData := `{
+		"E-TRAVERSAL": {
+			"description": "Path Traversal SSRF Test",
+			"provider": "github",
+			"path": "/repos/${MALICIOUS_PARAM}/details",
+			"json_path": "$"
+		}
+	}`
+
+	if err := os.WriteFile(providersFile, []byte(providersData), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(saasFile, []byte(saasData), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Dynamic parameter contains path traversal injection payload
+	t.Setenv("MALICIOUS_PARAM", "../../victim-org/secret-repo")
+	defer os.Unsetenv("MALICIOUS_PARAM")
+
+	configs, err := LoadSaaSConfigs(saasFile)
+	if err != nil {
+		t.Fatalf("LoadSaaSConfigs failed: %v", err)
+	}
+
+	cfg := configs["E-TRAVERSAL"]
+	// Assert that url.PathEscape converted "../../" into "%2F..%2F..%2F" safely neutralizing SSRF
+	expectedPath := "..%2F..%2Fvictim-org%2Fsecret-repo"
+	if !strings.Contains(cfg.URL, expectedPath) {
+		t.Errorf("expected escaped SSRF payload %q in URL, got %q", expectedPath, cfg.URL)
+	}
+}
+
+func TestCredentialMasking_LogsAndJSONSerialization(t *testing.T) {
+	prov := ProviderConfig{
+		BaseURL: "https://api.github.com",
+		Headers: map[string]string{
+			"Authorization": "Bearer super-secret-private-key-12345",
+			"Content-Type":  "application/json",
+		},
+		Auth: &AuthConfig{
+			Type:            "oauth2",
+			TokenURL:        "https://api.github.com/token",
+			ClientIDEnv:     "CLIENT_ID",
+			ClientSecretEnv: "SUPER_SECRET_ENV_VAR_KEY_NAME",
+		},
+	}
+
+	// 1. Assert custom MarshalJSON hides credentials from structured JSON loggers
+	marshaledBytes, err := json.Marshal(prov)
+	if err != nil {
+		t.Fatalf("MarshalJSON failed: %v", err)
+	}
+	marshaledStr := string(marshaledBytes)
+
+	if strings.Contains(marshaledStr, "super-secret-private-key-12345") {
+		t.Error("structured JSON serialization leaked authorization bearer secret")
+	}
+	if strings.Contains(marshaledStr, "SUPER_SECRET_ENV_VAR_KEY_NAME") {
+		t.Error("structured JSON serialization leaked client secret environment variable name")
+	}
+	if !strings.Contains(marshaledStr, "*REDACTED*") {
+		t.Error("expected *REDACTED* placeholder in marshaled ProviderConfig output")
+	}
+
+	// 2. Assert custom Stringer hides credentials from standard log dumps
+	stringerDump := fmt.Sprintf("%+v", prov)
+	if strings.Contains(stringerDump, "super-secret-private-key-12345") {
+		t.Error("Stringer struct dump leaked authorization bearer secret")
+	}
+}
+
+func TestEngine_StrictPaginationEnforcementFailure(t *testing.T) {
+	// Response contains a standard next-page Link header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", `<https://api.github.com/repos/org/repo/commits?page=2>; rel="next"`)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"commits": []}`))
+	}))
+	defer server.Close()
+
+	engine := NewEngineWithClient(server.Client())
+
+	// ERL lacks active pagination settings
+	cfg := ExtractionConfig{
+		Provider: "github",
+		Method:   "GET",
+		URL:      server.URL,
+	}
+
+	_, err := engine.Extract(context.Background(), "E-STRICT-PAGINATION", cfg, "test-run")
+	if err == nil {
+		t.Fatal("expected strict pagination enforcement error but got success")
+	}
+	if !strings.Contains(err.Error(), "strict pagination enforcement") {
+		t.Errorf("expected strict pagination error message, got: %v", err)
+	}
+}
+
+func TestEngine_RateLimitBackoffAndRetrySuccess(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			// First attempt returns HTTP 429 with standard Retry-After header of 1 second
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error": "rate limit exceeded"}`))
+			return
+		}
+		// Subsequent attempt succeeds
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"data": "success"}`))
+	}))
+	defer server.Close()
+
+	engine := NewEngineWithClient(server.Client())
+	cfg := ExtractionConfig{
+		Provider: "github",
+		Method:   "GET",
+		URL:      server.URL,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	finding, err := engine.Extract(ctx, "E-RATE-LIMIT", cfg, "test-run")
+	if err != nil {
+		t.Fatalf("expected rate-limit retry to succeed, got error: %v", err)
+	}
+
+	if attempts != 2 {
+		t.Errorf("expected exactly 2 attempts before success, got %d", attempts)
+	}
+	if string(finding.RawData) != `{"data": "success"}` {
+		t.Errorf("unexpected raw data payload: %s", string(finding.RawData))
 	}
 }

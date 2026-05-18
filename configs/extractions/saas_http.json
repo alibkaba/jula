@@ -2,245 +2,121 @@
   "E-AST-22": {
     "description": "GitHub Repository Commit Provenance",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/commits?per_page=50",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/commits?per_page=50",
     "json_path": "$"
   },
   "E-CHG-01": {
     "description": "GitHub Repository Metadata",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}",
     "json_path": "$"
   },
   "E-CHG-02": {
     "description": "GitHub Branch Protection Rules",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/branches/main/protection",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/branches/main/protection",
     "json_path": "$"
   },
   "E-CHG-03": {
     "description": "GitHub Recent Pull Requests",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=all&per_page=100&sort=updated&direction=desc",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=all&per_page=100&sort=updated&direction=desc",
     "json_path": "$"
   },
   "E-CHG-04": {
     "description": "GitHub CODEOWNERS File",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/contents/CODEOWNERS",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/contents/CODEOWNERS",
     "json_path": "$"
   },
   "E-CHG-05": {
     "description": "GitHub Closed and Merged Pull Requests",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=closed&per_page=100",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=closed&per_page=100",
     "json_path": "$"
   },
   "E-IAM-03": {
     "description": "GitHub Organization Administrators",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/orgs/${GITHUB_ORG}/members?role=admin&per_page=100",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/orgs/${GITHUB_ORG}/members?role=admin&per_page=100",
     "json_path": "$"
   },
   "E-MNT-03": {
     "description": "Aikido Patch Management Audits (Open Vulnerabilities)",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/issues/export?format=json&filter_status=open",
     "json_path": "$"
   },
   "E-MON-03": {
     "description": "GitHub Repository Collaborators and Privileged Users",
     "provider": "github",
-    "method": "GET",
-    "url": "https://api.github.com/repos/${GITHUB_ORG}/${GITHUB_REPO}/collaborators?per_page=100",
-    "headers": {
-      "Authorization": "Bearer ${GITHUB_TOKEN}",
-      "Accept": "application/vnd.github.v3+json"
-    },
+    "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/collaborators?per_page=100",
     "json_path": "$"
   },
   "E-TDA-03": {
     "description": "Aikido Container SBOM",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/containers/${AIK_CONTAINER_ID}/licenses/export?format=sbom",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/containers/${AIK_CONTAINER_ID}/licenses/export?format=sbom",
     "json_path": "$"
   },
   "E-TDA-11": {
     "description": "Aikido Code Repository SBOM",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
     "json_path": "$"
   },
   "E-TDA-12": {
     "description": "Aikido Primary Software Bill of Materials (SBOM)",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
     "json_path": "$"
   },
   "E-TDA-15": {
     "description": "Aikido Virtual Machine SBOM",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/virtual-machines/${AIK_VM_ID}/export/sbom",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/virtual-machines/${AIK_VM_ID}/export/sbom",
     "json_path": "$"
   },
   "E-VPM-01": {
     "description": "Aikido Container Inventory",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/containers",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/containers",
     "json_path": "$"
   },
   "E-VPM-02": {
     "description": "Aikido Vulnerability Scan Report",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/report/ciScans",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/report/ciScans",
     "json_path": "$"
   },
   "E-VPM-05": {
     "description": "Aikido Code Repository Inventory",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/repositories/code",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/repositories/code",
     "json_path": "$"
   },
   "E-VPM-08": {
     "description": "Aikido Flaw Remediation Test Results (CI Scans)",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/report/ciScans",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/report/ciScans",
     "json_path": "$"
   },
   "E-VPM-09": {
     "description": "Aikido Flaw Remediation Actions (CI Scans)",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/report/ciScans",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/report/ciScans",
     "json_path": "$"
   },
   "E-VPM-10": {
     "description": "Aikido Virtual Machine Inventory",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/virtual-machines",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/virtual-machines",
     "json_path": "$"
   },
   "E-VPM-11": {
     "description": "Aikido Open Vulnerability Scan",
     "provider": "aikido",
-    "method": "GET",
-    "url": "https://app.aikido.dev/api/public/v1/issues/export?format=json&filter_status=open",
-    "auth": {
-      "type": "oauth2_client_credentials",
-      "token_url": "https://app.aikido.dev/api/oauth/token",
-      "client_id_env": "AIK_CLIENT_ID",
-      "client_secret_env": "AIK_SECRET_KEY"
-    },
+    "path": "/issues/export?format=json&filter_status=open",
     "json_path": "$"
   }
 }

@@ -198,12 +198,23 @@ func TestHandleRun_FullExecution(t *testing.T) {
 	// 2. Create a temporary SaaS configuration pointing to our mock server
 	outDir := t.TempDir()
 	saasConfigPath := filepath.Join(outDir, "saas_mock.json")
+	providersConfigPath := filepath.Join(outDir, "providers.json")
+
+	mockProviders := []byte(`{
+		"saas_http": {
+			"base_url": "` + ts.URL + `",
+			"headers": {}
+		}
+	}`)
+	if err := os.WriteFile(providersConfigPath, mockProviders, 0644); err != nil {
+		t.Fatalf("failed to write mock providers config: %v", err)
+	}
+
 	mockConfig := []byte(`{
 		"E-MOCK-01": {
 			"description": "Mock HTTP Extraction",
 			"provider": "saas_http",
-			"method": "GET",
-			"url": "` + ts.URL + `"
+			"path": "/"
 		}
 	}`)
 	if err := os.WriteFile(saasConfigPath, mockConfig, 0644); err != nil {

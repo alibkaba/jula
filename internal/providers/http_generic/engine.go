@@ -13,15 +13,62 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
-// ExtractionConfig represents a single SaaS HTTP extraction from the JSON config.
+// ProviderConfig defines a template for a provider's base settings.
+type ProviderConfig struct {
+	BaseURL string            `json:"base_url"`
+	Headers map[string]string `json:"headers"`
+	Auth    *AuthConfig       `json:"auth,omitempty"`
+}
+
+// String implements fmt.Stringer for ProviderConfig to prevent credential leakage.
+func (p ProviderConfig) String() string {
+	res, _ := p.MarshalJSON()
+	return string(res)
+}
+
+// MarshalJSON implements json.Marshaler for ProviderConfig to prevent structured log leaks.
+func (p ProviderConfig) MarshalJSON() ([]byte, error) {
+	type Alias ProviderConfig
+	redacted := Alias(p)
+	if redacted.Headers != nil {
+		redacted.Headers = make(map[string]string)
+		for k, v := range p.Headers {
+			if strings.EqualFold(k, "Authorization") {
+				redacted.Headers[k] = "*REDACTED*"
+			} else {
+				redacted.Headers[k] = v
+			}
+		}
+	}
+	if redacted.Auth != nil {
+		redacted.Auth = redacted.Auth.Redacted()
+	}
+	return json.Marshal(redacted)
+}
+
+// SaaSExtractionConfig defines the simplified ERL configuration structure.
+type SaaSExtractionConfig struct {
+	Description string            `json:"description"`
+	Provider    string            `json:"provider"`
+	Method      string            `json:"method"`
+	Path        string            `json:"path"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	JSONPath    string            `json:"json_path"`
+	Pagination  *PaginationConfig `json:"pagination,omitempty"`
+}
+
+// ExtractionConfig represents a single fully-hydrated SaaS HTTP extraction configuration.
 type ExtractionConfig struct {
 	Description string            `json:"description"`
 	Provider    string            `json:"provider"`
@@ -29,33 +76,72 @@ type ExtractionConfig struct {
 	URL         string            `json:"url"`
 	Headers     map[string]string `json:"headers"`
 	JSONPath    string            `json:"json_path"`
-	// Pagination defines optional cursor-based pagination settings.
-	Pagination *PaginationConfig `json:"pagination,omitempty"`
-	// Auth defines optional OAuth 2.0 client_credentials token exchange.
-	Auth *AuthConfig `json:"auth,omitempty"`
+	Pagination  *PaginationConfig `json:"pagination,omitempty"`
+	Auth        *AuthConfig       `json:"auth,omitempty"`
+}
+
+// String implements fmt.Stringer for ExtractionConfig to prevent credential leakage.
+func (c ExtractionConfig) String() string {
+	res, _ := c.MarshalJSON()
+	return string(res)
+}
+
+// MarshalJSON implements json.Marshaler for ExtractionConfig to prevent structured log leaks.
+func (c ExtractionConfig) MarshalJSON() ([]byte, error) {
+	type Alias ExtractionConfig
+	redacted := Alias(c)
+	if redacted.Headers != nil {
+		redacted.Headers = make(map[string]string)
+		for k, v := range c.Headers {
+			if strings.EqualFold(k, "Authorization") {
+				redacted.Headers[k] = "*REDACTED*"
+			} else {
+				redacted.Headers[k] = v
+			}
+		}
+	}
+	if redacted.Auth != nil {
+		redacted.Auth = redacted.Auth.Redacted()
+	}
+	return json.Marshal(redacted)
 }
 
 // AuthConfig defines OAuth 2.0 client_credentials token exchange settings.
-// When present, the engine will exchange the client ID and secret for a
-// short-lived bearer token before making the API call.
 type AuthConfig struct {
-	// Type must be "oauth2_client_credentials".
-	Type string `json:"type"`
-	// TokenURL is the OAuth token endpoint (e.g., "https://app.aikido.dev/api/oauth/token").
-	TokenURL string `json:"token_url"`
-	// ClientIDEnv is the environment variable name containing the client ID.
-	ClientIDEnv string `json:"client_id_env"`
-	// ClientSecretEnv is the environment variable name containing the client secret.
+	Type            string `json:"type"`
+	TokenURL        string `json:"token_url"`
+	ClientIDEnv     string `json:"client_id_env"`
 	ClientSecretEnv string `json:"client_secret_env"`
+}
+
+// String implements fmt.Stringer for AuthConfig to prevent credential leakage.
+func (a AuthConfig) String() string {
+	res, _ := a.MarshalJSON()
+	return string(res)
+}
+
+// MarshalJSON implements json.Marshaler for AuthConfig to prevent structured log leaks.
+func (a AuthConfig) MarshalJSON() ([]byte, error) {
+	type Alias AuthConfig
+	redacted := Alias(a)
+	redacted.ClientSecretEnv = "*REDACTED*"
+	return json.Marshal(redacted)
+}
+
+// Redacted returns a copy of AuthConfig with sensitive env var keys redacted.
+func (a *AuthConfig) Redacted() *AuthConfig {
+	if a == nil {
+		return nil
+	}
+	copy := *a
+	copy.ClientSecretEnv = "*REDACTED*"
+	return &copy
 }
 
 // PaginationConfig defines how the engine should paginate through results.
 type PaginationConfig struct {
-	// NextURLField is the JSON field in the response body that contains
-	// the URL for the next page (e.g., "next", "links.next").
 	NextURLField string `json:"next_url_field"`
-	// MaxPages limits the maximum number of pages to fetch (safety valve).
-	MaxPages int `json:"max_pages"`
+	MaxPages     int    `json:"max_pages"`
 }
 
 // envVarPattern matches ${ENV_VAR_NAME} for interpolation.
@@ -73,17 +159,86 @@ func InterpolateEnvVars(input string) string {
 	})
 }
 
-// LoadSaaSConfigs parses the declarative saas_http.json file and returns
-// a map of ERL ID to ExtractionConfig.
+// LoadSaaSConfigs parses the declarative saas_http.json file and the providers.json template file,
+// merging them into a unified map of ERL ID to ExtractionConfig while enforcing referential integrity,
+// parameter-level URL escaping to prevent SSRF/Path Traversal, and url.JoinPath.
 func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
-	data, err := os.ReadFile(path)
+	// Read saas_http.json ERL configurations
+	erlData, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading SaaS config %s: %w", path, err)
 	}
 
-	var configs map[string]ExtractionConfig
-	if err := json.Unmarshal(data, &configs); err != nil {
+	var saasConfigs map[string]SaaSExtractionConfig
+	if err := json.Unmarshal(erlData, &saasConfigs); err != nil {
 		return nil, fmt.Errorf("parsing SaaS config %s: %w", path, err)
+	}
+
+	// Resolve and read providers.json
+	providersPath := filepath.Join(filepath.Dir(path), "providers.json")
+	provData, err := os.ReadFile(providersPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading SaaS providers config %s: %w", providersPath, err)
+	}
+
+	var providerConfigs map[string]ProviderConfig
+	if err := json.Unmarshal(provData, &providerConfigs); err != nil {
+		return nil, fmt.Errorf("parsing SaaS providers config %s: %w", providersPath, err)
+	}
+
+	// Hydrate ERL configs into fully-qualified ExtractionConfig map
+	configs := make(map[string]ExtractionConfig, len(saasConfigs))
+	for erlID, saasCfg := range saasConfigs {
+		// Strict referential integrity: hard-fail if referenced provider is missing
+		prov, exists := providerConfigs[saasCfg.Provider]
+		if !exists {
+			return nil, fmt.Errorf("referential integrity violation: ERL %s references undefined provider %q", erlID, saasCfg.Provider)
+		}
+
+		// Interpolate provider's base URL (no path escape here, since it's the base host/scheme)
+		interpolatedBase := envVarPattern.ReplaceAllStringFunc(prov.BaseURL, func(match string) string {
+			varName := match[2 : len(match)-1]
+			if val := os.Getenv(varName); val != "" {
+				return val
+			}
+			return match
+		})
+
+		// SSRF & Path Traversal prevention: PathEscape ONLY the values of individual environment variables
+		interpolatedPath := envVarPattern.ReplaceAllStringFunc(saasCfg.Path, func(match string) string {
+			varName := match[2 : len(match)-1] // Strip ${ and }
+			val := os.Getenv(varName)
+			if val != "" {
+				return url.PathEscape(val)
+			}
+			return match
+		})
+
+		// Robust URL assembly using Go-native url.JoinPath
+		fullURL, err := url.JoinPath(interpolatedBase, interpolatedPath)
+		if err != nil {
+			return nil, fmt.Errorf("building URL for ERL %s: %w", erlID, err)
+		}
+
+		// Merge headers, prioritizing ERL-specific headers
+		mergedHeaders := make(map[string]string)
+		for k, v := range prov.Headers {
+			mergedHeaders[k] = v
+		}
+		for k, v := range saasCfg.Headers {
+			mergedHeaders[k] = v
+		}
+
+		configs[erlID] = ExtractionConfig{
+			Description: saasCfg.Description,
+			Provider:    saasCfg.Provider,
+			Method:      saasCfg.Method,
+			URL:         fullURL,
+			Headers:     mergedHeaders,
+			JSONPath:    saasCfg.JSONPath,
+			Pagination:  saasCfg.Pagination,
+			Auth:        prov.Auth,
+		}
 	}
 
 	return configs, nil
@@ -152,10 +307,16 @@ func (e *Engine) Extract(ctx context.Context, erlID string, cfg ExtractionConfig
 		allData = collected
 	} else {
 		// Single-page extraction.
-		body, err := e.fetchSingle(ctx, method, targetURL, headers)
+		body, resp, err := e.fetchSingle(ctx, method, targetURL, headers)
 		if err != nil {
 			return types.Finding{}, err
 		}
+
+		// Strict Pagination Enforcement: hard-fail if there is a next-page link in standard headers but no pagination instructions
+		if hasNextLink(resp.Header.Get("Link")) {
+			return types.Finding{}, fmt.Errorf("strict pagination enforcement: response contains pagination link (rel=next) but ERL config lacks pagination instructions")
+		}
+
 		allData = body
 	}
 
@@ -175,33 +336,81 @@ func (e *Engine) Extract(ctx context.Context, erlID string, cfg ExtractionConfig
 	}, nil
 }
 
-// fetchSingle makes a single HTTP request and returns the raw response body.
-func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers map[string]string) (json.RawMessage, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+// hasNextLink parses standard RFC 5988 Link header for rel="next" relation.
+func hasNextLink(linkHeader string) bool {
+	if linkHeader == "" {
+		return false
+	}
+	return strings.Contains(linkHeader, `rel="next"`)
+}
+
+// fetchSingle makes an HTTP request with exponential backoff on HTTP 429 rate limiting.
+func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers map[string]string) (json.RawMessage, *http.Response, error) {
+	const (
+		maxRetries  = 3
+		baseBackoff = 2 * time.Second
+	)
+
+	var body []byte
+	var resp *http.Response
+	var lastErr error
+
+	currentBackoff := baseBackoff
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			slog.Warn("http_generic: rate limited (HTTP 429), retrying...", "attempt", attempt, "backoff", currentBackoff, "url", url)
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			case <-time.After(currentBackoff):
+			}
+			currentBackoff *= 2 // Exponential backoff
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, url, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating request: %w", err)
+		}
+
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+
+		resp, err = e.client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("executing request: %w", err)
+			continue
+		}
+
+		// Catch HTTP 429 rate limit
+		if resp.StatusCode == http.StatusTooManyRequests {
+			retryAfter := resp.Header.Get("Retry-After")
+			if retryAfter != "" {
+				if secs, parseErr := strconv.Atoi(retryAfter); parseErr == nil {
+					currentBackoff = time.Duration(secs) * time.Second
+				}
+			}
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP 429 Too Many Requests")
+			continue
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			resp.Body.Close()
+			return nil, nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, nil, fmt.Errorf("reading response body: %w", err)
+		}
+
+		return json.RawMessage(body), resp, nil
 	}
 
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	return json.RawMessage(body), nil
+	return nil, nil, fmt.Errorf("failed after %d rate-limit retries: %w", maxRetries, lastErr)
 }
 
 // fetchPaginated follows cursor-based pagination by extracting the next URL
@@ -215,7 +424,7 @@ func (e *Engine) fetchPaginated(ctx context.Context, method, url string, headers
 	}
 
 	for page := 0; page < maxPages; page++ {
-		body, err := e.fetchSingle(ctx, method, currentURL, headers)
+		body, _, err := e.fetchSingle(ctx, method, currentURL, headers)
 		if err != nil {
 			return nil, fmt.Errorf("page %d: %w", page+1, err)
 		}
