@@ -49,7 +49,7 @@ func NewOPAEvaluator() *OPAEvaluator {
 // LoadPolicies walks a local directory and loads all .rego policy files.
 func (e *OPAEvaluator) LoadPolicies(policiesDir string) error {
 	slog.Info("evaluation: loading OPA policies from directory", "path", policiesDir)
-	
+
 	err := filepath.WalkDir(policiesDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -59,23 +59,23 @@ func (e *OPAEvaluator) LoadPolicies(policiesDir string) error {
 			if err != nil {
 				return fmt.Errorf("reading policy file %s: %w", path, err)
 			}
-			
+
 			// Use relative path as the module identifier
 			relPath, err := filepath.Rel(policiesDir, path)
 			if err != nil {
 				relPath = path
 			}
-			
+
 			e.policyModules[relPath] = string(content)
 			slog.Debug("evaluation: loaded policy module", "module", relPath)
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("walking policies directory: %w", err)
 	}
-	
+
 	slog.Info("evaluation: policies loaded successfully", "modules_count", len(e.policyModules))
 	return nil
 }

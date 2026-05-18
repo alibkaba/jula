@@ -2,6 +2,8 @@ package evaluation
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -211,3 +213,51 @@ func TestOPAEvaluator_DualGCSBuckets(t *testing.T) {
 	}
 }
 
+func TestOPAEvaluator_LoadPolicies(t *testing.T) {
+	// Create a temporary policies directory
+	tmpDir, err := os.MkdirTemp("", "jula-evaluator-policies-*")
+	if err != nil {
+		t.Fatalf("Failed to create tmp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Write a valid rego policy file
+	regoContent := `
+		package gcp.db_encryption
+		import rego.v1
+		default compliant = false
+	`
+	regoFile := filepath.Join(tmpDir, "db_encryption.rego")
+	if err := os.WriteFile(regoFile, []byte(regoContent), 0644); err != nil {
+		t.Fatalf("Failed to write rego file: %v", err)
+	}
+
+	// Write a test rego policy file (should be ignored)
+	regoTestContent := `
+		package gcp.db_encryption_test
+	`
+	regoTestFile := filepath.Join(tmpDir, "db_encryption_test.rego")
+	if err := os.WriteFile(regoTestFile, []byte(regoTestContent), 0644); err != nil {
+		t.Fatalf("Failed to write rego test file: %v", err)
+	}
+
+	// Write a non-rego file (should be ignored)
+	txtFile := filepath.Join(tmpDir, "readme.txt")
+	if err := os.WriteFile(txtFile, []byte("ignored"), 0644); err != nil {
+		t.Fatalf("Failed to write txt file: %v", err)
+	}
+
+	evaluator := NewOPAEvaluator()
+	if err := evaluator.LoadPolicies(tmpDir); err != nil {
+		t.Fatalf("LoadPolicies failed: %v", err)
+	}
+
+	// Verify only the non-test rego file is loaded
+	if len(evaluator.policyModules) != 1 {
+		t.Errorf("Expected exactly 1 loaded policy module, got %d", len(evaluator.policyModules))
+	}
+
+	if _, ok := evaluator.policyModules["db_encryption.rego"]; !ok {
+		t.Errorf("Expected db_encryption.rego to be loaded, policyModules: %v", evaluator.policyModules)
+	}
+}

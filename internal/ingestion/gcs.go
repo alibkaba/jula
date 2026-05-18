@@ -193,6 +193,13 @@ func (r *GCSReader) downloadGCSObject(ctx context.Context, bucket string, object
 	return io.ReadAll(resp.Body)
 }
 
+type serviceAccountKey struct {
+	Type        string `json:"type"`
+	ClientEmail string `json:"client_email"`
+	PrivateKey  string `json:"private_key"`
+	TokenURI    string `json:"token_uri"`
+}
+
 // resolveToken handles local JSON service account credentials or metadata server tokens.
 func (r *GCSReader) resolveToken() (string, error) {
 	credPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -201,13 +208,6 @@ func (r *GCSReader) resolveToken() (string, error) {
 		data, err := os.ReadFile(credPath)
 		if err != nil {
 			return "", fmt.Errorf("reading service account credentials key: %w", err)
-		}
-
-		type serviceAccountKey struct {
-			Type        string `json:"type"`
-			ClientEmail string `json:"client_email"`
-			PrivateKey  string `json:"private_key"`
-			TokenURI    string `json:"token_uri"`
 		}
 
 		var key serviceAccountKey
@@ -244,12 +244,6 @@ func (r *GCSReader) resolveToken() (string, error) {
 
 // exchangeToken signs a JWT to retrieve an access token from Google OAuth2.
 func exchangeToken(client *http.Client, key any, privateKey *rsa.PrivateKey, tokenURL string) (string, error) {
-	type serviceAccountKey struct {
-		Type        string `json:"type"`
-		ClientEmail string `json:"client_email"`
-		PrivateKey  string `json:"private_key"`
-		TokenURI    string `json:"token_uri"`
-	}
 	saKey := key.(*serviceAccountKey)
 	now := time.Now()
 
