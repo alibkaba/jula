@@ -1,31 +1,30 @@
-package gcp.db_encryption
+package compliance.scf.bcd_11_4
 
 import rego.v1
+import data.control_mappings
 
 # Default compliance status
 default compliant = false
 
-# ERL ID this rule evaluates
-erl_id := "E-BCM-16"
+# SCF metadata constants
+scf_id := "BCD-11.4"
+customer_control_id := control_mappings[scf_id]
 
 # Check if the database instance configuration meets encryption and SSL rules
 compliant if {
-	# Ensure the input represents the target ERL ID
-	input.erl_id == erl_id
-	
-	# Decode the raw payload if presented as an array
-	instances := input.finding.raw_data
-	
-	# Verify that every running instance in the list is fully secured
-	all_instances_secured(instances)
+	# Check databases resource array agnostic of ERL ID
+	db_checks := input.findings["databases"]
+	every _, check in db_checks {
+		all_instances_encrypted(check.normalized_data.instances)
+	}
 }
 
-# Helper to verify if all database instances are secured
-all_instances_secured(instances) if {
+# Helper to verify if all database instances are encrypted and secured
+all_instances_encrypted(instances) if {
 	count(instances) == 0
 }
 
-all_instances_secured(instances) if {
+all_instances_encrypted(instances) if {
 	count(instances) > 0
 	# Every instance in the payload must be compliant
 	non_compliant_count := count([inst |
