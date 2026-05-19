@@ -149,7 +149,7 @@ func (ts *tokenSource) refresh() (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("token exchange failed (HTTP %d): %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("token exchange failed (HTTP %d)", resp.StatusCode)
 	}
 
 	var tokenResp tokenResponse
@@ -206,7 +206,7 @@ func (mts *metadataTokenSource) Token() (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("metadata server returned HTTP %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("metadata server returned HTTP %d", resp.StatusCode)
 	}
 
 	var tokenResp tokenResponse
