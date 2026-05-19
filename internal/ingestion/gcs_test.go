@@ -178,7 +178,7 @@ func TestGCSReader_LocalReadLifecycle(t *testing.T) {
 	}
 
 	// 2. Test ReadPayloads
-	payloads, err := reader.ReadPayloads(ctx, tmpDir, manifest)
+	payloads, err := reader.ReadPayloads(ctx, tmpDir, manifest.EvidenceFiles)
 	if err != nil {
 		t.Fatalf("ReadPayloads failed: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestGCSReader_GCSReadLifecycle_MetadataAuth(t *testing.T) {
 		t.Errorf("Expected run ID gcs-run-456, got %q", manifest.RunID)
 	}
 
-	payloads, err := reader.ReadPayloads(ctx, "gs://my-bucket/runs/123", manifest)
+	payloads, err := reader.ReadPayloads(ctx, "gs://my-bucket/runs/123", manifest.EvidenceFiles)
 	if err != nil {
 		t.Fatalf("ReadPayloads failed: %v", err)
 	}

@@ -11,8 +11,14 @@ import "time"
 // (e.g., OPA/Rego) are responsible for interpreting and evaluating this data.
 type Finding struct {
 	// ErlID is the Evidence Request List identifier that triggered this extraction
-	// (e.g., "E-BCM-16"). This is the primary routing key for the entire system.
+	// (e.g., "E-BCM-16").
 	ErlID string `json:"erl_id"`
+
+	// SCFID is the Secure Controls Framework control ID (e.g., "BCD-11.4").
+	SCFID string `json:"scf_id"`
+
+	// SourceID is the identifier for the specific source / system.
+	SourceID string `json:"source_id"`
 
 	// Provider identifies the extraction source (e.g., "gcp_cai", "filedrop").
 	Provider string `json:"provider"`

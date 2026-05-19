@@ -185,3 +185,47 @@ func TestVerifyManifest_Negative(t *testing.T) {
 		t.Errorf("expected signature decode error, got %v", err)
 	}
 }
+
+func TestProvenance_SignAndVerify(t *testing.T) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	prov := &Provenance{
+		ErlID:       "E-TEST-01",
+		Provider:    "gcp_cai",
+		SourceID:    "src-1",
+		PayloadHash: "abc123hash",
+		Timestamp:   time.Now().UTC(),
+		ExtractionMetadata: map[string]string{
+			"gcp_project_id": "test-project",
+		},
+	}
+
+	if err := SignProvenance(prov, privKey); err != nil {
+		t.Fatalf("sign failed: %v", err)
+	}
+
+	if prov.Signature == "" {
+		t.Error("signature should not be empty")
+	}
+
+	valid, err := VerifyProvenance(prov, &privKey.PublicKey)
+	if err != nil {
+		t.Fatalf("verify failed: %v", err)
+	}
+	if !valid {
+		t.Error("expected valid signature")
+	}
+
+	// Tamper and verify
+	prov.SourceID = "tampered"
+	valid, err = VerifyProvenance(prov, &privKey.PublicKey)
+	if err != nil {
+		t.Fatalf("verify failed on tampered: %v", err)
+	}
+	if valid {
+		t.Error("expected invalid signature on tampered provenance")
+	}
+}

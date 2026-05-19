@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -259,5 +260,211 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 
 	if _, ok := evaluator.policyModules["db_encryption.rego"]; !ok {
 		t.Errorf("Expected db_encryption.rego to be loaded, policyModules: %v", evaluator.policyModules)
+	}
+}
+
+func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
+	ctx := context.Background()
+
+	evaluator := NewOPAEvaluator()
+	mockRego := `
+		package compliance.scf.bcd_11_4
+		import rego.v1
+		import data.control_mappings
+
+		default compliant = false
+		scf_id := "BCD-11.4"
+		customer_control_id := control_mappings[scf_id]
+
+		compliant if {
+			db_checks := input.findings["databases"]
+			every check in db_checks {
+				count(check.normalized_data.instances) > 0
+				check.normalized_data.instances[0].encrypted == true
+			}
+		}
+	`
+	evaluator.policyModules["compliance/scf/bcd_11_4.rego"] = mockRego
+	evaluator.SetControlMappings(map[string]string{
+		"BCD-11.4": "CC-1",
+	})
+
+	if err := evaluator.Compile(ctx); err != nil {
+		t.Fatalf("failed to compile policies: %v", err)
+	}
+
+	evList := []types.Evidence{
+		{
+			ErlID:    "E-BCM-16",
+			SCFID:    "BCD-11.4",
+			SourceID: "src-1",
+			Finding: types.Finding{
+				Provider:  "gcp_cai",
+				Timestamp: time.Now(),
+				RawData:   []byte(`[{"name": "db-1", "encrypted": true}]`),
+			},
+		},
+	}
+
+	findings, err := evaluator.EvaluateSCF(ctx, "BCD-11.4", evList)
+	if err != nil {
+		t.Fatalf("EvaluateSCF failed: %v", err)
+	}
+
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+
+	if findings[0].Verdict != VerdictCompliant {
+		t.Errorf("expected COMPLIANT verdict, got: %s", findings[0].Verdict)
+	}
+}
+
+func TestLoadControlMappings(t *testing.T) {
+	// 1. Success path
+	tmpFile, err := os.CreateTemp("", "mappings-*.json")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	content := `{"BCD-11.4": "CC-1"}`
+	if _, err := tmpFile.Write([]byte(content)); err != nil {
+		t.Fatalf("failed to write mappings: %v", err)
+	}
+	tmpFile.Close()
+
+	evaluator := NewOPAEvaluator()
+	if err := evaluator.LoadControlMappings(tmpFile.Name()); err != nil {
+		t.Errorf("expected no error loading mappings, got %v", err)
+	}
+	if evaluator.controlMappings["BCD-11.4"] != "CC-1" {
+		t.Errorf("expected mapping BCD-11.4 to CC-1, got %v", evaluator.controlMappings)
+	}
+
+	// 2. Error: File not found
+	if err := evaluator.LoadControlMappings("nonexistent_mappings.json"); err == nil {
+		t.Error("expected error loading nonexistent mappings, got nil")
+	}
+
+	// 3. Error: Malformed JSON
+	tmpFile2, _ := os.CreateTemp("", "invalid-mappings-*.json")
+	defer os.Remove(tmpFile2.Name())
+	tmpFile2.Write([]byte("{invalid-json"))
+	tmpFile2.Close()
+	if err := evaluator.LoadControlMappings(tmpFile2.Name()); err == nil {
+		t.Error("expected error parsing invalid mappings JSON, got nil")
+	}
+}
+
+func TestResolvers(t *testing.T) {
+	// Test resolveScfIDFromPath
+	scfTests := []struct {
+		path     string
+		expected string
+	}{
+		{"evidence/BCD-11.4/db_cai.json", "BCD-11.4"},
+		{"evidence/E-BCM-16/db_cai.json", "E-BCM-16"},
+		{"nested/evidence/SCF-1/file.json", "SCF-1"},
+		{"no_evidence/here/file.json", ""},
+	}
+	for _, tc := range scfTests {
+		if got := resolveScfIDFromPath(tc.path); got != tc.expected {
+			t.Errorf("resolveScfIDFromPath(%s) = %s, expected %s", tc.path, got, tc.expected)
+		}
+	}
+
+	// Test resolveErlIDFromPath
+	erlTests := []struct {
+		path     string
+		expected string
+	}{
+		{"evidence/E-BCM-16/db_cai.json", "E-BCM-16"},
+		{"E-BCM-16_db_cai.json", "E-BCM-16"},
+		{"nested/folder/E-DCH-10_file.json", "E-DCH-10"},
+		{"nested/E-TEST-01/file.json", "E-TEST-01"},
+		{"no_erl_id/file.json", ""},
+	}
+	for _, tc := range erlTests {
+		if got := resolveErlIDFromPath(tc.path); got != tc.expected {
+			t.Errorf("resolveErlIDFromPath(%s) = %s, expected %s", tc.path, got, tc.expected)
+		}
+	}
+}
+
+func TestOPAEvaluator_Evaluate_NullStateViolation(t *testing.T) {
+	ctx := context.Background()
+	evaluator := NewOPAEvaluator()
+
+	manifest := &types.Manifest{
+		RunID:     "test-run",
+		Timestamp: time.Now(),
+		EvidenceFiles: []types.FileChecksum{
+			{Path: "evidence/E-BCM-16/db_cai.json", SHA256: "hash"},
+		},
+	}
+
+	findings, err := evaluator.Evaluate(ctx, manifest, map[string][]byte{})
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].Verdict != VerdictFailed || !strings.Contains(findings[0].Details, "Null-State violation") {
+		t.Errorf("expected Null-State violation failure, got: %+v", findings[0])
+	}
+}
+
+func TestOPAEvaluator_Evaluate_NoPolicyMapped(t *testing.T) {
+	ctx := context.Background()
+	evaluator := NewOPAEvaluator()
+
+	path := "evidence/E-BCM-16/db_cai.json"
+	manifest := &types.Manifest{
+		RunID:     "test-run",
+		Timestamp: time.Now(),
+		EvidenceFiles: []types.FileChecksum{
+			{Path: path, SHA256: "hash"},
+		},
+	}
+	payloads := map[string][]byte{
+		path: []byte(`{}`),
+	}
+
+	findings, err := evaluator.Evaluate(ctx, manifest, payloads)
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].Verdict != VerdictFailed || !strings.Contains(findings[0].Details, "No active Rego policy rules") {
+		t.Errorf("expected No active Rego policy rules failure, got: %+v", findings[0])
+	}
+}
+
+func TestOPAEvaluator_Evaluate_RoutingIDError(t *testing.T) {
+	ctx := context.Background()
+	evaluator := NewOPAEvaluator()
+
+	path := "invalid_path.json"
+	manifest := &types.Manifest{
+		RunID:     "test-run",
+		Timestamp: time.Now(),
+		EvidenceFiles: []types.FileChecksum{
+			{Path: path, SHA256: "hash"},
+		},
+	}
+	payloads := map[string][]byte{
+		path: []byte(`{}`),
+	}
+
+	findings, err := evaluator.Evaluate(ctx, manifest, payloads)
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings since file was skipped, got %d", len(findings))
 	}
 }

@@ -8,18 +8,55 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-evaluator/internal/crypto"
+	"github.com/alibkaba/jula-evidence-evaluator/internal/compiler"
+	intCrypto "github.com/alibkaba/jula-evidence-evaluator/internal/crypto"
 	"github.com/alibkaba/jula-evidence-evaluator/internal/evaluation"
 	"github.com/alibkaba/jula-evidence-evaluator/internal/ingestion"
+	pkgCrypto "github.com/alibkaba/jula-evidence-evaluator/pkg/crypto"
+	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
 )
 
 func main() {
-	// Parse CLI arguments.
-	bucketURLFlag := flag.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
-	policyURLFlag := flag.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-compliance-policies/policies/)")
-	flag.Parse()
+	os.Exit(runApp(os.Args))
+}
+
+func runApp(args []string) int {
+	// Handle subcommand if present
+	if len(args) > 1 && args[1] == "compile" {
+		compileCmd := flag.NewFlagSet("compile", flag.ContinueOnError)
+		csvPath := compileCmd.String("csv", "", "Path to the controls CSV catalog")
+		outputPath := compileCmd.String("output", "control_mappings.json", "Path to output control mappings JSON")
+		if err := compileCmd.Parse(args[2:]); err != nil {
+			return 1
+		}
+
+		if *csvPath == "" {
+			fmt.Println("Error: --csv is required for compile subcommand")
+			return 1
+		}
+
+		err := compiler.CompileCatalog(*csvPath, *outputPath)
+		if err != nil {
+			fmt.Printf("Error compiling catalog: %v\n", err)
+			return 1
+		}
+		fmt.Printf("Successfully compiled %s to %s\n", *csvPath, *outputPath)
+		return 0
+	}
+
+	fs := flag.NewFlagSet("jula", flag.ContinueOnError)
+	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
+	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-compliance-policies/policies/)")
+	mappingsPathFlag := fs.String("mappings-path", "control_mappings.json", "Path to control mappings JSON file")
+
+	if err := fs.Parse(args[1:]); err != nil {
+		return 1
+	}
 
 	// Setup logging structure.
 	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
@@ -33,7 +70,7 @@ func main() {
 
 	if bucketURL == "" {
 		slog.Error("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
-		os.Exit(1)
+		return 1
 	}
 
 	// Resolve the target policies URL.
@@ -44,7 +81,7 @@ func main() {
 
 	if policyURL == "" {
 		slog.Error("evaluator: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
-		os.Exit(1)
+		return 1
 	}
 
 	slog.Info("evaluator: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
@@ -53,16 +90,16 @@ func main() {
 	pubKeyPEM := os.Getenv("JULA_PUBLIC_KEY")
 	if pubKeyPEM == "" {
 		slog.Error("evaluator: missing public key: JULA_PUBLIC_KEY environment variable is required for gatekeeper signature verification")
-		os.Exit(1)
+		return 1
 	}
 
-	pubKey, err := crypto.ParseECDSAPublicKey(pubKeyPEM)
+	pubKey, err := intCrypto.ParseECDSAPublicKey(pubKeyPEM)
 	if err != nil {
 		slog.Error("evaluator: failed to parse public key PEM", "error", err.Error())
-		os.Exit(1)
+		return 1
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// --- Phase 1: Ingestion & The Gatekeeper ---
@@ -71,14 +108,14 @@ func main() {
 	reader := ingestion.NewGCSReader(&http.Client{Timeout: 30 * time.Second})
 	if err := reader.Initialize(bucketURL); err != nil {
 		slog.Error("evaluator: failed to initialize GCS downloader", "error", err.Error())
-		os.Exit(1)
+		return 1
 	}
 
 	// 2. Download the Manifest.
 	manifest, err := reader.ReadManifest(ctx, bucketURL)
 	if err != nil {
 		slog.Error("evaluator: failed to download manifest.json", "error", err.Error())
-		os.Exit(1)
+		return 1
 	}
 
 	slog.Info("evaluator: downloaded manifest successfully",
@@ -89,55 +126,140 @@ func main() {
 	)
 
 	// 3. Cryptographically verify the manifest signature.
-	if err := crypto.VerifyManifestSignature(manifest, pubKey); err != nil {
+	if err := intCrypto.VerifyManifestSignature(manifest, pubKey); err != nil {
 		slog.Error("evaluator: signature verification failed", "error", err.Error())
-		os.Exit(1)
+		return 1
 	}
 	slog.Info("evaluator: manifest signature verified successfully against JULA_PUBLIC_KEY")
 
-	// 4. Ingest raw payload files in parallel.
-	payloads, err := reader.ReadPayloads(ctx, bucketURL, manifest)
-	if err != nil {
-		slog.Error("evaluator: failed to download evidence payloads", "error", err.Error())
-		os.Exit(1)
-	}
-
-	// 5. Gatekeeper validation: verify raw content hashes against manifest checksums.
-	if err := crypto.VerifyPayloads(manifest, payloads); err != nil {
-		slog.Error("evaluator: GATEKEEPER FAILURE", "error", err.Error())
-		os.Exit(1)
-	}
-	slog.Info("evaluator: Phase 1 (Ingestion & Gatekeeper) successfully and securely completed!")
-
-	// --- Phase 2: Open Policy Agent (OPA) Evaluation ---
+	// --- Phase 2: Open Policy Agent (OPA) Setup ---
 
 	// 1. Initialize OPA Evaluator.
 	evaluator := evaluation.NewOPAEvaluator()
 
-	// 2. Load policy files from target path (currently supports local paths; easily expandable).
+	// 2. Load control mappings if present.
+	mappingsPath := *mappingsPathFlag
+	if mappingsPath == "" {
+		mappingsPath = "control_mappings.json"
+	}
+	if _, err := os.Stat(mappingsPath); err == nil {
+		if err := evaluator.LoadControlMappings(mappingsPath); err != nil {
+			slog.Warn("evaluator: failed to load control mappings", "path", mappingsPath, "error", err.Error())
+		} else {
+			slog.Info("evaluator: successfully loaded control mappings", "path", mappingsPath)
+		}
+	}
+
+	// 3. Load policy files from target path.
 	if err := evaluator.LoadPolicies(policyURL); err != nil {
 		slog.Error("evaluator: failed to load OPA policies", "error", err.Error())
-		os.Exit(1)
+		return 1
 	}
 
-	// 3. Compile loaded rules in memory and map ERL targets.
+	// 4. Compile loaded rules in memory and map SCF/ERL targets.
 	if err := evaluator.Compile(ctx); err != nil {
 		slog.Error("evaluator: failed to compile OPA policies", "error", err.Error())
-		os.Exit(1)
+		return 1
 	}
 
-	// 4. Run targeted evaluation (Null-State + Rego checks).
-	findings, err := evaluator.Evaluate(ctx, manifest, payloads)
-	if err != nil {
-		slog.Error("evaluator: policy evaluation error", "error", err.Error())
-		os.Exit(1)
+	// --- Phase 3: Sequential Evaluation Loop ---
+
+	// Group files in manifest by their control / routing ID (SCF ID preferred, then ERL ID)
+	scfGroups := make(map[string][]types.FileChecksum)
+	for _, f := range manifest.EvidenceFiles {
+		scfID := resolveScfIDFromPath(f.Path)
+		if scfID == "" {
+			scfID = resolveErlIDFromPath(f.Path)
+		}
+		if scfID != "" {
+			scfGroups[scfID] = append(scfGroups[scfID], f)
+		}
+	}
+
+	var allFindings []evaluation.ControlFinding
+
+	for scfID, files := range scfGroups {
+		slog.Info("evaluator: sequentially evaluating control", "scf_id", scfID, "files_count", len(files))
+
+		// Ingest only the files for this specific control in memory
+		payloads, err := reader.ReadPayloads(ctx, bucketURL, files)
+		if err != nil {
+			slog.Error("evaluator: failed to download evidence payloads for control", "scf_id", scfID, "error", err.Error())
+			return 1
+		}
+
+		// Gatekeeper validation: verify raw content hashes against manifest checksums
+		if err := intCrypto.VerifyPayloads(files, payloads); err != nil {
+			slog.Error("evaluator: GATEKEEPER FAILURE - file hash mismatch", "scf_id", scfID, "error", err.Error())
+			return 1
+		}
+
+		// Cryptographically verify provenance sidecars for evidence files
+		for _, f := range files {
+			if strings.HasSuffix(f.Path, ".prov.json") {
+				continue
+			}
+			provPath := strings.TrimSuffix(f.Path, ".json") + ".prov.json"
+			provBytes, ok := payloads[provPath]
+			if !ok {
+				slog.Warn("evaluator: missing provenance sidecar for evidence file", "file", f.Path)
+				continue
+			}
+			var prov pkgCrypto.Provenance
+			if err := json.Unmarshal(provBytes, &prov); err != nil {
+				slog.Error("evaluator: failed to parse provenance sidecar", "file", provPath, "error", err.Error())
+				return 1
+			}
+			okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
+			if err != nil || !okSignature {
+				slog.Error("evaluator: provenance signature is INVALID", "file", provPath, "error", err)
+				return 1
+			}
+			evidenceHash := pkgCrypto.HashFile(payloads[f.Path])
+			if prov.PayloadHash != evidenceHash {
+				slog.Error("evaluator: provenance payload hash mismatch", "file", provPath, "expected", prov.PayloadHash, "actual", evidenceHash)
+				return 1
+			}
+			slog.Info("evaluator: successfully verified provenance sidecar", "file", provPath)
+		}
+
+		// Build Evidence slice for Rego evaluation
+		var evList []types.Evidence
+		for _, f := range files {
+			if strings.HasSuffix(f.Path, ".prov.json") {
+				continue
+			}
+			var ev types.Evidence
+			if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
+				slog.Error("evaluator: failed to unmarshal evidence payload", "file", f.Path, "error", err.Error())
+				return 1
+			}
+			if ev.SCFID == "" {
+				ev.SCFID = scfID
+			}
+			evList = append(evList, ev)
+		}
+
+		// Perform OPA evaluation for the current control
+		findings, err := evaluator.EvaluateSCF(ctx, scfID, evList)
+		if err != nil {
+			slog.Error("evaluator: policy evaluation error for control", "scf_id", scfID, "error", err.Error())
+			return 1
+		}
+
+		allFindings = append(allFindings, findings...)
+
+		// Release memory and run GC
+		payloads = nil
+		evList = nil
+		runtime.GC()
 	}
 
 	// --- Output Results ---
-	slog.Info("evaluator: completed compliance evaluation", "findings_count", len(findings))
+	slog.Info("evaluator: completed compliance evaluation", "findings_count", len(allFindings))
 
 	hasFailures := false
-	for _, f := range findings {
+	for _, f := range allFindings {
 		if f.Verdict != evaluation.VerdictCompliant {
 			hasFailures = true
 		}
@@ -145,17 +267,46 @@ func main() {
 
 	// Print standardized compliance ledger findings to stdout in formatted JSON
 	fmt.Println("\n================ JULA ASSURANCE FINDINGS LEDGER ================")
-	findingsJSON, _ := json.MarshalIndent(findings, "", "  ")
+	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
 	fmt.Println("================================================================")
 
 	if hasFailures {
 		slog.Error("evaluator: compliance audit FAILED - security issues detected!")
 		fmt.Println("STATUS: NON_COMPLIANT")
-		os.Exit(1)
+		return 1
 	}
 
 	slog.Info("evaluator: compliance audit SUCCESSFUL - system is fully secure!")
 	fmt.Println("STATUS: COMPLIANT")
-	os.Exit(0)
+	return 0
+}
+
+func resolveScfIDFromPath(path string) string {
+	parts := strings.Split(path, "/")
+	for i, part := range parts {
+		if part == "evidence" && i+1 < len(parts) {
+			return parts[i+1]
+		}
+	}
+	return ""
+}
+
+func resolveErlIDFromPath(path string) string {
+	parts := strings.Split(path, "/")
+	for _, part := range parts {
+		if strings.HasPrefix(part, "E-") {
+			if strings.Contains(part, "_") {
+				subParts := strings.Split(part, "_")
+				return subParts[0]
+			}
+			return part
+		}
+	}
+	filename := filepath.Base(path)
+	if strings.HasPrefix(filename, "E-") {
+		subParts := strings.Split(filename, "_")
+		return subParts[0]
+	}
+	return ""
 }

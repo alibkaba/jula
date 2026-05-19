@@ -47,13 +47,13 @@ func VerifyManifestSignature(manifest *types.Manifest, publicKey *ecdsa.PublicKe
 }
 
 // VerifyPayloads strictly matches the Gatekeeper rule:
-// Iterates through every evidence file in the manifest, calculates its SHA-256 hash in memory,
+// Iterates through the given slice of file checksums, calculates their SHA-256 hash in memory,
 // and ensures it matches the hash recorded in the manifest.
 // If any file is missing or mismatched, it immediately aborts with a fatal tampering error.
-func VerifyPayloads(manifest *types.Manifest, payloads map[string][]byte) error {
-	slog.Info("gatekeeper: starting payload integrity check", "expected_files", len(manifest.EvidenceFiles))
+func VerifyPayloads(files []types.FileChecksum, payloads map[string][]byte) error {
+	slog.Info("gatekeeper: starting payload integrity check", "expected_files", len(files))
 
-	for _, fileChecksum := range manifest.EvidenceFiles {
+	for _, fileChecksum := range files {
 		content, ok := payloads[fileChecksum.Path]
 		if !ok {
 			return fmt.Errorf("TAMPERING DETECTED: manifest file %q is missing from ingested payloads", fileChecksum.Path)

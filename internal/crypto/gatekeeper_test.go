@@ -79,7 +79,7 @@ func TestVerifyManifestSignatureAndPayloads(t *testing.T) {
 	payloads := map[string][]byte{
 		fileName: fileContent,
 	}
-	if err := VerifyPayloads(manifest, payloads); err != nil {
+	if err := VerifyPayloads(manifest.EvidenceFiles, payloads); err != nil {
 		t.Errorf("expected successful payload verification, got: %v", err)
 	}
 
@@ -93,13 +93,13 @@ func TestVerifyManifestSignatureAndPayloads(t *testing.T) {
 	tamperedPayloads := map[string][]byte{
 		fileName: []byte(`{"status": "NON-COMPLIANT"}`),
 	}
-	if err := VerifyPayloads(manifest, tamperedPayloads); err == nil {
+	if err := VerifyPayloads(manifest.EvidenceFiles, tamperedPayloads); err == nil {
 		t.Error("expected gatekeeper hash mismatch error for tampered content, but got nil error")
 	}
 
 	// 8. Test payload verification failure (missing file).
 	missingPayloads := map[string][]byte{}
-	if err := VerifyPayloads(manifest, missingPayloads); err == nil {
+	if err := VerifyPayloads(manifest.EvidenceFiles, missingPayloads); err == nil {
 		t.Error("expected gatekeeper missing file error, but got nil error")
 	}
 }

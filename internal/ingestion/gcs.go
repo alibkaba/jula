@@ -96,18 +96,18 @@ func (r *GCSReader) ReadManifest(ctx context.Context, bucketURL string) (*types.
 	return &m, nil
 }
 
-// ReadPayloads downloads all evidence files listed in the manifest in parallel.
-func (r *GCSReader) ReadPayloads(ctx context.Context, bucketURL string, manifest *types.Manifest) (map[string][]byte, error) {
+// ReadPayloads downloads the given slice of evidence/provenance files in parallel.
+func (r *GCSReader) ReadPayloads(ctx context.Context, bucketURL string, files []types.FileChecksum) (map[string][]byte, error) {
 	payloads := make(map[string][]byte)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	errs := make(chan error, len(manifest.EvidenceFiles))
+	errs := make(chan error, len(files))
 	semaphore := make(chan struct{}, 10) // Limit concurrency to 10 concurrent requests.
 
-	slog.Info("ingestion: launching parallel payload downloads", "file_count", len(manifest.EvidenceFiles))
+	slog.Info("ingestion: launching parallel payload downloads", "file_count", len(files))
 
-	for _, fileChecksum := range manifest.EvidenceFiles {
+	for _, fileChecksum := range files {
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
