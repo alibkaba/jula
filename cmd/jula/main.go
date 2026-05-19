@@ -8,12 +8,10 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-evaluator/internal/compiler"
 	intCrypto "github.com/alibkaba/jula-evidence-evaluator/internal/crypto"
 	"github.com/alibkaba/jula-evidence-evaluator/internal/evaluation"
 	"github.com/alibkaba/jula-evidence-evaluator/internal/ingestion"
@@ -26,33 +24,9 @@ func main() {
 }
 
 func runApp(args []string) int {
-	// Handle subcommand if present
-	if len(args) > 1 && args[1] == "compile" {
-		compileCmd := flag.NewFlagSet("compile", flag.ContinueOnError)
-		csvPath := compileCmd.String("csv", "", "Path to the controls CSV catalog")
-		outputPath := compileCmd.String("output", "control_mappings.json", "Path to output control mappings JSON")
-		if err := compileCmd.Parse(args[2:]); err != nil {
-			return 1
-		}
-
-		if *csvPath == "" {
-			fmt.Println("Error: --csv is required for compile subcommand")
-			return 1
-		}
-
-		err := compiler.CompileCatalog(*csvPath, *outputPath)
-		if err != nil {
-			fmt.Printf("Error compiling catalog: %v\n", err)
-			return 1
-		}
-		fmt.Printf("Successfully compiled %s to %s\n", *csvPath, *outputPath)
-		return 0
-	}
-
 	fs := flag.NewFlagSet("jula", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-compliance-policies/policies/)")
-	mappingsPathFlag := fs.String("mappings-path", "control_mappings.json", "Path to control mappings JSON file")
 
 	if err := fs.Parse(args[1:]); err != nil {
 		return 1
@@ -137,18 +111,6 @@ func runApp(args []string) int {
 	// 1. Initialize OPA Evaluator.
 	evaluator := evaluation.NewOPAEvaluator()
 
-	// 2. Load control mappings if present.
-	mappingsPath := *mappingsPathFlag
-	if mappingsPath == "" {
-		mappingsPath = "control_mappings.json"
-	}
-	if _, err := os.Stat(mappingsPath); err == nil {
-		if err := evaluator.LoadControlMappings(mappingsPath); err != nil {
-			slog.Warn("evaluator: failed to load control mappings", "path", mappingsPath, "error", err.Error())
-		} else {
-			slog.Info("evaluator: successfully loaded control mappings", "path", mappingsPath)
-		}
-	}
 
 	// 3. Load policy files from target path.
 	if err := evaluator.LoadPolicies(policyURL); err != nil {
@@ -164,16 +126,15 @@ func runApp(args []string) int {
 
 	// --- Phase 3: Sequential Evaluation Loop ---
 
-	// Group files in manifest by their control / routing ID (SCF ID preferred, then ERL ID)
+	// Group files in manifest by their control / routing ID (SCF ID)
 	scfGroups := make(map[string][]types.FileChecksum)
 	for _, f := range manifest.EvidenceFiles {
 		scfID := resolveScfIDFromPath(f.Path)
 		if scfID == "" {
-			scfID = resolveErlIDFromPath(f.Path)
+			slog.Warn("evaluator: skipping file in manifest, could not resolve SCF ID from path", "path", f.Path)
+			continue
 		}
-		if scfID != "" {
-			scfGroups[scfID] = append(scfGroups[scfID], f)
-		}
+		scfGroups[scfID] = append(scfGroups[scfID], f)
 	}
 
 	var allFindings []evaluation.ControlFinding
@@ -215,9 +176,13 @@ func runApp(args []string) int {
 				slog.Error("evaluator: provenance signature is INVALID", "file", provPath, "error", err)
 				return 1
 			}
-			evidenceHash := pkgCrypto.HashFile(payloads[f.Path])
-			if prov.PayloadHash != evidenceHash {
-				slog.Error("evaluator: provenance payload hash mismatch", "file", provPath, "expected", prov.PayloadHash, "actual", evidenceHash)
+			var ev types.Evidence
+			if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
+				slog.Error("evaluator: failed to unmarshal evidence payload for provenance check", "file", f.Path, "error", err.Error())
+				return 1
+			}
+			if prov.PayloadHash != ev.PayloadHash {
+				slog.Error("evaluator: provenance payload hash mismatch", "file", provPath, "expected", prov.PayloadHash, "actual", ev.PayloadHash)
 				return 1
 			}
 			slog.Info("evaluator: successfully verified provenance sidecar", "file", provPath)
@@ -288,25 +253,6 @@ func resolveScfIDFromPath(path string) string {
 		if part == "evidence" && i+1 < len(parts) {
 			return parts[i+1]
 		}
-	}
-	return ""
-}
-
-func resolveErlIDFromPath(path string) string {
-	parts := strings.Split(path, "/")
-	for _, part := range parts {
-		if strings.HasPrefix(part, "E-") {
-			if strings.Contains(part, "_") {
-				subParts := strings.Split(part, "_")
-				return subParts[0]
-			}
-			return part
-		}
-	}
-	filename := filepath.Base(path)
-	if strings.HasPrefix(filename, "E-") {
-		subParts := strings.Split(filename, "_")
-		return subParts[0]
 	}
 	return ""
 }
