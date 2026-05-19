@@ -1,14 +1,13 @@
 package compliance.scf.bcd_11_4
 
 import rego.v1
-import data.control_mappings
 
 # Default compliance status
 default compliant = false
 
 # SCF metadata constants
 scf_id := "BCD-11.4"
-customer_control_id := control_mappings[scf_id]
+customer_control_id := "CC-1.1"
 
 # Check if the database instance configuration meets encryption and SSL rules
 compliant if {

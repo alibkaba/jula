@@ -1,23 +1,20 @@
-package gcp.storage_security
+package compliance.scf.dch_10
 
 import rego.v1
 
 # Default compliance status
 default compliant = false
 
-# ERL ID this rule evaluates
-erl_id := "E-DCH-10"
+# SCF metadata constants
+scf_id := "DCH-10"
+customer_control_id := "CC-2.1"
 
-# Check if GCS bucket configs meet the required security standards
+# Check if GCS bucket configs meet the required security standards (Uniform Access, Public Access Prevention, and Lifecycle)
 compliant if {
-	# Ensure the input represents the target ERL ID
-	input.erl_id == erl_id
-	
-	# Decode the raw payload
-	buckets := input.finding.raw_data
-	
-	# Verify that every bucket in the list is fully secured
-	all_buckets_secured(buckets)
+	storage_checks := input.findings["storage"]
+	every _, check in storage_checks {
+		all_buckets_secured(check.normalized_data.buckets)
+	}
 }
 
 # Helper to verify if all buckets are secured
@@ -42,4 +39,29 @@ bucket_is_compliant(b) if {
 	
 	# Rule 2: Public Access Prevention is strictly enforced
 	b.resource.data.publicAccessPrevention == "enforced"
+	
+	# Rule 3: Lifecycle compliance
+	bucket_lifecycle_is_compliant(b)
+}
+
+# A bucket lifecycle is compliant if it's either non-sensitive OR sensitive with active delete lifecycle rules
+bucket_lifecycle_is_compliant(b) if {
+	not is_sensitive(b)
+}
+
+bucket_lifecycle_is_compliant(b) if {
+	is_sensitive(b)
+	has_delete_lifecycle(b)
+}
+
+# Helper to identify sensitive data classification
+is_sensitive(b) if {
+	b.labels.data_class == "sensitive"
+}
+
+# Helper to verify storage deletion limitation lifecycles
+has_delete_lifecycle(b) if {
+	# Ensure there is at least one lifecycle rule where action type is "Delete"
+	rule := b.additionalAttributes.lifecycle.rule[_]
+	rule.action.type == "Delete"
 }
