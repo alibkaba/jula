@@ -302,14 +302,14 @@ func (e *Engine) Extract(ctx context.Context, erlID string, cfg ExtractionConfig
 		// Paginated extraction.
 		collected, err := e.fetchPaginated(ctx, method, targetURL, headers, cfg.Pagination)
 		if err != nil {
-			return types.Finding{}, err
+			return types.Finding{}, fmt.Errorf("paginated extraction failed: %w", err)
 		}
 		allData = collected
 	} else {
 		// Single-page extraction.
 		body, resp, err := e.fetchSingle(ctx, method, targetURL, headers)
 		if err != nil {
-			return types.Finding{}, err
+			return types.Finding{}, fmt.Errorf("single-page extraction failed: %w", err)
 		}
 
 		// Strict Pagination Enforcement: hard-fail if there is a next-page link in standard headers but no pagination instructions
