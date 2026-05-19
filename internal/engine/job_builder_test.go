@@ -23,7 +23,8 @@ func TestBuildHTTPGenericJobs(t *testing.T) {
 	}
 
 	configData := `{
-		"E-TEST-SaaS": {
+		"SaaS-SCF-01": {
+			"erl_id": "E-TEST-SaaS",
 			"description": "Test SaaS",
 			"provider": "saas_http",
 			"path": "/data"
@@ -50,6 +51,10 @@ func TestBuildHTTPGenericJobs(t *testing.T) {
 
 	if jobs[0].erlID != "E-TEST-SaaS" {
 		t.Errorf("expected erlID E-TEST-SaaS, got %s", jobs[0].erlID)
+	}
+
+	if jobs[0].scfID != "SaaS-SCF-01" {
+		t.Errorf("expected scfID SaaS-SCF-01, got %s", jobs[0].scfID)
 	}
 }
 

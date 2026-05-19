@@ -55,10 +55,13 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		default:
 		}
 
+		sanitizedSCFID := filepath.Base(ev.SCFID)
 		sanitizedErlID := filepath.Base(ev.ErlID)
+		sanitizedProvider := filepath.Base(ev.Finding.Provider)
+		sanitizedSourceID := filepath.Base(ev.SourceID)
 
-		// Build the ERL-based directory path.
-		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", sanitizedErlID)
+		// Build the SCF-based directory path.
+		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", sanitizedSCFID)
 		if err := os.MkdirAll(dirPath, 0700); err != nil {
 			return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 		}
@@ -69,25 +72,61 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
 		}
 
-		// Use the payload hash as the filename for immutability.
-		sanitizedProvider := filepath.Base(ev.Finding.Provider)
-		fileName := fmt.Sprintf("%s_%s.json", sanitizedProvider, ev.PayloadHash)
+		// Predictable namespace filename
+		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
 		filePath := filepath.Join(dirPath, fileName)
 
 		if err := os.WriteFile(filePath, data, 0600); err != nil {
 			return nil, fmt.Errorf("writing evidence file: %w", err)
 		}
 
-		// Record in manifest.
-		relativePath := filepath.Join(runDate, "evidence", sanitizedErlID, fileName)
+		// Generate and sign provenance sidecar
+		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		provFilePath := filepath.Join(dirPath, provFileName)
+
+		prov := &crypto.Provenance{
+			ErlID:       ev.ErlID,
+			Provider:    ev.Finding.Provider,
+			SourceID:    ev.SourceID,
+			PayloadHash: ev.PayloadHash,
+			Timestamp:   time.Now().UTC(),
+			ExtractionMetadata: map[string]string{
+				"iam_identity": os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"),
+				"api_endpoint": ev.Finding.Provider,
+			},
+		}
+
+		if err := crypto.SignProvenance(prov, r.SigningKey); err != nil {
+			return nil, fmt.Errorf("signing provenance for %s: %w", ev.ErlID, err)
+		}
+
+		provData, err := json.MarshalIndent(prov, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshalling provenance for %s: %w", ev.ErlID, err)
+		}
+
+		if err := os.WriteFile(provFilePath, provData, 0600); err != nil {
+			return nil, fmt.Errorf("writing provenance file: %w", err)
+		}
+
+		// Record evidence in manifest.
+		relativePath := filepath.Join(runDate, "evidence", sanitizedSCFID, fileName)
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 			Path:   relativePath,
 			SHA256: crypto.HashFile(data),
 		})
 
-		slog.Debug("reporter: wrote evidence file",
+		// Record provenance in manifest.
+		provRelativePath := filepath.Join(runDate, "evidence", sanitizedSCFID, provFileName)
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   provRelativePath,
+			SHA256: crypto.HashFile(provData),
+		})
+
+		slog.Debug("reporter: wrote evidence and provenance files",
 			"path", filePath,
-			"erl_id", ev.ErlID,
+			"prov_path", provFilePath,
+			"scf_id", ev.SCFID,
 		)
 	}
 

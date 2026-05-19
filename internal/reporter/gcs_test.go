@@ -23,9 +23,14 @@ func (s *staticToken) Token() (string, error) { return s.token, nil }
 func gcsTestEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
+			ErlID:       "E-TEST-01",
+			SCFID:       "SCF-1",
+			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
 				ErlID:     "E-TEST-01",
+				SCFID:     "SCF-1",
+				SourceID:  "src-1",
 				Provider:  "gcp",
 				RawData:   []byte(`{"status":"ok"}`),
 				Timestamp: time.Now().UTC(),
@@ -151,30 +156,37 @@ func TestGCSReporter_Deliver(t *testing.T) {
 		t.Fatalf("deliver failed: %v", err)
 	}
 
-	// 1 evidence file + 1 manifest file = 2 uploads total
-	if len(uploadedPaths) != 2 {
-		t.Errorf("expected 2 uploads, got %d: %v", len(uploadedPaths), uploadedPaths)
+	// 1 evidence file + 1 provenance file + 1 manifest file = 3 uploads total
+	if len(uploadedPaths) != 3 {
+		t.Errorf("expected 3 uploads, got %d: %v", len(uploadedPaths), uploadedPaths)
 	}
 
 	foundEvidence := false
+	foundProvenance := false
 	foundManifest := false
 	for _, p := range uploadedPaths {
-		if strings.HasSuffix(p, "abc123hash.json") {
+		if strings.HasSuffix(p, "E-TEST-01_gcp_src-1.json") {
 			foundEvidence = true
+		}
+		if strings.HasSuffix(p, "E-TEST-01_gcp_src-1.prov.json") {
+			foundProvenance = true
 		}
 		if strings.HasSuffix(p, "manifest.json") {
 			foundManifest = true
 		}
 	}
 	if !foundEvidence {
-		t.Error("evidence file hash not found in uploaded paths")
+		t.Error("evidence file not found in uploaded paths")
+	}
+	if !foundProvenance {
+		t.Error("provenance file not found in uploaded paths")
 	}
 	if !foundManifest {
 		t.Error("manifest.json not found in uploaded paths")
 	}
 
-	if len(manifest.EvidenceFiles) != 1 {
-		t.Errorf("expected 1 evidence file logged in manifest, got %d", len(manifest.EvidenceFiles))
+	if len(manifest.EvidenceFiles) != 2 {
+		t.Errorf("expected 2 evidence/provenance files logged in manifest, got %d", len(manifest.EvidenceFiles))
 	}
 }
 

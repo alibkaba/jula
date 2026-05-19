@@ -1,45 +1,54 @@
 {
-  "E-DCH-10": {
+  "DCH-10": {
+    "erl_id": "E-DCH-10",
     "description": "S3 Bucket Configurations",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
   },
-  "E-NET-05": {
+  "NET-05": {
+    "erl_id": "E-NET-05",
     "description": "Security Groups",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::EC2::SecurityGroup'"
   },
-  "E-IAM-03": {
+  "IAM-03": {
+    "erl_id": "E-IAM-03",
     "description": "IAM Roles",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::IAM::Role'"
   },
-  "E-CRY-02": {
+  "CRY-02": {
+    "erl_id": "E-CRY-02",
     "description": "KMS Encryption Keys",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::KMS::Key'"
   },
-  "E-MON-01": {
+  "MON-01": {
+    "erl_id": "E-MON-01",
     "description": "CloudTrail Trails",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::CloudTrail::Trail'"
   },
-  "E-BCM-16": {
+  "BCD-11.4": {
+    "erl_id": "E-BCM-16",
     "description": "RDS Database Instances",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::RDS::DBInstance'"
   },
-  "E-GOV-01": {
+  "GOV-01": {
+    "erl_id": "E-GOV-01",
     "description": "AWS Account Configuration",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration WHERE resourceType = 'AWS::Config::ConfigurationRecorder'"
   },
-  "E-AST-01": {
+  "AST-01": {
+    "erl_id": "E-AST-01",
     "description": "EC2 Instances and RDS Database Instances Inventory",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::EC2::Instance' OR resourceType = 'AWS::RDS::DBInstance'"
   },
-  "E-CRY-01": {
+  "CRY-01": {
+    "erl_id": "E-CRY-01",
     "description": "S3 Buckets Server-Side Encryption Status",
     "provider": "aws_config",
     "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket' AND configuration.bucketEncryption.serverSideEncryptionConfiguration.rules IS NOT NULL"

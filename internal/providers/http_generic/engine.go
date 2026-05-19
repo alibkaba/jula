@@ -59,6 +59,7 @@ func (p ProviderConfig) MarshalJSON() ([]byte, error) {
 
 // SaaSExtractionConfig defines the simplified ERL configuration structure.
 type SaaSExtractionConfig struct {
+	ErlID       string            `json:"erl_id"`
 	Description string            `json:"description"`
 	Provider    string            `json:"provider"`
 	Method      string            `json:"method"`
@@ -70,6 +71,7 @@ type SaaSExtractionConfig struct {
 
 // ExtractionConfig represents a single fully-hydrated SaaS HTTP extraction configuration.
 type ExtractionConfig struct {
+	ErlID       string            `json:"erl_id"`
 	Description string            `json:"description"`
 	Provider    string            `json:"provider"`
 	Method      string            `json:"method"`
@@ -188,11 +190,11 @@ func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 
 	// Hydrate ERL configs into fully-qualified ExtractionConfig map
 	configs := make(map[string]ExtractionConfig, len(saasConfigs))
-	for erlID, saasCfg := range saasConfigs {
+	for scfID, saasCfg := range saasConfigs {
 		// Strict referential integrity: hard-fail if referenced provider is missing
 		prov, exists := providerConfigs[saasCfg.Provider]
 		if !exists {
-			return nil, fmt.Errorf("referential integrity violation: ERL %s references undefined provider %q", erlID, saasCfg.Provider)
+			return nil, fmt.Errorf("referential integrity violation: SCF %s references undefined provider %q", scfID, saasCfg.Provider)
 		}
 
 		// Interpolate provider's base URL (no path escape here, since it's the base host/scheme)
@@ -217,7 +219,7 @@ func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 		// Robust URL assembly using Go-native url.JoinPath
 		fullURL, err := url.JoinPath(interpolatedBase, interpolatedPath)
 		if err != nil {
-			return nil, fmt.Errorf("building URL for ERL %s: %w", erlID, err)
+			return nil, fmt.Errorf("building URL for SCF %s: %w", scfID, err)
 		}
 
 		// Merge headers, prioritizing ERL-specific headers
@@ -229,7 +231,8 @@ func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 			mergedHeaders[k] = v
 		}
 
-		configs[erlID] = ExtractionConfig{
+		configs[scfID] = ExtractionConfig{
+			ErlID:       saasCfg.ErlID,
 			Description: saasCfg.Description,
 			Provider:    saasCfg.Provider,
 			Method:      saasCfg.Method,

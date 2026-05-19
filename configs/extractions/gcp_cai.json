@@ -1,5 +1,6 @@
 {
-  "E-GOV-01": {
+  "GOV-01": {
+    "erl_id": "E-GOV-01",
     "description": "Cybersecurity Program Charter",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -8,7 +9,8 @@
     ],
     "query": ""
   },
-  "E-BCM-16": {
+  "BCD-11.4": {
+    "erl_id": "E-BCM-16",
     "description": "Encrypted Database Instances",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -17,7 +19,8 @@
     ],
     "query": "state:RUNNING"
   },
-  "E-NET-05": {
+  "NET-05": {
+    "erl_id": "E-NET-05",
     "description": "Firewall Rules",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -26,7 +29,8 @@
     ],
     "query": ""
   },
-  "E-CRY-02": {
+  "CRY-02": {
+    "erl_id": "E-CRY-02",
     "description": "KMS Encryption Keys",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -35,7 +39,8 @@
     ],
     "query": ""
   },
-  "E-IAM-03": {
+  "IAM-03": {
+    "erl_id": "E-IAM-03",
     "description": "Privileged User Inventory (GCP IAM Policies)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -45,7 +50,8 @@
     "query": "policy:roles/owner OR policy:roles/editor",
     "search_type": "iam"
   },
-  "E-MON-01": {
+  "MON-01": {
+    "erl_id": "E-MON-01",
     "description": "Audit Log Sinks",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -54,7 +60,8 @@
     ],
     "query": ""
   },
-  "E-DCH-10": {
+  "DCH-10": {
+    "erl_id": "E-DCH-10",
     "description": "Cloud Storage Buckets",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -63,7 +70,8 @@
     ],
     "query": ""
   },
-  "E-AST-01": {
+  "AST-01": {
+    "erl_id": "E-AST-01",
     "description": "GCP Compute Engine Instances",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -72,7 +80,8 @@
     ],
     "query": ""
   },
-  "E-IAM-02": {
+  "IAM-02": {
+    "erl_id": "E-IAM-02",
     "description": "GCP Project IAM Policy Bindings (RBAC)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -82,7 +91,8 @@
     "query": "",
     "search_type": "iam"
   },
-  "E-AST-06": {
+  "AST-06": {
+    "erl_id": "E-AST-06",
     "description": "Asset Inventories - Cloud Service Provider (CSP)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -91,7 +101,8 @@
     ],
     "query": ""
   },
-  "E-CRY-01": {
+  "CRY-01": {
+    "erl_id": "E-CRY-01",
     "description": "Cryptographic Protections (KMS Crypto Keys)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -100,7 +111,8 @@
     ],
     "query": ""
   },
-  "E-IAM-01": {
+  "IAM-01": {
+    "erl_id": "E-IAM-01",
     "description": "GCP Access Permission Review (IAM Policies)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -110,7 +122,8 @@
     "query": "",
     "search_type": "iam"
   },
-  "E-IAM-04": {
+  "IAM-04": {
+    "erl_id": "E-IAM-04",
     "description": "GCP User & Service Inventory (Service Accounts)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",
@@ -119,7 +132,8 @@
     ],
     "query": ""
   },
-  "E-NET-04": {
+  "NET-04": {
+    "erl_id": "E-NET-04",
     "description": "GCP Network Security Controls (Firewall Rules)",
     "provider": "gcp_cai",
     "scope": "projects/{{GCP_PROJECT_ID}}",

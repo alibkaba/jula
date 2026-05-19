@@ -20,9 +20,13 @@ func testEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
 			ErlID:       "E-TEST-01",
+			SCFID:       "SCF-1",
+			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
 				ErlID:     "E-TEST-01",
+				SCFID:     "SCF-1",
+				SourceID:  "src-1",
 				Provider:  "gcp_cai",
 				RawData:   []byte(`{"status":"ok"}`),
 				Timestamp: time.Now().UTC(),
@@ -31,9 +35,13 @@ func testEvidence() []types.Evidence {
 		},
 		{
 			ErlID:       "E-TEST-02",
+			SCFID:       "SCF-2",
+			SourceID:    "src-2",
 			PayloadHash: "def456hash",
 			Finding: types.Finding{
 				ErlID:     "E-TEST-02",
+				SCFID:     "SCF-2",
+				SourceID:  "src-2",
 				Provider:  "aws_config",
 				RawData:   []byte(`{"status":"ok"}`),
 				Timestamp: time.Now().UTC(),
@@ -99,18 +107,26 @@ func TestLocalReporter_Deliver(t *testing.T) {
 		t.Fatalf("deliver failed: %v", err)
 	}
 
-	if len(manifest.EvidenceFiles) != 2 {
-		t.Errorf("expected 2 evidence files in manifest, got %d", len(manifest.EvidenceFiles))
+	if len(manifest.EvidenceFiles) != 4 {
+		t.Errorf("expected 4 evidence/provenance files in manifest, got %d", len(manifest.EvidenceFiles))
 	}
 
 	foundGCP := false
 	foundAWS := false
+	foundGCPProv := false
+	foundAWSProv := false
 	for _, f := range manifest.EvidenceFiles {
-		if strings.HasSuffix(f.Path, "gcp_cai_abc123hash.json") {
+		if strings.HasSuffix(f.Path, "E-TEST-01_gcp_cai_src-1.json") {
 			foundGCP = true
 		}
-		if strings.HasSuffix(f.Path, "aws_config_def456hash.json") {
+		if strings.HasSuffix(f.Path, "E-TEST-02_aws_config_src-2.json") {
 			foundAWS = true
+		}
+		if strings.HasSuffix(f.Path, "E-TEST-01_gcp_cai_src-1.prov.json") {
+			foundGCPProv = true
+		}
+		if strings.HasSuffix(f.Path, "E-TEST-02_aws_config_src-2.prov.json") {
+			foundAWSProv = true
 		}
 	}
 
@@ -119,6 +135,12 @@ func TestLocalReporter_Deliver(t *testing.T) {
 	}
 	if !foundAWS {
 		t.Error("AWS evidence file not found in manifest")
+	}
+	if !foundGCPProv {
+		t.Error("GCP provenance file not found in manifest")
+	}
+	if !foundAWSProv {
+		t.Error("AWS provenance file not found in manifest")
 	}
 }
 
@@ -135,7 +157,7 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 	}
 
 	runDate := time.Now().UTC().Format("2006-01-02")
-	filePath := filepath.Join(tmpDir, runDate, "evidence", "E-TEST-01", "gcp_cai_abc123hash.json")
+	filePath := filepath.Join(tmpDir, runDate, "evidence", "SCF-1", "E-TEST-01_gcp_cai_src-1.json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {

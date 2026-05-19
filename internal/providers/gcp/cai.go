@@ -17,6 +17,7 @@ import (
 
 // CAIExtractionConfig defines the parameters for a declarative GCP CAI query.
 type CAIExtractionConfig struct {
+	ErlID       string `json:"erl_id"`
 	Description string `json:"description"`
 	// Scope defines the GCP resource boundary (e.g., "projects/my-project").
 	// Optional in JSON; if omitted, defaults to the JULA_GCP_SCOPE environment variable.

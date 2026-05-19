@@ -1,119 +1,139 @@
 {
-  "E-AST-22": {
+  "AST-22": {
+    "erl_id": "E-AST-22",
     "description": "GitHub Repository Commit Provenance",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/commits?per_page=50",
     "json_path": "$"
   },
-  "E-CHG-01": {
+  "CHG-01": {
+    "erl_id": "E-CHG-01",
     "description": "GitHub Repository Metadata",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}",
     "json_path": "$"
   },
-  "E-CHG-02": {
+  "CHG-02": {
+    "erl_id": "E-CHG-02",
     "description": "GitHub Branch Protection Rules",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/branches/main/protection",
     "json_path": "$"
   },
-  "E-CHG-03": {
+  "CHG-03": {
+    "erl_id": "E-CHG-03",
     "description": "GitHub Recent Pull Requests",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=all&per_page=100&sort=updated&direction=desc",
     "json_path": "$"
   },
-  "E-CHG-04": {
+  "CHG-04": {
+    "erl_id": "E-CHG-04",
     "description": "GitHub CODEOWNERS File",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/contents/CODEOWNERS",
     "json_path": "$"
   },
-  "E-CHG-05": {
+  "CHG-05": {
+    "erl_id": "E-CHG-05",
     "description": "GitHub Closed and Merged Pull Requests",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/pulls?state=closed&per_page=100",
     "json_path": "$"
   },
-  "E-IAM-03": {
+  "IAM-03": {
+    "erl_id": "E-IAM-03",
     "description": "GitHub Organization Administrators",
     "provider": "github",
     "path": "/orgs/${GITHUB_ORG}/members?role=admin&per_page=100",
     "json_path": "$"
   },
-  "E-MNT-03": {
+  "MNT-03": {
+    "erl_id": "E-MNT-03",
     "description": "Aikido Patch Management Audits (Open Vulnerabilities)",
     "provider": "aikido",
     "path": "/issues/export?format=json&filter_status=open",
     "json_path": "$"
   },
-  "E-MON-03": {
+  "MON-03": {
+    "erl_id": "E-MON-03",
     "description": "GitHub Repository Collaborators and Privileged Users",
     "provider": "github",
     "path": "/repos/${GITHUB_ORG}/${GITHUB_REPO}/collaborators?per_page=100",
     "json_path": "$"
   },
-  "E-TDA-03": {
+  "TDA-03": {
+    "erl_id": "E-TDA-03",
     "description": "Aikido Container SBOM",
     "provider": "aikido",
     "path": "/containers/${AIK_CONTAINER_ID}/licenses/export?format=sbom",
     "json_path": "$"
   },
-  "E-TDA-11": {
+  "TDA-11": {
+    "erl_id": "E-TDA-11",
     "description": "Aikido Code Repository SBOM",
     "provider": "aikido",
     "path": "/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
     "json_path": "$"
   },
-  "E-TDA-12": {
+  "TDA-12": {
+    "erl_id": "E-TDA-12",
     "description": "Aikido Primary Software Bill of Materials (SBOM)",
     "provider": "aikido",
     "path": "/repositories/code/${AIK_CODE_REPO_ID}/licenses/export?format=sbom",
     "json_path": "$"
   },
-  "E-TDA-15": {
+  "TDA-15": {
+    "erl_id": "E-TDA-15",
     "description": "Aikido Virtual Machine SBOM",
     "provider": "aikido",
     "path": "/virtual-machines/${AIK_VM_ID}/export/sbom",
     "json_path": "$"
   },
-  "E-VPM-01": {
+  "VPM-01": {
+    "erl_id": "E-VPM-01",
     "description": "Aikido Container Inventory",
     "provider": "aikido",
     "path": "/containers",
     "json_path": "$"
   },
-  "E-VPM-02": {
+  "VPM-02": {
+    "erl_id": "E-VPM-02",
     "description": "Aikido Vulnerability Scan Report",
     "provider": "aikido",
     "path": "/report/ciScans",
     "json_path": "$"
   },
-  "E-VPM-05": {
+  "VPM-05": {
+    "erl_id": "E-VPM-05",
     "description": "Aikido Code Repository Inventory",
     "provider": "aikido",
     "path": "/repositories/code",
     "json_path": "$"
   },
-  "E-VPM-08": {
+  "VPM-08": {
+    "erl_id": "E-VPM-08",
     "description": "Aikido Flaw Remediation Test Results (CI Scans)",
     "provider": "aikido",
     "path": "/report/ciScans",
     "json_path": "$"
   },
-  "E-VPM-09": {
+  "VPM-09": {
+    "erl_id": "E-VPM-09",
     "description": "Aikido Flaw Remediation Actions (CI Scans)",
     "provider": "aikido",
     "path": "/report/ciScans",
     "json_path": "$"
   },
-  "E-VPM-10": {
+  "VPM-10": {
+    "erl_id": "E-VPM-10",
     "description": "Aikido Virtual Machine Inventory",
     "provider": "aikido",
     "path": "/virtual-machines",
     "json_path": "$"
   },
-  "E-VPM-11": {
+  "VPM-11": {
+    "erl_id": "E-VPM-11",
     "description": "Aikido Open Vulnerability Scan",
     "provider": "aikido",
     "path": "/issues/export?format=json&filter_status=open",

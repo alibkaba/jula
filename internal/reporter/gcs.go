@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	http "net/http"
 	url "net/url"
+	os "os"
 	filepath "path/filepath"
 	strings "strings"
 	time "time"
@@ -111,14 +112,46 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
 		}
 
+		sanitizedSCFID := filepath.Base(ev.SCFID)
 		sanitizedErlID := filepath.Base(ev.ErlID)
-
-		// Use the payload hash as the filename for immutability.
 		sanitizedProvider := filepath.Base(ev.Finding.Provider)
-		objectName := fmt.Sprintf("%s/evidence/%s/%s_%s.json", runDate, sanitizedErlID, sanitizedProvider, ev.PayloadHash)
+		sanitizedSourceID := filepath.Base(ev.SourceID)
+
+		// Predictable namespace filename
+		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		objectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedSCFID, fileName)
 
 		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
+		}
+
+		// Generate, sign, and upload provenance sidecar
+		prov := &crypto.Provenance{
+			ErlID:       ev.ErlID,
+			Provider:    ev.Finding.Provider,
+			SourceID:    ev.SourceID,
+			PayloadHash: ev.PayloadHash,
+			Timestamp:   time.Now().UTC(),
+			ExtractionMetadata: map[string]string{
+				"iam_identity": os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"),
+				"api_endpoint": ev.Finding.Provider,
+			},
+		}
+
+		if err := crypto.SignProvenance(prov, r.SigningKey); err != nil {
+			return nil, fmt.Errorf("signing provenance for %s: %w", ev.ErlID, err)
+		}
+
+		provData, err := json.MarshalIndent(prov, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshalling provenance for %s: %w", ev.ErlID, err)
+		}
+
+		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		provObjectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedSCFID, provFileName)
+
+		if err := r.uploadObject(ctx, provObjectName, provData, "application/json"); err != nil {
+			return nil, fmt.Errorf("uploading provenance %s: %w", provObjectName, err)
 		}
 
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
@@ -126,9 +159,15 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			SHA256: crypto.HashFile(data),
 		})
 
-		slog.Debug("gcs: uploaded evidence",
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   provObjectName,
+			SHA256: crypto.HashFile(provData),
+		})
+
+		slog.Debug("gcs: uploaded evidence and provenance",
 			"object", objectName,
-			"erl_id", sanitizedErlID,
+			"prov_object", provObjectName,
+			"scf_id", sanitizedSCFID,
 		)
 	}
 

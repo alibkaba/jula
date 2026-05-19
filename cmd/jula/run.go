@@ -105,6 +105,8 @@ func handleRun(args []string) error {
 		hash := sha256.Sum256(f.RawData)
 		evidence = append(evidence, types.Evidence{
 			ErlID:       f.ErlID,
+			SCFID:       f.SCFID,
+			SourceID:    f.SourceID,
 			Finding:     f,
 			PayloadHash: hex.EncodeToString(hash[:]),
 		})

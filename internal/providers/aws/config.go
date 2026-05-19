@@ -21,6 +21,8 @@ import (
 // the JSON configuration file. Each block maps an ERL ID to a specific
 // AWS Config Advanced Query (SelectResourceConfig SQL expression).
 type AWSConfigExtraction struct {
+	ErlID string `json:"erl_id"`
+
 	// Description is a human-readable label for this extraction
 	// (e.g., "S3 Bucket Configurations").
 	Description string `json:"description"`

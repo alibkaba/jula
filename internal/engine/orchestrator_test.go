@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -317,7 +318,8 @@ func TestOrchestrator_BuildGCPJobs(t *testing.T) {
 
 	validConfigPath := t.TempDir() + "/cai_valid.json"
 	validConfigData := `{
-		"E-TEST-GCP": {
+		"GCP-SCF-01": {
+			"erl_id": "E-TEST-GCP",
 			"description": "Test GCP",
 			"scope": "projects/test-project",
 			"query": "state:ACTIVE"
@@ -367,8 +369,13 @@ func TestOrchestrator_BuildGCPJobs(t *testing.T) {
 				if len(jobs) != tc.expectedJobs {
 					t.Errorf("expected %d jobs, got %d", tc.expectedJobs, len(jobs))
 				}
-				if len(jobs) > 0 && jobs[0].erlID != "E-TEST-GCP" {
-					t.Errorf("expected job erlID to be E-TEST-GCP, got %s", jobs[0].erlID)
+				if len(jobs) > 0 {
+					if jobs[0].erlID != "E-TEST-GCP" {
+						t.Errorf("expected job erlID to be E-TEST-GCP, got %s", jobs[0].erlID)
+					}
+					if jobs[0].scfID != "GCP-SCF-01" {
+						t.Errorf("expected job scfID to be GCP-SCF-01, got %s", jobs[0].scfID)
+					}
 				}
 			}
 		})
@@ -382,7 +389,8 @@ func TestOrchestrator_BuildAWSJobs(t *testing.T) {
 
 	validConfigPath := t.TempDir() + "/aws_valid.json"
 	validConfigData := `{
-		"E-TEST-AWS": {
+		"AWS-SCF-01": {
+			"erl_id": "E-TEST-AWS",
 			"description": "Test AWS",
 			"query": "SELECT resourceId"
 		}
@@ -431,10 +439,81 @@ func TestOrchestrator_BuildAWSJobs(t *testing.T) {
 				if len(jobs) != tc.expectedJobs {
 					t.Errorf("expected %d jobs, got %d", tc.expectedJobs, len(jobs))
 				}
-				if len(jobs) > 0 && jobs[0].erlID != "E-TEST-AWS" {
-					t.Errorf("expected job erlID to be E-TEST-AWS, got %s", jobs[0].erlID)
+				if len(jobs) > 0 {
+					if jobs[0].erlID != "E-TEST-AWS" {
+						t.Errorf("expected job erlID to be E-TEST-AWS, got %s", jobs[0].erlID)
+					}
+					if jobs[0].scfID != "AWS-SCF-01" {
+						t.Errorf("expected job scfID to be AWS-SCF-01, got %s", jobs[0].scfID)
+					}
 				}
 			}
 		})
+	}
+}
+
+func TestSourceIDResolvers(t *testing.T) {
+	// Test getGCPSourceID
+	t.Setenv("GCP_PROJECT_ID", "env-project")
+	if got := getGCPSourceID(""); got != "env-project" {
+		t.Errorf("expected env-project, got %s", got)
+	}
+	t.Setenv("GCP_PROJECT_ID", "")
+	if got := getGCPSourceID("projects/my-scope"); got != "my-scope" {
+		t.Errorf("expected my-scope, got %s", got)
+	}
+	if got := getGCPSourceID("invalid-scope"); got != "default" {
+		t.Errorf("expected default, got %s", got)
+	}
+
+	// Test getAWSSourceID
+	t.Setenv("AWS_ACCOUNT_ID", "env-account")
+	if got := getAWSSourceID(); got != "env-account" {
+		t.Errorf("expected env-account, got %s", got)
+	}
+	t.Setenv("AWS_ACCOUNT_ID", "")
+	t.Setenv("AWS_REGION", "env-region")
+	if got := getAWSSourceID(); got != "env-region" {
+		t.Errorf("expected env-region, got %s", got)
+	}
+	t.Setenv("AWS_REGION", "")
+	if got := getAWSSourceID(); got != "default" {
+		t.Errorf("expected default, got %s", got)
+	}
+
+	// Test getSaaSSourceID
+	t.Setenv("GITHUB_ORGANIZATION", "env-gh")
+	if got := getSaaSSourceID("github"); got != "env-gh" {
+		t.Errorf("expected env-gh, got %s", got)
+	}
+	t.Setenv("GITHUB_ORGANIZATION", "")
+	t.Setenv("AIK_CLIENT_ID", "env-aik")
+	if got := getSaaSSourceID("aikido"); got != "env-aik" {
+		t.Errorf("expected env-aik, got %s", got)
+	}
+	t.Setenv("AIK_CLIENT_ID", "")
+	if got := getSaaSSourceID("github"); got != "default" {
+		t.Errorf("expected default, got %s", got)
+	}
+}
+
+func TestOrchestrator_Extract_NoJobs(t *testing.T) {
+	o := New(RunConfig{})
+	_, err := o.Extract(context.Background())
+	if err == nil {
+		t.Fatal("expected error when no configs are provided, got nil")
+	}
+	if !strings.Contains(err.Error(), "no extraction jobs available") {
+		t.Errorf("expected 'no extraction jobs available' error, got %v", err)
+	}
+}
+
+func TestBuildHTTPGenericJobs_Error(t *testing.T) {
+	o := New(RunConfig{
+		SaaSConfigPath: "nonexistent_saas.json",
+	})
+	_, err := o.buildHTTPGenericJobs()
+	if err == nil {
+		t.Fatal("expected error for nonexistent saas config path, got nil")
 	}
 }

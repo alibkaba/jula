@@ -185,3 +185,34 @@ func TestVerifyManifest_Negative(t *testing.T) {
 		t.Errorf("expected signature decode error, got %v", err)
 	}
 }
+
+func TestSignProvenance_Success(t *testing.T) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	prov := &Provenance{
+		ErlID:       "E-TEST-01",
+		Provider:    "gcp",
+		SourceID:    "src-1",
+		PayloadHash: "hash123",
+		Timestamp:   time.Now(),
+	}
+
+	if err := SignProvenance(prov, privKey); err != nil {
+		t.Fatalf("sign provenance failed: %v", err)
+	}
+
+	if prov.Signature == "" {
+		t.Error("provenance signature should not be empty")
+	}
+}
+
+func TestSignProvenance_Negative(t *testing.T) {
+	prov := &Provenance{ErlID: "E-TEST-01"}
+	err := SignProvenance(prov, nil)
+	if err == nil || err.Error() != "signer is nil" {
+		t.Errorf("expected 'signer is nil' error, got %v", err)
+	}
+}

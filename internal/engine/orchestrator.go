@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,9 +37,45 @@ type RunConfig struct {
 // It abstracts over provider-specific details so the orchestrator can
 // dispatch GCP and AWS extractions through a single concurrent loop.
 type extractionJob struct {
+	scfID       string
 	erlID       string
 	description string
 	execute     func(ctx context.Context) (types.Finding, error)
+}
+
+func getGCPSourceID(scope string) string {
+	if proj := os.Getenv("GCP_PROJECT_ID"); proj != "" {
+		return proj
+	}
+	parts := strings.Split(scope, "/")
+	if len(parts) >= 2 && parts[0] == "projects" {
+		return parts[1]
+	}
+	return "default"
+}
+
+func getAWSSourceID() string {
+	if acc := os.Getenv("AWS_ACCOUNT_ID"); acc != "" {
+		return acc
+	}
+	if reg := os.Getenv("AWS_REGION"); reg != "" {
+		return reg
+	}
+	return "default"
+}
+
+func getSaaSSourceID(provider string) string {
+	if provider == "github" {
+		if org := os.Getenv("GITHUB_ORGANIZATION"); org != "" {
+			return org
+		}
+	}
+	if provider == "aikido" {
+		if cid := os.Getenv("AIK_CLIENT_ID"); cid != "" {
+			return cid
+		}
+	}
+	return "default"
 }
 
 // Orchestrator manages the execution of the evidence collection pipeline.
@@ -203,14 +240,21 @@ func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error
 	// We register a cleanup via context cancellation or let the process exit handle it.
 
 	var jobs []extractionJob
-	for erlID, cfg := range configs {
-		id := erlID
+	for scfID, cfg := range configs {
+		sID := scfID
 		c := cfg
 		jobs = append(jobs, extractionJob{
-			erlID:       id,
+			scfID:       sID,
+			erlID:       c.ErlID,
 			description: c.Description,
 			execute: func(ctx context.Context) (types.Finding, error) {
-				return provider.Extract(ctx, id, c, o.cfg.RunID)
+				finding, err := provider.Extract(ctx, c.ErlID, c, o.cfg.RunID)
+				if err != nil {
+					return finding, err
+				}
+				finding.SCFID = sID
+				finding.SourceID = getGCPSourceID(c.Scope)
+				return finding, nil
 			},
 		})
 	}
@@ -236,14 +280,21 @@ func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error
 	}
 
 	var jobs []extractionJob
-	for erlID, cfg := range configs {
-		id := erlID
+	for scfID, cfg := range configs {
+		sID := scfID
 		c := cfg
 		jobs = append(jobs, extractionJob{
-			erlID:       id,
+			scfID:       sID,
+			erlID:       c.ErlID,
 			description: c.Description,
 			execute: func(ctx context.Context) (types.Finding, error) {
-				return provider.Extract(ctx, id, c, o.cfg.RunID)
+				finding, err := provider.Extract(ctx, c.ErlID, c, o.cfg.RunID)
+				if err != nil {
+					return finding, err
+				}
+				finding.SCFID = sID
+				finding.SourceID = getAWSSourceID()
+				return finding, nil
 			},
 		})
 	}
@@ -263,14 +314,21 @@ func (o *Orchestrator) buildHTTPGenericJobs() ([]extractionJob, error) {
 	engine := httpgeneric.NewEngine()
 
 	var jobs []extractionJob
-	for erlID, cfg := range configs {
-		id := erlID
+	for scfID, cfg := range configs {
+		sID := scfID
 		c := cfg
 		jobs = append(jobs, extractionJob{
-			erlID:       id,
+			scfID:       sID,
+			erlID:       c.ErlID,
 			description: c.Description,
 			execute: func(ctx context.Context) (types.Finding, error) {
-				return engine.Extract(ctx, id, c, o.cfg.RunID)
+				finding, err := engine.Extract(ctx, c.ErlID, c, o.cfg.RunID)
+				if err != nil {
+					return finding, err
+				}
+				finding.SCFID = sID
+				finding.SourceID = getSaaSSourceID(c.Provider)
+				return finding, nil
 			},
 		})
 	}

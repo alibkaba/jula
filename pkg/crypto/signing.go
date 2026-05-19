@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
@@ -73,4 +74,34 @@ func VerifyManifest(manifest *types.Manifest, publicKey *ecdsa.PublicKey) (bool,
 func HashFile(content []byte) string {
 	h := sha256.Sum256(content)
 	return hex.EncodeToString(h[:])
+}
+
+// Provenance represents metadata about the evidence extraction.
+type Provenance struct {
+	ErlID              string            `json:"erl_id"`
+	Provider           string            `json:"provider"`
+	SourceID           string            `json:"source_id"`
+	PayloadHash        string            `json:"payload_hash"`
+	Timestamp          time.Time         `json:"timestamp"`
+	ExtractionMetadata map[string]string `json:"extraction_metadata"`
+	Signature          string            `json:"signature"`
+}
+
+// SignProvenance signs the provenance metadata.
+func SignProvenance(prov *Provenance, signer stdcrypto.Signer) error {
+	if signer == nil {
+		return fmt.Errorf("signer is nil")
+	}
+	prov.Signature = ""
+	canonical, err := json.Marshal(prov)
+	if err != nil {
+		return fmt.Errorf("failed to marshal provenance: %w", err)
+	}
+	hash := sha256.Sum256(canonical)
+	sigBytes, err := signer.Sign(rand.Reader, hash[:], nil)
+	if err != nil {
+		return fmt.Errorf("failed to sign provenance: %w", err)
+	}
+	prov.Signature = hex.EncodeToString(sigBytes)
+	return nil
 }
