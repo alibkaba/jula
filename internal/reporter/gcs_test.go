@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 // staticToken implements TokenProvider with a fixed token for testing.

@@ -1,9 +1,10 @@
 module github.com/alibkaba/jula-evidence-collector
 
-go 1.25.0
+go 1.25.10
 
 require (
 	cloud.google.com/go/asset v1.27.0
+	github.com/alibkaba/jula-core v0.0.0-20260520144405-ac834d824fbc
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/service/configservice v1.62.3
 	go.yaml.in/yaml/v4 v4.0.0-rc.4

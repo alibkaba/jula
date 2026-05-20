@@ -12,7 +12,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func BenchmarkGCSReporterDeliver(b *testing.B) {

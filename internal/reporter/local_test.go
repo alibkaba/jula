@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/crypto"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func testEvidence() []types.Evidence {

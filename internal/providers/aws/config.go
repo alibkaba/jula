@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
 	"go.yaml.in/yaml/v4"

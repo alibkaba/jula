@@ -13,7 +13,7 @@ import (
 	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
 	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 	httpgeneric "github.com/alibkaba/jula-evidence-collector/internal/providers/http_generic"
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 // RunConfig holds the validated configuration for a pipeline execution.

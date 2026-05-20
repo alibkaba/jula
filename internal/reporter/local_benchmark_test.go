@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func BenchmarkLocalReporter_Deliver(b *testing.B) {

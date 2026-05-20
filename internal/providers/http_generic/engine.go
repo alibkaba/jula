@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 	"go.yaml.in/yaml/v4"
 )
 

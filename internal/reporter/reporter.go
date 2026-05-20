@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 // Reporter delivers formatted evidence artifacts to a storage target.

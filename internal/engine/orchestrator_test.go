@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 // makeSuccessJob creates an extractionJob that returns a valid Finding.

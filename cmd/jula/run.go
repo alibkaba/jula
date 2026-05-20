@@ -15,7 +15,7 @@ import (
 
 	"github.com/alibkaba/jula-evidence-collector/internal/engine"
 	"github.com/alibkaba/jula-evidence-collector/internal/reporter"
-	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func handleRun(args []string) error {
