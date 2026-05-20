@@ -57,13 +57,16 @@ flowchart TB
     classDef core fill:#0f172a,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
 
     subgraph Phase1 ["1. Attestation Layer (Jula Evidence Collector)"]
-        direction LR
-        APIs["☁️ Cloud APIs <br> (AWS Config, GCP CAI, SaaS)"] -->|1. Extract Configs| EC["⚡ Jula Evidence Collector <br> (Go CLI / Container)"]
-        KMS["🔑 GCP Secret Manager <br> (Asymmetric Private Key)"] -.->|Sign Manifest & Prov| EC
-        EC -->|2a. Deduplicate & Hash| H["📄 Raw Evidence Payloads <br> (JSON Files)"]
-        EC -->|2b. Sign Provenance| P["🛡️ Provenance Sidecars <br> (*.prov.json)"]
-        EC -->|2c. Sign Manifest| M["📜 Cryptographic Manifest <br> (manifest.json)"]
-        EC -->|2d. Mask & Compress Logs| L["📝 Sanitized Execution Trace <br> (run.log.gz)"]
+        direction TB
+        APIs["☁️ Cloud & SaaS APIs <br> (AWS, GCP, SaaS)"] -->|1. Extract Configs| Tiers{"Two-Tier Extraction"}
+        Tiers -->|Native Go| Nat["Native Cloud Modules <br> (AWS, GCP, Azure)"]
+        Tiers -->|YAML Blueprints| REST["Universal REST Engine <br> (OpenAPI Blueprints)"]
+        Nat & REST --> Trans["🔄 Transformer Engine <br> (Dual-Payload Schema Appending)"]
+        Trans -->|2a. Output Payloads| H["📄 Evidence Payloads <br> (Raw JSON + NormalizedData)"]
+        KMS["🔑 GCP Secret Manager <br> (Asymmetric Private Key)"] -.->|Sign Manifest & Prov| Sign["Signing Engine"]
+        Sign -->|2b. Sign Provenance| P["🛡️ Provenance Sidecars <br> (*.prov.json)"]
+        Sign -->|2c. Sign Manifest| M["📜 Cryptographic Manifest <br> (manifest.json)"]
+        Sign -->|2d. Mask & Compress Logs| L["📝 Sanitized Execution Trace <br> (run.log.gz)"]
     end
 
     subgraph Phase2 ["2. Attestation Ledger (GCS Vault)"]
@@ -91,7 +94,7 @@ flowchart TB
             ProvCheck["🛡️ Provenance Verification <br> (Sidecar Payload Check)"]
         end
         
-        OPA["⚙️ Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        OPA["⚙️ Embedded OPA Engine <br> (NormalizedData Rego Ingestion)"]
         
         EE --> SigCheck
         SigCheck --> HashCheck
@@ -119,7 +122,7 @@ flowchart TB
 
     JC["📦 Jula Core <br> (Shared Go Module)"]
 
-    JC -.->|Shared Schema & Crypto| EC
+    JC -.->|Shared Schema & Crypto| Tiers
     JC -.->|Shared Schema & Crypto| EE
     JC -.->|Shared Schema| DB
     GCS -->|Pull Signed Ledger Run| EE
@@ -128,7 +131,7 @@ flowchart TB
     Findings -->|Ingest Findings JSON| DB
 
     %% Apply Styles
-    class APIs,EC,H,P,M,L collector;
+    class APIs,Tiers,Nat,REST,Trans,H,Sign,P,M,L collector;
     class GCS ledger;
     class PR policy;
     class EE,SigCheck,HashCheck,ProvCheck,OPA evaluator;
@@ -138,9 +141,9 @@ flowchart TB
     class JC core;
 ```
 
-### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) (The Attestation Engine)
+### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) (The Attestation & Transformation Engine)
 
-The Collector programmatically extracts infrastructure configurations from multiple cloud environments and SaaS tools, generates SHA-256 hashes of the raw payloads, and outputs an immutable set of evidence files. It also captures the complete execution log, masks sensitive credentials, compresses it into `run.log.gz`, and signs a secure runtime manifest containing all hashes, proving that the raw evidence was collected at a specific timestamp, the run completed successfully, and no files have been altered.
+The Collector programmatically extracts infrastructure configurations using a two-tier strategy: Native Go Modules for major clouds (AWS, GCP, Azure) and a Universal REST Engine executing declarative OpenAPI-inspired YAML blueprints for SaaS tools. It passes all raw payloads through a dynamic Transformer to append standard, cloud-agnostic JSON schemas (`NormalizedData`) alongside the untouched raw API bytes. It generates SHA-256 hashes of all payloads, signs ECDSA provenance sidecars for each finding, captures execution logs in `run.log.gz`, and signs a secure runtime manifest, proving execution integrity and chain of custody.
 
 ### 2. [Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator) (The Assurance Engine)
 
@@ -162,33 +165,51 @@ The future Jula Evidence Insights will ingest the OSCAL Assessment Results gener
 
 ## The Continuous Compliance Pipeline
 
-1. **Declare:** Define what you want to extract in declarative YAML configuration files. Each entry maps an Evidence Request List (ERL) ID to a cloud-native query or SaaS endpoint.
+1. **Declare:** Define what you want to extract in declarative YAML configuration files (under `configs/blueprints/`). SaaS integrations are defined using OpenAPI-inspired YAML blueprints mapped to target ERL IDs.
 
-2. **Extract & Hash:** The Collector runs queries concurrently across AWS, GCP, and SaaS APIs. Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing perfect data deduplication.
+2. **Extract, Transform & Hash:** The Collector runs queries concurrently. Raw payloads are passed to the Transformer registry, which maps them to standard, cloud-agnostic JSON schemas (`NormalizedData`). Files are saved as `{erl_id}_{provider}_{source_id}.json`. The raw payload is SHA-256 hashed to produce the payload hash.
 
-3. **Sign & Attest:** The Collector compiles all raw evidence hashes and the execution trace log (`run.log.gz`) hash into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
+3. **Sign & Attest:** The Collector generates an ECDSA-signed provenance sidecar (`.prov.json`) for each finding containing the payload hash. It compiles all hashes and the execution trace log (`run.log.gz`) hash into a unified manifest (`manifest.json`) and signs it to generate a cryptographically verifiable attestation of the run.
 
-4. **Verify & Evaluate:** The Evaluator verifies the manifest signature using the corresponding public key and processes the evidence against target compliance rules to produce automated pass/fail results.
+4. **Verify & Evaluate:** The Evaluator verifies the manifest and provenance signatures using the public key, ingests the `NormalizedData` schemas, indexes findings by ERL ID (e.g. `input.findings["E-BCM-16"]`), and processes them against Rego policies.
 
 5. **Analyze & Simulate:** The Jula Evidence Insights engine models enterprise risk exposure and posture maturity using quantitative FAIR simulations and NIST CSF radar maps.
 
 ---
 
-## Declarative Multi-Cloud Configurations
+## Declarative & Blueprint-Driven Configurations
 
-Jula Controls uses a config-driven schema. Adding new resource checks requires zero Go code changes. You simply add a SQL query or REST specification to a configuration file:
+Jula Controls uses a config-driven schema. Adding new resource checks requires zero Go code changes. You simply add a query or REST specification to a configuration file:
 
 * With **Google Cloud (GCP CAI)**, you define resource discovery scopes and asset filters.
 * With **Amazon Web Services (AWS Config)**, you specify SQL queries targeting specific AWS configuration recorders.
-* With **SaaS & External APIs**, you map generic HTTP REST/GraphQL configurations to target APIs with OAuth2 authentication.
+* With **SaaS & External APIs**, you map REST configurations using OpenAPI-inspired YAML blueprints (specifying auth flows like oauth2 or bearer, pagination cursors, header schemas, and ERL ID mappings).
 
-### Configuration Example (AWS S3 Bucket Rule)
+### Configuration Example (SaaS OpenAPI Blueprint)
 
 ```yaml
-E-DCH-10:
-  description: "S3 Bucket Configurations"
-  provider: "aws_config"
-  query: "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
+vendor_name: "github"
+base_url: "https://api.github.com"
+auth_flow:
+  type: "bearer"
+  token_env: "GITHUB_TOKEN"
+endpoints:
+  "/repos/${GITHUB_ORG}/${GITHUB_REPO}":
+    erl_id: "E-CHG-01"
+    description: "GitHub Repository Metadata"
+    headers:
+      Accept: "application/vnd.github.v3+json"
+```
+
+---
+
+## Pipeline Validation (E2E Tracer Bullet)
+
+We maintain an automated E2E Tracer Bullet validation suite that compiles the binaries, launches a mock SaaS HTTP server, runs the collector pipeline to fetch and transform raw data, validates the manifest/provenance signatures, and executes the evaluator with OPA policies against ERL ID-indexed findings to verify compliance.
+
+To run the tracer suite:
+```bash
+./scripts/e2e_tracer.sh
 ```
 
 ---
