@@ -121,6 +121,7 @@ flowchart TB
 
     JC -.->|Shared Schema & Crypto| EC
     JC -.->|Shared Schema & Crypto| EE
+    JC -.->|Shared Schema| DB
     GCS -->|Pull Signed Ledger Run| EE
     PR -->|Load Custom Policies| EE
     OPA -->|Audit Logs| Findings["🏆 Standardized Findings Ledger <br> (OSCAL Assessment Results)"]
