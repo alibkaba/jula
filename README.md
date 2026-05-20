@@ -42,45 +42,93 @@ By pairing this containerized evidence suite with your existing tooling, you eli
 
 ## Decoupled Architecture: The Attestation & Assurance Paradigm
 
-Jula Controls operates as a two-stage decoupled pipeline, cleanly separating raw evidence attestation from compliance evaluation.
+Jula Controls operates as a decoupled pipeline, cleanly separating raw evidence attestation, policy-as-code evaluation, and executive posture visualization.
 
 ```mermaid
 flowchart TB
-    subgraph Upstream ["1. Attestation Layer (Collector)"]
+    %% Styling Classes
+    classDef collector fill:#0f172a,stroke:#0ea5e9,stroke-width:2px,color:#e2e8f0;
+    classDef ledger fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#e2e8f0;
+    classDef policy fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0;
+    classDef evaluator fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0;
+    classDef security fill:#1e293b,stroke:#ef4444,stroke-width:1px,color:#f8fafc;
+    classDef output fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#f0fdf4;
+    classDef insights fill:#0f172a,stroke:#ec4899,stroke-width:2px,color:#e2e8f0;
+
+    subgraph Phase1 ["1. Attestation Layer (Jula Evidence Collector)"]
         direction LR
-        APIs["Cloud APIs <br> (AWS, GCP, SaaS)"] -->|Extract Configs| EC["Jula Evidence Collector"]
-        EC -->|1. Generate SHA-256 Hashes| H["Raw JSON Payloads"]
-        EC -->|2. Asymmetric Signing| M["Signed Manifest.json"]
-        EC -->|3. Mask & Compress Logs| L["Sanitized Trace (run.log.gz)"]
+        APIs["☁️ Cloud APIs <br> (AWS Config, GCP CAI, SaaS)"] -->|1. Extract Configs| EC["⚡ Jula Evidence Collector <br> (Go CLI / Container)"]
+        KMS["🔑 GCP Secret Manager <br> (Asymmetric Private Key)"] -.->|Sign Manifest & Prov| EC
+        EC -->|2a. Deduplicate & Hash| H["📄 Raw Evidence Payloads <br> (JSON Files)"]
+        EC -->|2b. Sign Provenance| P["🛡️ Provenance Sidecars <br> (*.prov.json)"]
+        EC -->|2c. Sign Manifest| M["📜 Cryptographic Manifest <br> (manifest.json)"]
+        EC -->|2d. Mask & Compress Logs| L["📝 Sanitized Execution Trace <br> (run.log.gz)"]
     end
 
-    subgraph Ledger ["2. Cryptographic Evidence Ledger (GCS)"]
+    subgraph Phase2 ["2. Attestation Ledger (GCS Vault)"]
         direction TB
-        GCS["Google Cloud Storage <br> (gs://jula-evidence-ledger)"]
+        GCS[("🪣 Secure Cloud Storage <br> gs://jula-evidence-ledger <br> (Uniform Bucket Access Enabled)")]
         H -->|Upload| GCS
+        P -->|Upload| GCS
         M -->|Upload| GCS
         L -->|Upload| GCS
     end
 
-    subgraph Policies ["3. Policy-as-Code Registry"]
-        PR["jula-compliance-policies <br> (Versioned Rego & OPA Tests)"]
+    subgraph Phase3 ["3. Policy-as-Code Registry"]
+        direction LR
+        PR["📂 jula-compliance-policies <br> (Versioned Rego OPA Rules)"]
     end
 
-    subgraph Downstream ["4. Continuous Assurance Layer (Evaluator)"]
+    subgraph Phase4 ["4. Continuous Assurance Layer (Jula Evidence Evaluator)"]
         direction TB
-        EE["Jula Evidence Evaluator <br> (Stateless CLI Go Runtime)"]
-        GK["Gatekeeper Module <br> (ECDSA PEM Signature Check)"]
-        NS["Null-State Verification <br> (Set-Theory Integrity Check)"]
-        OPA["Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        EE["🔍 Jula Evidence Evaluator <br> (Stateless Go CLI)"]
         
-        EE --> GK
-        GK --> NS
-        NS --> OPA
+        subgraph GK ["Gatekeeper Modules"]
+            direction LR
+            SigCheck["🔑 Signature Verification <br> (JULA_PUBLIC_KEY PEM)"]
+            HashCheck["✅ Integrity Check <br> (Manifest vs Payload Hash)"]
+            ProvCheck["🛡️ Provenance Verification <br> (Sidecar Payload Check)"]
+        end
+        
+        OPA["⚙️ Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        
+        EE --> SigCheck
+        SigCheck --> HashCheck
+        HashCheck --> ProvCheck
+        ProvCheck --> OPA
     end
 
-    GCS -->|Pull Manifest & Payloads| EE
-    PR -->|Load Dynamic Policies| EE
-    OPA -->|Output| Findings["Standardized Findings Ledger <br> (COMPLIANT / NON_COMPLIANT)"]
+    subgraph Phase5 ["5. Executive Risk & Posture Insights (Jula Evidence Insights)"]
+        direction TB
+        DB["📊 Jula Evidence Insights <br> (Quantitative Risk & Posture)"]
+        
+        subgraph Views ["Visualization Modules"]
+            direction LR
+            LEC["📈 Loss Exceedance Curve <br> (FAIR Financial Simulation)"]
+            Radar["🕸️ Maturity Radar Chart <br> (NIST CSF spider chart)"]
+            ROI["📊 Risk ROI Bar Chart <br> (Mitigation Cost vs Residual Loss)"]
+            Trend["📈 KRI Trend Lines <br> (12-Month Maturity Tracking)"]
+        end
+        
+        DB --> LEC
+        DB --> Radar
+        DB --> ROI
+        DB --> Trend
+    end
+
+    GCS -->|Pull Signed Ledger Run| EE
+    PR -->|Load Custom Policies| EE
+    OPA -->|Audit Logs| Findings["🏆 Standardized Findings Ledger <br> (OSCAL Assessment Results)"]
+    Findings -->|Ingest Findings JSON| DB
+
+    %% Apply Styles
+    class APIs,EC,H,P,M,L collector;
+    class GCS ledger;
+    class PR policy;
+    class EE,SigCheck,HashCheck,ProvCheck,OPA evaluator;
+    class KMS security;
+    class Findings output;
+    class DB,LEC,Radar,ROI,Trend insights;
 ```
 
 ### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) (The Attestation Engine)
@@ -95,17 +143,23 @@ The Evaluator consumes the cryptographically signed manifests and raw evidence a
 
 The Policy-as-Code Registry houses version-controlled compliance policies written in Open Policy Agent (OPA) Rego language. This serves as the single source of truth for the OPA engine embedded within the **Jula Evidence Evaluator** to execute verification rules and determine compliance status.
 
+### 4. Jula Evidence Insights (Future Analytical Layer)
+
+The future Jula Evidence Insights will ingest the OSCAL Assessment Results generated by the Jula Evidence Evaluator to translate technical security findings into operational maturity tracking and quantitative financial risk metrics for board-level reporting.
+
 ---
 
 ## The Continuous Compliance Pipeline
 
-1. **Declare:** Define what you want to extract in declarative JSON configuration files. Each entry maps an Evidence Request List (ERL) ID to a cloud-native query or SaaS endpoint.
+1. **Declare:** Define what you want to extract in declarative YAML configuration files. Each entry maps an Evidence Request List (ERL) ID to a cloud-native query or SaaS endpoint.
 
 2. **Extract & Hash:** The Collector runs queries concurrently across AWS, GCP, and SaaS APIs. Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing perfect data deduplication.
 
 3. **Sign & Attest:** The Collector compiles all raw evidence hashes and the execution trace log (`run.log.gz`) hash into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
 
 4. **Verify & Evaluate:** The Evaluator verifies the manifest signature using the corresponding public key and processes the evidence against target compliance rules to produce automated pass/fail results.
+
+5. **Analyze & Simulate:** The Jula Evidence Insights engine models enterprise risk exposure and posture maturity using quantitative FAIR simulations and NIST CSF radar maps.
 
 ---
 
@@ -118,14 +172,12 @@ Jula Controls uses a config-driven schema. Adding new resource checks requires z
 * With **SaaS & External APIs**, you map generic HTTP REST/GraphQL configurations to target APIs with OAuth2 authentication.
 
 ### Configuration Example (AWS S3 Bucket Rule)
-```json
-{
-  "E-DCH-10": {
-    "description": "S3 Bucket Configurations",
-    "provider": "aws_config",
-    "query": "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
-  }
-}
+
+```yaml
+E-DCH-10:
+  description: "S3 Bucket Configurations"
+  provider: "aws_config"
+  query: "SELECT resourceId, resourceType, configuration, tags WHERE resourceType = 'AWS::S3::Bucket'"
 ```
 
 ---

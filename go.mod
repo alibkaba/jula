@@ -1,8 +1,11 @@
 module github.com/alibkaba/jula-evidence-evaluator
 
-go 1.25.0
+go 1.25.10
 
-require github.com/open-policy-agent/opa v1.16.2
+require (
+	github.com/alibkaba/jula-core v0.0.0-20260520144405-ac834d824fbc
+	github.com/open-policy-agent/opa v1.16.2
+)
 
 require (
 	github.com/agnivade/levenshtein v1.2.1 // indirect

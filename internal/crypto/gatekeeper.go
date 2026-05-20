@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	eeCrypto "github.com/alibkaba/jula-evidence-evaluator/pkg/crypto"
-	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
+	eeCrypto "github.com/alibkaba/jula-core/pkg/crypto"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 // ParseECDSAPublicKey parses an ECDSA Public Key from a PEM-encoded string block.

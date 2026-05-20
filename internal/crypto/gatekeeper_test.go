@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	eeCrypto "github.com/alibkaba/jula-evidence-evaluator/pkg/crypto"
-	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
+	eeCrypto "github.com/alibkaba/jula-core/pkg/crypto"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func TestParseECDSAPublicKey(t *testing.T) {

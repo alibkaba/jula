@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 	"github.com/open-policy-agent/opa/rego"
 )
 

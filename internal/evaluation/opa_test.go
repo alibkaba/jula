@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func TestOPAEvaluator_LoadPolicies(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	pkgCrypto "github.com/alibkaba/jula-evidence-evaluator/pkg/crypto"
-	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
+	pkgCrypto "github.com/alibkaba/jula-core/pkg/crypto"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func generateMockKeyPair() (*ecdsa.PrivateKey, string, error) {

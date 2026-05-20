@@ -15,8 +15,8 @@ import (
 	intCrypto "github.com/alibkaba/jula-evidence-evaluator/internal/crypto"
 	"github.com/alibkaba/jula-evidence-evaluator/internal/evaluation"
 	"github.com/alibkaba/jula-evidence-evaluator/internal/ingestion"
-	pkgCrypto "github.com/alibkaba/jula-evidence-evaluator/pkg/crypto"
-	"github.com/alibkaba/jula-evidence-evaluator/pkg/types"
+	pkgCrypto "github.com/alibkaba/jula-core/pkg/crypto"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func main() {
