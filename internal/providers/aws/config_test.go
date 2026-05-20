@@ -11,14 +11,14 @@ import (
 )
 
 func TestLoadAWSConfigExtractions_Invalid(t *testing.T) {
-	_, err := LoadAWSConfigExtractions("nonexistent.json")
+	_, err := LoadAWSConfigExtractions("nonexistent.yaml")
 	if err == nil {
 		t.Fatal("expected error loading nonexistent config")
 	}
 }
 
 func TestLoadAWSConfigExtractions_Empty(t *testing.T) {
-	tmpFile := t.TempDir() + "/empty.json"
+	tmpFile := t.TempDir() + "/empty.yaml"
 	os.WriteFile(tmpFile, []byte(`{}`), 0644)
 	_, err := LoadAWSConfigExtractions(tmpFile)
 	if err == nil {
@@ -27,8 +27,13 @@ func TestLoadAWSConfigExtractions_Empty(t *testing.T) {
 }
 
 func TestLoadAWSConfigExtractions_Valid(t *testing.T) {
-	tmpFile := t.TempDir() + "/valid.json"
-	os.WriteFile(tmpFile, []byte(`{"E-TEST-01":{"description":"test","provider":"aws_config","query":"SELECT *"}}`), 0644)
+	tmpFile := t.TempDir() + "/valid.yaml"
+	os.WriteFile(tmpFile, []byte(`
+E-TEST-01:
+  description: "test"
+  provider: "aws_config"
+  query: "SELECT *"
+`), 0644)
 	configs, err := LoadAWSConfigExtractions(tmpFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

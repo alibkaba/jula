@@ -221,9 +221,9 @@ func TestOrchestrator_Platform(t *testing.T) {
 // TestOrchestrator_Extract_InvalidConfigs tests the error paths for loading configs.
 func TestOrchestrator_Extract_InvalidConfigs(t *testing.T) {
 	o := New(RunConfig{
-		CAIConfigPath:  "nonexistent-cai.json",
-		AWSConfigPath:  "nonexistent-aws.json",
-		SaaSConfigPath: "nonexistent-saas.json",
+		CAIConfigPath:  "nonexistent-cai.yaml",
+		AWSConfigPath:  "nonexistent-aws.yaml",
+		SaaSConfigPath: "nonexistent-saas.yaml",
 	})
 
 	// Should log warnings for non-existent configs and return a "no extraction jobs" error.
@@ -276,7 +276,7 @@ func TestOrchestrator_BuildAWSJobs_NoRegion(t *testing.T) {
 	t.Setenv("AWS_DEFAULT_REGION", "")
 
 	o := New(RunConfig{
-		AWSConfigPath: "dummy.json",
+		AWSConfigPath: "dummy.yaml",
 	})
 
 	_, err := o.buildAWSJobs(context.Background())
@@ -316,15 +316,14 @@ func TestOrchestrator_BuildGCPJobs(t *testing.T) {
 	}
 	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile)
 
-	validConfigPath := t.TempDir() + "/cai_valid.json"
-	validConfigData := `{
-		"GCP-SCF-01": {
-			"erl_id": "E-TEST-GCP",
-			"description": "Test GCP",
-			"scope": "projects/test-project",
-			"query": "state:ACTIVE"
-		}
-	}`
+	validConfigPath := t.TempDir() + "/cai_valid.yaml"
+	validConfigData := `
+GCP-SCF-01:
+  erl_id: "E-TEST-GCP"
+  description: "Test GCP"
+  scope: "projects/test-project"
+  query: "state:ACTIVE"
+`
 	if err := os.WriteFile(validConfigPath, []byte(validConfigData), 0644); err != nil {
 		t.Fatalf("failed to write valid config: %v", err)
 	}
@@ -343,7 +342,7 @@ func TestOrchestrator_BuildGCPJobs(t *testing.T) {
 		},
 		{
 			name:         "Invalid Config Path",
-			configPath:   "nonexistent_cai.json",
+			configPath:   "nonexistent_cai.yaml",
 			expectErr:    true,
 			expectedJobs: 0,
 		},
@@ -387,14 +386,13 @@ func TestOrchestrator_BuildAWSJobs(t *testing.T) {
 	// Need to ensure AWS Region is set to get past the early guard rail
 	t.Setenv("AWS_REGION", "us-east-1")
 
-	validConfigPath := t.TempDir() + "/aws_valid.json"
-	validConfigData := `{
-		"AWS-SCF-01": {
-			"erl_id": "E-TEST-AWS",
-			"description": "Test AWS",
-			"query": "SELECT resourceId"
-		}
-	}`
+	validConfigPath := t.TempDir() + "/aws_valid.yaml"
+	validConfigData := `
+AWS-SCF-01:
+  erl_id: "E-TEST-AWS"
+  description: "Test AWS"
+  query: "SELECT resourceId"
+`
 	if err := os.WriteFile(validConfigPath, []byte(validConfigData), 0644); err != nil {
 		t.Fatalf("failed to write valid config: %v", err)
 	}
@@ -413,7 +411,7 @@ func TestOrchestrator_BuildAWSJobs(t *testing.T) {
 		},
 		{
 			name:         "Invalid Config Path",
-			configPath:   "nonexistent_aws.json",
+			configPath:   "nonexistent_aws.yaml",
 			expectErr:    true,
 			expectedJobs: 0,
 		},
@@ -510,7 +508,7 @@ func TestOrchestrator_Extract_NoJobs(t *testing.T) {
 
 func TestBuildHTTPGenericJobs_Error(t *testing.T) {
 	o := New(RunConfig{
-		SaaSConfigPath: "nonexistent_saas.json",
+		SaaSConfigPath: "nonexistent_saas.yaml",
 	})
 	_, err := o.buildHTTPGenericJobs()
 	if err == nil {

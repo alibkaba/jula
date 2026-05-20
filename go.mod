@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/asset v1.27.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/service/configservice v1.62.3
+	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	google.golang.org/api v0.279.0
 	google.golang.org/protobuf v1.36.11
 )

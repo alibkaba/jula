@@ -13,6 +13,7 @@ import (
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/configservice"
+	"go.yaml.in/yaml/v4"
 )
 
 // ---------------------------------------------------------------------------
@@ -23,18 +24,18 @@ import (
 // the JSON configuration file. Each block maps an ERL ID to a specific
 // AWS Config Advanced Query (SelectResourceConfig SQL expression).
 type AWSConfigExtraction struct {
-	ErlID string `json:"erl_id"`
+	ErlID string `json:"erl_id" yaml:"erl_id"`
 
 	// Description is a human-readable label for this extraction
 	// (e.g., "S3 Bucket Configurations").
-	Description string `json:"description"`
+	Description string `json:"description" yaml:"description"`
 
 	// Provider identifies the extraction engine (e.g., "aws_config").
-	Provider string `json:"provider"`
+	Provider string `json:"provider" yaml:"provider"`
 
 	// Query is the AWS Config SQL expression executed via SelectResourceConfig
 	// (e.g., "SELECT configuration WHERE resourceType = 'AWS::S3::Bucket'").
-	Query string `json:"query"`
+	Query string `json:"query" yaml:"query"`
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +160,7 @@ func (p *UnifiedAWSConfigProvider) Extract(ctx context.Context, erlID string, ex
 // ---------------------------------------------------------------------------
 
 // LoadAWSConfigExtractions reads and parses the declarative extraction
-// configuration from a JSON file. The returned map is keyed by ERL ID.
+// configuration from a YAML file. The returned map is keyed by ERL ID.
 func LoadAWSConfigExtractions(path string) (map[string]AWSConfigExtraction, error) {
 	cleanedPath := filepath.Clean(path)
 	if strings.Contains(cleanedPath, "..") {
@@ -172,7 +173,7 @@ func LoadAWSConfigExtractions(path string) (map[string]AWSConfigExtraction, erro
 	}
 
 	var configs map[string]AWSConfigExtraction
-	if err := json.Unmarshal(data, &configs); err != nil {
+	if err := yaml.Unmarshal(data, &configs); err != nil {
 		return nil, fmt.Errorf("parsing AWS Config extraction file %s: %w", path, err)
 	}
 

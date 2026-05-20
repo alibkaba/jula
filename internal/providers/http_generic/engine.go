@@ -22,13 +22,14 @@ import (
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"go.yaml.in/yaml/v4"
 )
 
 // ProviderConfig defines a template for a provider's base settings.
 type ProviderConfig struct {
-	BaseURL string            `json:"base_url"`
-	Headers map[string]string `json:"headers"`
-	Auth    *AuthConfig       `json:"auth,omitempty"`
+	BaseURL string            `json:"base_url" yaml:"base_url"`
+	Headers map[string]string `json:"headers" yaml:"headers"`
+	Auth    *AuthConfig       `json:"auth,omitempty" yaml:"auth,omitempty"`
 }
 
 // String implements fmt.Stringer for ProviderConfig to prevent credential leakage.
@@ -59,29 +60,29 @@ func (p ProviderConfig) MarshalJSON() ([]byte, error) {
 
 // SaaSExtractionConfig defines the simplified ERL configuration structure.
 type SaaSExtractionConfig struct {
-	ErlID       string            `json:"erl_id"`
-	Description string            `json:"description"`
-	Provider    string            `json:"provider"`
-	Method      string            `json:"method"`
-	Path        string            `json:"path"`
-	Headers     map[string]string `json:"headers,omitempty"`
-	JSONPath    string            `json:"json_path"`
-	Pagination  *PaginationConfig `json:"pagination,omitempty"`
-	Allow404    bool              `json:"allow_404,omitempty"`
+	ErlID       string            `json:"erl_id" yaml:"erl_id"`
+	Description string            `json:"description" yaml:"description"`
+	Provider    string            `json:"provider" yaml:"provider"`
+	Method      string            `json:"method" yaml:"method"`
+	Path        string            `json:"path" yaml:"path"`
+	Headers     map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	JSONPath    string            `json:"json_path" yaml:"json_path"`
+	Pagination  *PaginationConfig `json:"pagination,omitempty" yaml:"pagination,omitempty"`
+	Allow404    bool              `json:"allow_404,omitempty" yaml:"allow_404,omitempty"`
 }
 
 // ExtractionConfig represents a single fully-hydrated SaaS HTTP extraction configuration.
 type ExtractionConfig struct {
-	ErlID       string            `json:"erl_id"`
-	Description string            `json:"description"`
-	Provider    string            `json:"provider"`
-	Method      string            `json:"method"`
-	URL         string            `json:"url"`
-	Headers     map[string]string `json:"headers"`
-	JSONPath    string            `json:"json_path"`
-	Pagination  *PaginationConfig `json:"pagination,omitempty"`
-	Auth        *AuthConfig       `json:"auth,omitempty"`
-	Allow404    bool              `json:"allow_404,omitempty"`
+	ErlID       string            `json:"erl_id" yaml:"erl_id"`
+	Description string            `json:"description" yaml:"description"`
+	Provider    string            `json:"provider" yaml:"provider"`
+	Method      string            `json:"method" yaml:"method"`
+	URL         string            `json:"url" yaml:"url"`
+	Headers     map[string]string `json:"headers" yaml:"headers"`
+	JSONPath    string            `json:"json_path" yaml:"json_path"`
+	Pagination  *PaginationConfig `json:"pagination,omitempty" yaml:"pagination,omitempty"`
+	Auth        *AuthConfig       `json:"auth,omitempty" yaml:"auth,omitempty"`
+	Allow404    bool              `json:"allow_404,omitempty" yaml:"allow_404,omitempty"`
 }
 
 // String implements fmt.Stringer for ExtractionConfig to prevent credential leakage.
@@ -112,10 +113,10 @@ func (c ExtractionConfig) MarshalJSON() ([]byte, error) {
 
 // AuthConfig defines OAuth 2.0 client_credentials token exchange settings.
 type AuthConfig struct {
-	Type            string `json:"type"`
-	TokenURL        string `json:"token_url"`
-	ClientIDEnv     string `json:"client_id_env"`
-	ClientSecretEnv string `json:"client_secret_env"`
+	Type            string `json:"type" yaml:"type"`
+	TokenURL        string `json:"token_url" yaml:"token_url"`
+	ClientIDEnv     string `json:"client_id_env" yaml:"client_id_env"`
+	ClientSecretEnv string `json:"client_secret_env" yaml:"client_secret_env"`
 }
 
 // String implements fmt.Stringer for AuthConfig to prevent credential leakage.
@@ -144,8 +145,8 @@ func (a *AuthConfig) Redacted() *AuthConfig {
 
 // PaginationConfig defines how the engine should paginate through results.
 type PaginationConfig struct {
-	NextURLField string `json:"next_url_field"`
-	MaxPages     int    `json:"max_pages"`
+	NextURLField string `json:"next_url_field" yaml:"next_url_field"`
+	MaxPages     int    `json:"max_pages" yaml:"max_pages"`
 }
 
 // envVarPattern matches ${ENV_VAR_NAME} for interpolation.
@@ -163,11 +164,11 @@ func InterpolateEnvVars(input string) string {
 	})
 }
 
-// LoadSaaSConfigs parses the declarative saas_http.json file and the providers.json template file,
+// LoadSaaSConfigs parses the declarative saas_http.yaml file and the providers.yaml template file,
 // merging them into a unified map of ERL ID to ExtractionConfig while enforcing referential integrity,
 // parameter-level URL escaping to prevent SSRF/Path Traversal, and url.JoinPath.
 func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
-	// Read saas_http.json ERL configurations
+	// Read saas_http.yaml ERL configurations
 	cleanedPath := filepath.Clean(path)
 	if strings.Contains(cleanedPath, "..") {
 		return nil, fmt.Errorf("saas_http: path traversal detected: %s", path)
@@ -179,19 +180,19 @@ func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 	}
 
 	var saasConfigs map[string]SaaSExtractionConfig
-	if err := json.Unmarshal(erlData, &saasConfigs); err != nil {
+	if err := yaml.Unmarshal(erlData, &saasConfigs); err != nil {
 		return nil, fmt.Errorf("parsing SaaS config %s: %w", path, err)
 	}
 
-	// Resolve and read providers.json
-	providersPath := filepath.Join(filepath.Dir(path), "providers.json")
+	// Resolve and read providers.yaml
+	providersPath := filepath.Join(filepath.Dir(path), "providers.yaml")
 	provData, err := os.ReadFile(providersPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading SaaS providers config %s: %w", providersPath, err)
 	}
 
 	var providerConfigs map[string]ProviderConfig
-	if err := json.Unmarshal(provData, &providerConfigs); err != nil {
+	if err := yaml.Unmarshal(provData, &providerConfigs); err != nil {
 		return nil, fmt.Errorf("parsing SaaS providers config %s: %w", providersPath, err)
 	}
 

@@ -386,26 +386,23 @@ func TestExtract_OAuthClientCredentials_MissingCreds(t *testing.T) {
 
 func TestLoadSaaSConfigs_ValidDRYLayout(t *testing.T) {
 	tmpDir := t.TempDir()
-	providersFile := filepath.Join(tmpDir, "providers.json")
-	saasFile := filepath.Join(tmpDir, "saas_http.json")
+	providersFile := filepath.Join(tmpDir, "providers.yaml")
+	saasFile := filepath.Join(tmpDir, "saas_http.yaml")
 
-	providersData := `{
-		"github": {
-			"base_url": "https://api.github.com",
-			"headers": {
-				"Authorization": "Bearer ${TEST_GITHUB_TOKEN}",
-				"Accept": "application/vnd.github.v3+json"
-			}
-		}
-	}`
-	saasData := `{
-		"E-CHG-01": {
-			"description": "GitHub Repository Metadata",
-			"provider": "github",
-			"path": "/repos/${TEST_GITHUB_ORG}/${TEST_GITHUB_REPO}",
-			"json_path": "$"
-		}
-	}`
+	providersData := `
+github:
+  base_url: "https://api.github.com"
+  headers:
+    Authorization: "Bearer ${TEST_GITHUB_TOKEN}"
+    Accept: "application/vnd.github.v3+json"
+`
+	saasData := `
+E-CHG-01:
+  description: "GitHub Repository Metadata"
+  provider: "github"
+  path: "/repos/${TEST_GITHUB_ORG}/${TEST_GITHUB_REPO}"
+  json_path: "$"
+`
 
 	if err := os.WriteFile(providersFile, []byte(providersData), 0644); err != nil {
 		t.Fatal(err)
@@ -441,18 +438,20 @@ func TestLoadSaaSConfigs_ValidDRYLayout(t *testing.T) {
 
 func TestLoadSaaSConfigs_StrictReferentialIntegrityFailure(t *testing.T) {
 	tmpDir := t.TempDir()
-	providersFile := filepath.Join(tmpDir, "providers.json")
-	saasFile := filepath.Join(tmpDir, "saas_http.json")
+	providersFile := filepath.Join(tmpDir, "providers.yaml")
+	saasFile := filepath.Join(tmpDir, "saas_http.yaml")
 
-	providersData := `{"github": {"base_url": "https://api.github.com"}}`
-	saasData := `{
-		"E-ERR-02": {
-			"description": "Referencing undefined provider",
-			"provider": "nonexistent-provider-name",
-			"path": "/issues",
-			"json_path": "$"
-		}
-	}`
+	providersData := `
+github:
+  base_url: "https://api.github.com"
+`
+	saasData := `
+E-ERR-02:
+  description: "Referencing undefined provider"
+  provider: "nonexistent-provider-name"
+  path: "/issues"
+  json_path: "$"
+`
 
 	if err := os.WriteFile(providersFile, []byte(providersData), 0644); err != nil {
 		t.Fatal(err)
@@ -472,18 +471,20 @@ func TestLoadSaaSConfigs_StrictReferentialIntegrityFailure(t *testing.T) {
 
 func TestLoadSaaSConfigs_PathTraversalSSRFPrevention(t *testing.T) {
 	tmpDir := t.TempDir()
-	providersFile := filepath.Join(tmpDir, "providers.json")
-	saasFile := filepath.Join(tmpDir, "saas_http.json")
+	providersFile := filepath.Join(tmpDir, "providers.yaml")
+	saasFile := filepath.Join(tmpDir, "saas_http.yaml")
 
-	providersData := `{"github": {"base_url": "https://api.github.com"}}`
-	saasData := `{
-		"E-TRAVERSAL": {
-			"description": "Path Traversal SSRF Test",
-			"provider": "github",
-			"path": "/repos/${MALICIOUS_PARAM}/details",
-			"json_path": "$"
-		}
-	}`
+	providersData := `
+github:
+  base_url: "https://api.github.com"
+`
+	saasData := `
+E-TRAVERSAL:
+  description: "Path Traversal SSRF Test"
+  provider: "github"
+  path: "/repos/${MALICIOUS_PARAM}/details"
+  json_path: "$"
+`
 
 	if err := os.WriteFile(providersFile, []byte(providersData), 0644); err != nil {
 		t.Fatal(err)

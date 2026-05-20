@@ -9,27 +9,25 @@ import (
 func TestBuildHTTPGenericJobs(t *testing.T) {
 	// Create a temp config file
 	tmpDir := t.TempDir()
-	configPath := tmpDir + "/saas_http.json"
-	providersPath := tmpDir + "/providers.json"
+	configPath := tmpDir + "/saas_http.yaml"
+	providersPath := tmpDir + "/providers.yaml"
 
-	providersData := `{
-		"saas_http": {
-			"base_url": "https://api.example.com",
-			"headers": {}
-		}
-	}`
+	providersData := `
+saas_http:
+  base_url: "https://api.example.com"
+  headers: {}
+`
 	if err := os.WriteFile(providersPath, []byte(providersData), 0644); err != nil {
 		t.Fatalf("failed to write temp providers config: %v", err)
 	}
 
-	configData := `{
-		"SaaS-SCF-01": {
-			"erl_id": "E-TEST-SaaS",
-			"description": "Test SaaS",
-			"provider": "saas_http",
-			"path": "/data"
-		}
-	}`
+	configData := `
+SaaS-SCF-01:
+  erl_id: "E-TEST-SaaS"
+  description: "Test SaaS"
+  provider: "saas_http"
+  path: "/data"
+`
 	err := os.WriteFile(configPath, []byte(configData), 0644)
 	if err != nil {
 		t.Fatalf("failed to write temp config: %v", err)
@@ -71,7 +69,7 @@ func TestBuildAWSJobs_NoEnv(t *testing.T) {
 
 func TestBuildGCPJobs_InvalidPath(t *testing.T) {
 	o := New(RunConfig{
-		CAIConfigPath: "nonexistent.json",
+		CAIConfigPath: "nonexistent.yaml",
 	})
 	_, err := o.buildGCPJobs(context.Background())
 	if err == nil {

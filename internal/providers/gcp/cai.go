@@ -12,32 +12,33 @@ import (
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
+	"go.yaml.in/yaml/v4"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
 // CAIExtractionConfig defines the parameters for a declarative GCP CAI query.
 type CAIExtractionConfig struct {
-	ErlID       string `json:"erl_id"`
-	Description string `json:"description"`
+	ErlID       string `json:"erl_id" yaml:"erl_id"`
+	Description string `json:"description" yaml:"description"`
 	// Scope defines the GCP resource boundary (e.g., "projects/my-project").
-	// Optional in JSON; if omitted, defaults to the JULA_GCP_SCOPE environment variable.
-	Scope string `json:"scope,omitempty"`
+	// Optional in config; if omitted, defaults to the JULA_GCP_SCOPE environment variable.
+	Scope string `json:"scope,omitempty" yaml:"scope,omitempty"`
 	// Query is the specific CAI search string.
 	// E.g., "state:ACTIVE" or "policy:roles/owner".
-	Query string `json:"query"`
+	Query string `json:"query" yaml:"query"`
 	// AssetTypes restricts the search to specific GCP resource types.
 	// E.g., ["compute.googleapis.com/Instance"]. Optional.
-	AssetTypes []string `json:"asset_types,omitempty"`
+	AssetTypes []string `json:"asset_types,omitempty" yaml:"asset_types,omitempty"`
 	// SearchType specifies whether to search resources ("resource") or IAM policies ("iam").
 	// Defaults to "resource" if empty.
-	SearchType string `json:"search_type,omitempty"`
+	SearchType string `json:"search_type,omitempty" yaml:"search_type,omitempty"`
 }
 
 // CAIConfigMap maps ERL IDs to their corresponding extraction configurations.
 type CAIConfigMap map[string]CAIExtractionConfig
 
-// LoadCAIConfigs reads and parses a JSON file containing CAIExtractionConfig definitions.
+// LoadCAIConfigs reads and parses a YAML file containing CAIExtractionConfig definitions.
 func LoadCAIConfigs(path string) (CAIConfigMap, error) {
 	cleanedPath := filepath.Clean(path)
 	if strings.Contains(cleanedPath, "..") {
@@ -50,7 +51,7 @@ func LoadCAIConfigs(path string) (CAIConfigMap, error) {
 	}
 
 	var configs CAIConfigMap
-	if err := json.Unmarshal(data, &configs); err != nil {
+	if err := yaml.Unmarshal(data, &configs); err != nil {
 		return nil, fmt.Errorf("unmarshaling CAI configs: %w", err)
 	}
 

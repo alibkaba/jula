@@ -197,26 +197,24 @@ func TestHandleRun_FullExecution(t *testing.T) {
 
 	// 2. Create a temporary SaaS configuration pointing to our mock server
 	outDir := t.TempDir()
-	saasConfigPath := filepath.Join(outDir, "saas_mock.json")
-	providersConfigPath := filepath.Join(outDir, "providers.json")
+	saasConfigPath := filepath.Join(outDir, "saas_mock.yaml")
+	providersConfigPath := filepath.Join(outDir, "providers.yaml")
 
-	mockProviders := []byte(`{
-		"saas_http": {
-			"base_url": "` + ts.URL + `",
-			"headers": {}
-		}
-	}`)
+	mockProviders := []byte(`
+saas_http:
+  base_url: "` + ts.URL + `"
+  headers: {}
+`)
 	if err := os.WriteFile(providersConfigPath, mockProviders, 0644); err != nil {
 		t.Fatalf("failed to write mock providers config: %v", err)
 	}
 
-	mockConfig := []byte(`{
-		"E-MOCK-01": {
-			"description": "Mock HTTP Extraction",
-			"provider": "saas_http",
-			"path": "/"
-		}
-	}`)
+	mockConfig := []byte(`
+E-MOCK-01:
+  description: "Mock HTTP Extraction"
+  provider: "saas_http"
+  path: "/"
+`)
 	if err := os.WriteFile(saasConfigPath, mockConfig, 0644); err != nil {
 		t.Fatalf("failed to write mock config: %v", err)
 	}
@@ -229,8 +227,8 @@ func TestHandleRun_FullExecution(t *testing.T) {
 
 	// Force the engine to use our mock config and ignore GCP/AWS
 	t.Setenv("JULA_SAAS_CONFIG_PATH", saasConfigPath)
-	t.Setenv("JULA_CAI_CONFIG_PATH", filepath.Join(outDir, "missing_cai.json"))
-	t.Setenv("JULA_AWS_CONFIG_PATH", filepath.Join(outDir, "missing_aws.json"))
+	t.Setenv("JULA_CAI_CONFIG_PATH", filepath.Join(outDir, "missing_cai.yaml"))
+	t.Setenv("JULA_AWS_CONFIG_PATH", filepath.Join(outDir, "missing_aws.yaml"))
 
 	// 4. Run the command
 	err := handleRun([]string{})

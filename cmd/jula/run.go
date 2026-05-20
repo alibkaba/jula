@@ -62,9 +62,9 @@ func handleRun(args []string) error {
 	}
 
 	// Resolve configuration paths.
-	caiConfigPath := resolveConfigPath("JULA_CAI_CONFIG_PATH", "configs/extractions/gcp_cai.json")
-	awsConfigPath := resolveConfigPath("JULA_AWS_CONFIG_PATH", "configs/extractions/aws_config.json")
-	saasConfigPath := resolveConfigPath("JULA_SAAS_CONFIG_PATH", "configs/extractions/saas_http.json")
+	caiConfigPath := resolveConfigPath("JULA_CAI_CONFIG_PATH", "configs/extractions/gcp_cai.yaml")
+	awsConfigPath := resolveConfigPath("JULA_AWS_CONFIG_PATH", "configs/extractions/aws_config.yaml")
+	saasConfigPath := resolveConfigPath("JULA_SAAS_CONFIG_PATH", "configs/extractions/saas_http.yaml")
 
 	// Generate a unique run ID.
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())

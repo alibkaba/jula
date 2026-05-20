@@ -81,15 +81,15 @@ func (m *mockAssetClient) Close() error {
 
 func TestLoadCAIConfigs_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "cai.json")
-	configContent := []byte(`{
-		"E-TEST-01": {
-			"description": "Test extraction",
-			"scope": "projects/my-test-project",
-			"query": "state:ACTIVE",
-			"asset_types": ["compute.googleapis.com/Instance"]
-		}
-	}`)
+	configPath := filepath.Join(tmpDir, "cai.yaml")
+	configContent := []byte(`
+E-TEST-01:
+  description: "Test extraction"
+  scope: "projects/my-test-project"
+  query: "state:ACTIVE"
+  asset_types:
+    - "compute.googleapis.com/Instance"
+`)
 
 	if err := os.WriteFile(configPath, configContent, 0644); err != nil {
 		t.Fatalf("failed to write test config: %v", err)
@@ -114,7 +114,7 @@ func TestLoadCAIConfigs_Success(t *testing.T) {
 }
 
 func TestLoadCAIConfigs_FileNotFound(t *testing.T) {
-	_, err := LoadCAIConfigs("nonexistent.json")
+	_, err := LoadCAIConfigs("nonexistent.yaml")
 	if err == nil {
 		t.Fatal("expected error loading nonexistent config")
 	}
@@ -122,14 +122,14 @@ func TestLoadCAIConfigs_FileNotFound(t *testing.T) {
 
 func TestLoadCAIConfigs_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "invalid.json")
-	if err := os.WriteFile(configPath, []byte(`{invalid-json`), 0644); err != nil {
+	configPath := filepath.Join(tmpDir, "invalid.yaml")
+	if err := os.WriteFile(configPath, []byte(`invalid-yaml: {`), 0644); err != nil {
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
 	_, err := LoadCAIConfigs(configPath)
 	if err == nil {
-		t.Fatal("expected error loading invalid JSON")
+		t.Fatal("expected error loading invalid YAML")
 	}
 }
 
