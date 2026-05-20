@@ -20,6 +20,8 @@ cloud.google.com/go/osconfig v1.17.0 h1:e4EhWz5w7S/7fJ+rhGtyWpSls0Bxr5sxXc2PGWji
 cloud.google.com/go/osconfig v1.17.0/go.mod h1:iveYW1fYygItJeJwbQ/fkzYAzLEbXOQnr7+eBmH9MJ0=
 github.com/alibkaba/jula-core v0.0.0-20260520144405-ac834d824fbc h1:uq1dojfr58na964lSDy6j4yC/d6murRW4QAnieo0iac=
 github.com/alibkaba/jula-core v0.0.0-20260520144405-ac834d824fbc/go.mod h1:BxktZiWWdcrOyHDbHnaigU6Omlf7tHV+GefoezsTsaI=
+github.com/alibkaba/jula-core v0.0.0-20260520172224-924eaffaea98 h1:99Na15jzEnMItL2vol53v6KISylkDucHz2EAJsYp6LU=
+github.com/alibkaba/jula-core v0.0.0-20260520172224-924eaffaea98/go.mod h1:BxktZiWWdcrOyHDbHnaigU6Omlf7tHV+GefoezsTsaI=
 github.com/aws/aws-sdk-go-v2 v1.41.7 h1:DWpAJt66FmnnaRIOT/8ASTucrvuDPZASqhhLey6tLY8=
 github.com/aws/aws-sdk-go-v2 v1.41.7/go.mod h1:4LAfZOPHNVNQEckOACQx60Y8pSRjIkNZQz1w92xpMJc=
 github.com/aws/aws-sdk-go-v2/config v1.32.17 h1:FpL4/758/diKwqbytU0prpuiu60fgXKUWCpDJtApclU=
