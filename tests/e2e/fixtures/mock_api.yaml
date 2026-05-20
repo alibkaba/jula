@@ -1,0 +1,9 @@
+vendor_name: gcp_cai
+base_url: http://127.0.0.1:18080
+auth_flow:
+  type: bearer
+  token_env: MOCK_TOKEN
+endpoints:
+  /mock-db:
+    erl_id: E-BCM-16
+    description: Mock database configuration endpoint for E2E tracer bullet testing
