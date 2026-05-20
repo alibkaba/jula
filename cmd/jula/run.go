@@ -62,9 +62,8 @@ func handleRun(args []string) error {
 	}
 
 	// Resolve configuration paths.
-	caiConfigPath := resolveConfigPath("JULA_CAI_CONFIG_PATH", "configs/extractions/gcp_cai.yaml")
-	awsConfigPath := resolveConfigPath("JULA_AWS_CONFIG_PATH", "configs/extractions/aws_config.yaml")
-	saasConfigPath := resolveConfigPath("JULA_SAAS_CONFIG_PATH", "configs/extractions/saas_http.yaml")
+	nativeBlueprintsDir := resolveConfigPath("JULA_NATIVE_BLUEPRINTS_DIR", "configs/blueprints/native")
+	openapiBlueprintsDir := resolveConfigPath("JULA_OPENAPI_BLUEPRINTS_DIR", "configs/blueprints/openapi")
 
 	// Generate a unique run ID.
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
@@ -74,22 +73,20 @@ func handleRun(args []string) error {
 		"path", *pathFlag,
 		"concurrency", *concurrencyFlag,
 		"timeout", *timeoutFlag,
-		"cai_config", caiConfigPath,
-		"aws_config", awsConfigPath,
-		"saas_config", saasConfigPath,
+		"native_blueprints_dir", nativeBlueprintsDir,
+		"openapi_blueprints_dir", openapiBlueprintsDir,
 		"run_id", runID,
 	)
 
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Target:         *targetFlag,
-		Path:           *pathFlag,
-		Concurrency:    *concurrencyFlag,
-		Timeout:        timeout,
-		RunID:          runID,
-		CAIConfigPath:  caiConfigPath,
-		AWSConfigPath:  awsConfigPath,
-		SaaSConfigPath: saasConfigPath,
+		Target:               *targetFlag,
+		Path:                 *pathFlag,
+		Concurrency:          *concurrencyFlag,
+		Timeout:              timeout,
+		RunID:                runID,
+		NativeBlueprintsDir:  nativeBlueprintsDir,
+		OpenAPIBlueprintsDir: openapiBlueprintsDir,
 	})
 
 	ctx := context.Background()

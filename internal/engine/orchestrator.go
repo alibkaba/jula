@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -12,35 +13,32 @@ import (
 	"github.com/alibkaba/jula-evidence-collector/internal/platform"
 	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
 	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
-	httpgeneric "github.com/alibkaba/jula-evidence-collector/internal/providers/http_generic"
+	universalrest "github.com/alibkaba/jula-evidence-collector/internal/providers/universal_rest"
 	"github.com/alibkaba/jula-core/pkg/types"
+	"go.yaml.in/yaml/v4"
 )
 
 // RunConfig holds the validated configuration for a pipeline execution.
 // The "Collector Only" paradigm means there is no Framework field.
 // The engine blindly executes every ERL extraction defined in its config.
 type RunConfig struct {
-	Target      string
-	Path        string
-	Concurrency int
-	Timeout     time.Duration
-	RunID       string
-	// CAIConfigPath is the path to the GCP CAI declarative extraction config JSON.
-	CAIConfigPath string
-	// AWSConfigPath is the path to the AWS Config declarative extraction config JSON.
-	AWSConfigPath string
-	// SaaSConfigPath is the path to the generic SaaS HTTP extraction config JSON.
-	SaaSConfigPath string
+	Target               string
+	Path                 string
+	Concurrency          int
+	Timeout              time.Duration
+	RunID                string
+	NativeBlueprintsDir  string
+	OpenAPIBlueprintsDir string
 }
 
 // extractionJob represents a single ERL extraction to be executed.
 // It abstracts over provider-specific details so the orchestrator can
-// dispatch GCP and AWS extractions through a single concurrent loop.
+// dispatch GCP, AWS, and SaaS extractions through a single concurrent loop.
 type extractionJob struct {
 	scfID       string
 	erlID       string
 	description string
-	execute     func(ctx context.Context) (types.Finding, error)
+	execute     func(ctx context.Context) ([]types.Finding, error)
 }
 
 func getGCPSourceID(scope string) string {
@@ -108,7 +106,7 @@ func (o *Orchestrator) Platform() platform.EnvironmentInfo {
 
 // Extract loads declarative extraction configs for all available providers,
 // builds a unified job queue, and executes every ERL extraction concurrently
-// with bounded concurrency. It returns one Finding per ERL ID.
+// with bounded concurrency. It returns all extracted Findings.
 //
 // This is the "blind extraction loop": no framework filtering, no evaluation.
 // Every ERL defined across all provider configs is executed unconditionally.
@@ -116,7 +114,7 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
 	var jobs []extractionJob
 
 	// --- GCP CAI Provider ---
-	if o.cfg.CAIConfigPath != "" {
+	if o.cfg.NativeBlueprintsDir != "" {
 		gcpJobs, err := o.buildGCPJobs(ctx)
 		if err != nil {
 			slog.Warn("orchestrator: skipping GCP CAI provider", "error", err)
@@ -126,7 +124,7 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
 	}
 
 	// --- AWS Config Provider ---
-	if o.cfg.AWSConfigPath != "" {
+	if o.cfg.NativeBlueprintsDir != "" {
 		awsJobs, err := o.buildAWSJobs(ctx)
 		if err != nil {
 			slog.Warn("orchestrator: skipping AWS Config provider", "error", err)
@@ -135,11 +133,11 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Finding, error) {
 		}
 	}
 
-	// --- Generic SaaS HTTP Provider ---
-	if o.cfg.SaaSConfigPath != "" {
-		saasJobs, err := o.buildHTTPGenericJobs()
+	// --- OpenAPI SaaS Blueprints Provider ---
+	if o.cfg.OpenAPIBlueprintsDir != "" {
+		saasJobs, err := o.buildUniversalRESTJobs()
 		if err != nil {
-			slog.Warn("orchestrator: skipping SaaS HTTP provider", "error", err)
+			slog.Warn("orchestrator: skipping SaaS OpenAPI provider", "error", err)
 		} else {
 			jobs = append(jobs, saasJobs...)
 		}
@@ -192,7 +190,7 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 				"run_id", o.cfg.RunID,
 			)
 
-			finding, err := j.execute(erlCtx)
+			findings, err := j.execute(erlCtx)
 			if err != nil {
 				slog.Error("extract: ERL extraction failed",
 					"erl_id", j.erlID,
@@ -206,11 +204,11 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 
 			slog.Info("extract: ERL extraction complete",
 				"erl_id", j.erlID,
-				"raw_data_bytes", len(finding.RawData),
+				"findings_extracted", len(findings),
 			)
 
 			mu.Lock()
-			allFindings = append(allFindings, finding)
+			allFindings = append(allFindings, findings...)
 			mu.Unlock()
 		}(job)
 	}
@@ -233,7 +231,12 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 
 // buildGCPJobs loads the GCP CAI config and creates extraction jobs.
 func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error) {
-	configs, err := gcp.LoadCAIConfigs(o.cfg.CAIConfigPath)
+	caiPath := filepath.Join(o.cfg.NativeBlueprintsDir, "gcp_cai.yaml")
+	if _, err := os.Stat(caiPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("GCP CAI config file does not exist: %s", caiPath)
+	}
+
+	configs, err := gcp.LoadCAIConfigs(caiPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading GCP CAI configs: %w", err)
 	}
@@ -242,8 +245,6 @@ func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error
 	if err != nil {
 		return nil, fmt.Errorf("initializing GCP CAI provider: %w", err)
 	}
-	// Note: provider.Close() is deferred by the caller after Extract completes.
-	// We register a cleanup via context cancellation or let the process exit handle it.
 
 	var jobs []extractionJob
 	for scfID, cfg := range configs {
@@ -253,14 +254,14 @@ func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error
 			scfID:       sID,
 			erlID:       c.ErlID,
 			description: c.Description,
-			execute: func(ctx context.Context) (types.Finding, error) {
+			execute: func(ctx context.Context) ([]types.Finding, error) {
 				finding, err := provider.Extract(ctx, c.ErlID, c, o.cfg.RunID)
 				if err != nil {
-					return finding, err
+					return nil, err
 				}
 				finding.SCFID = sID
 				finding.SourceID = getGCPSourceID(c.Scope)
-				return finding, nil
+				return []types.Finding{finding}, nil
 			},
 		})
 	}
@@ -270,12 +271,17 @@ func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error
 
 // buildAWSJobs loads the AWS Config extraction config and creates extraction jobs.
 func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error) {
+	awsPath := filepath.Join(o.cfg.NativeBlueprintsDir, "aws_config.yaml")
+	if _, err := os.Stat(awsPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("AWS Config config file does not exist: %s", awsPath)
+	}
+
 	// Verify AWS credentials are available before attempting to load.
 	if os.Getenv("AWS_REGION") == "" && os.Getenv("AWS_DEFAULT_REGION") == "" {
 		return nil, fmt.Errorf("AWS_REGION or AWS_DEFAULT_REGION is required for AWS Config provider")
 	}
 
-	configs, err := awsconfig.LoadAWSConfigExtractions(o.cfg.AWSConfigPath)
+	configs, err := awsconfig.LoadAWSConfigExtractions(awsPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading AWS Config extractions: %w", err)
 	}
@@ -293,14 +299,14 @@ func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error
 			scfID:       sID,
 			erlID:       c.ErlID,
 			description: c.Description,
-			execute: func(ctx context.Context) (types.Finding, error) {
+			execute: func(ctx context.Context) ([]types.Finding, error) {
 				finding, err := provider.Extract(ctx, c.ErlID, c, o.cfg.RunID)
 				if err != nil {
-					return finding, err
+					return nil, err
 				}
 				finding.SCFID = sID
 				finding.SourceID = getAWSSourceID()
-				return finding, nil
+				return []types.Finding{finding}, nil
 			},
 		})
 	}
@@ -308,35 +314,64 @@ func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error
 	return jobs, nil
 }
 
-// buildHTTPGenericJobs loads the SaaS HTTP config and creates extraction jobs
-// for any third-party API endpoint (Aikido, GitHub, etc.) using the
-// Universal HTTP Engine.
-func (o *Orchestrator) buildHTTPGenericJobs() ([]extractionJob, error) {
-	configs, err := httpgeneric.LoadSaaSConfigs(o.cfg.SaaSConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("loading SaaS HTTP configs: %w", err)
+// buildUniversalRESTJobs loads SaaS OpenAPI blueprints and maps GET endpoints to jobs.
+func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
+	if _, err := os.Stat(o.cfg.OpenAPIBlueprintsDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("OpenAPI blueprints directory does not exist: %s", o.cfg.OpenAPIBlueprintsDir)
 	}
 
-	engine := httpgeneric.NewEngine()
+	files, err := os.ReadDir(o.cfg.OpenAPIBlueprintsDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading OpenAPI blueprints dir: %w", err)
+	}
+
+	var blueprints []*universalrest.OpenAPIBlueprint
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		name := f.Name()
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+		path := filepath.Join(o.cfg.OpenAPIBlueprintsDir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading blueprint %s: %w", name, err)
+		}
+
+		var bp universalrest.OpenAPIBlueprint
+		if err := yaml.Unmarshal(data, &bp); err != nil {
+			return nil, fmt.Errorf("parsing blueprint %s: %w", name, err)
+		}
+		blueprints = append(blueprints, &bp)
+	}
+
+	engine := universalrest.NewEngine(nil)
 
 	var jobs []extractionJob
-	for scfID, cfg := range configs {
-		sID := scfID
-		c := cfg
-		jobs = append(jobs, extractionJob{
-			scfID:       sID,
-			erlID:       c.ErlID,
-			description: c.Description,
-			execute: func(ctx context.Context) (types.Finding, error) {
-				finding, err := engine.Extract(ctx, c.ErlID, c, o.cfg.RunID)
-				if err != nil {
-					return finding, err
-				}
-				finding.SCFID = sID
-				finding.SourceID = getSaaSSourceID(c.Provider)
-				return finding, nil
-			},
-		})
+	for _, bp := range blueprints {
+		bpCopy := bp
+		for erlPath, epCfg := range bp.Endpoints {
+			p := erlPath
+			c := epCfg
+			jobs = append(jobs, extractionJob{
+				scfID:       strings.TrimPrefix(c.ErlID, "E-"),
+				erlID:       c.ErlID,
+				description: c.Description,
+				execute: func(ctx context.Context) ([]types.Finding, error) {
+					findings, err := engine.Execute(ctx, bpCopy, p, c, o.cfg.RunID)
+					if err != nil {
+						return nil, err
+					}
+					for i := range findings {
+						findings[i].SCFID = strings.TrimPrefix(c.ErlID, "E-")
+						findings[i].SourceID = getSaaSSourceID(bpCopy.VendorName)
+					}
+					return findings, nil
+				},
+			})
+		}
 	}
 
 	return jobs, nil

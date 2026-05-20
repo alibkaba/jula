@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -21,14 +22,14 @@ func makeSuccessJob(erlID string) extractionJob {
 	return extractionJob{
 		erlID:       erlID,
 		description: "test-" + erlID,
-		execute: func(ctx context.Context) (types.Finding, error) {
-			return types.Finding{
+		execute: func(ctx context.Context) ([]types.Finding, error) {
+			return []types.Finding{{
 				ErlID:     erlID,
 				Provider:  "test",
 				RawData:   []byte(`{"status":"ok"}`),
 				Timestamp: time.Now().UTC(),
 				RunID:     "test-run",
-			}, nil
+			}}, nil
 		},
 	}
 }
@@ -38,8 +39,8 @@ func makeFailJob(erlID string) extractionJob {
 	return extractionJob{
 		erlID:       erlID,
 		description: "test-" + erlID,
-		execute: func(ctx context.Context) (types.Finding, error) {
-			return types.Finding{}, fmt.Errorf("simulated failure for %s", erlID)
+		execute: func(ctx context.Context) ([]types.Finding, error) {
+			return nil, fmt.Errorf("simulated failure for %s", erlID)
 		},
 	}
 }
@@ -147,7 +148,7 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 		jobs = append(jobs, extractionJob{
 			erlID:       erlID,
 			description: "concurrency-test",
-			execute: func(ctx context.Context) (types.Finding, error) {
+			execute: func(ctx context.Context) ([]types.Finding, error) {
 				running := currentRunning.Add(1)
 
 				// Atomically update peak if this is a new high.
@@ -164,12 +165,12 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 				time.Sleep(50 * time.Millisecond)
 				currentRunning.Add(-1)
 
-				return types.Finding{
+				return []types.Finding{{
 					ErlID:    erlID,
 					Provider: "test",
 					RawData:  []byte(`{}`),
 					RunID:    "test-run",
-				}, nil
+				}}, nil
 			},
 		})
 	}
@@ -221,9 +222,8 @@ func TestOrchestrator_Platform(t *testing.T) {
 // TestOrchestrator_Extract_InvalidConfigs tests the error paths for loading configs.
 func TestOrchestrator_Extract_InvalidConfigs(t *testing.T) {
 	o := New(RunConfig{
-		CAIConfigPath:  "nonexistent-cai.yaml",
-		AWSConfigPath:  "nonexistent-aws.yaml",
-		SaaSConfigPath: "nonexistent-saas.yaml",
+		NativeBlueprintsDir:  "nonexistent-native",
+		OpenAPIBlueprintsDir: "nonexistent-openapi",
 	})
 
 	// Should log warnings for non-existent configs and return a "no extraction jobs" error.
@@ -248,13 +248,13 @@ func TestExecuteJobs_ContextCancellation(t *testing.T) {
 	jobs := []extractionJob{
 		{
 			erlID: "E-TEST-01",
-			execute: func(ctx context.Context) (types.Finding, error) {
+			execute: func(ctx context.Context) ([]types.Finding, error) {
 				// simulate work that respects context
 				select {
 				case <-time.After(1 * time.Second):
-					return types.Finding{}, nil
+					return []types.Finding{}, nil
 				case <-ctx.Done():
-					return types.Finding{}, ctx.Err()
+					return nil, ctx.Err()
 				}
 			},
 		},
@@ -275,8 +275,13 @@ func TestOrchestrator_BuildAWSJobs_NoRegion(t *testing.T) {
 	t.Setenv("AWS_REGION", "")
 	t.Setenv("AWS_DEFAULT_REGION", "")
 
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "aws_config.yaml"), []byte("{}"), 0644); err != nil {
+		t.Fatalf("failed to write dummy config: %v", err)
+	}
+
 	o := New(RunConfig{
-		AWSConfigPath: "dummy.yaml",
+		NativeBlueprintsDir: tmpDir,
 	})
 
 	_, err := o.buildAWSJobs(context.Background())
@@ -316,7 +321,8 @@ func TestOrchestrator_BuildGCPJobs(t *testing.T) {
 	}
 	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credFile)
 
-	validConfigPath := t.TempDir() + "/cai_valid.yaml"
+	validConfigDir := t.TempDir()
+	validConfigPath := filepath.Join(validConfigDir, "gcp_cai.yaml")
 	validConfigData := `
 GCP-SCF-01:
   erl_id: "E-TEST-GCP"
@@ -330,19 +336,19 @@ GCP-SCF-01:
 
 	tests := []struct {
 		name         string
-		configPath   string
+		configDir    string
 		expectErr    bool
 		expectedJobs int
 	}{
 		{
 			name:         "Success",
-			configPath:   validConfigPath,
+			configDir:    validConfigDir,
 			expectErr:    false,
 			expectedJobs: 1,
 		},
 		{
 			name:         "Invalid Config Path",
-			configPath:   "nonexistent_cai.yaml",
+			configDir:    "nonexistent_cai_dir",
 			expectErr:    true,
 			expectedJobs: 0,
 		},
@@ -351,8 +357,8 @@ GCP-SCF-01:
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			o := New(RunConfig{
-				CAIConfigPath: tc.configPath,
-				RunID:         "test-run",
+				NativeBlueprintsDir: tc.configDir,
+				RunID:               "test-run",
 			})
 
 			jobs, err := o.buildGCPJobs(context.Background())
@@ -386,7 +392,8 @@ func TestOrchestrator_BuildAWSJobs(t *testing.T) {
 	// Need to ensure AWS Region is set to get past the early guard rail
 	t.Setenv("AWS_REGION", "us-east-1")
 
-	validConfigPath := t.TempDir() + "/aws_valid.yaml"
+	validConfigDir := t.TempDir()
+	validConfigPath := filepath.Join(validConfigDir, "aws_config.yaml")
 	validConfigData := `
 AWS-SCF-01:
   erl_id: "E-TEST-AWS"
@@ -399,19 +406,19 @@ AWS-SCF-01:
 
 	tests := []struct {
 		name         string
-		configPath   string
+		configDir    string
 		expectErr    bool
 		expectedJobs int
 	}{
 		{
 			name:         "Success",
-			configPath:   validConfigPath,
+			configDir:    validConfigDir,
 			expectErr:    false,
 			expectedJobs: 1,
 		},
 		{
 			name:         "Invalid Config Path",
-			configPath:   "nonexistent_aws.yaml",
+			configDir:    "nonexistent_aws_dir",
 			expectErr:    true,
 			expectedJobs: 0,
 		},
@@ -420,8 +427,8 @@ AWS-SCF-01:
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			o := New(RunConfig{
-				AWSConfigPath: tc.configPath,
-				RunID:         "test-run",
+				NativeBlueprintsDir: tc.configDir,
+				RunID:               "test-run",
 			})
 
 			jobs, err := o.buildAWSJobs(context.Background())
@@ -506,12 +513,12 @@ func TestOrchestrator_Extract_NoJobs(t *testing.T) {
 	}
 }
 
-func TestBuildHTTPGenericJobs_Error(t *testing.T) {
+func TestBuildUniversalRESTJobs_Error(t *testing.T) {
 	o := New(RunConfig{
-		SaaSConfigPath: "nonexistent_saas.yaml",
+		OpenAPIBlueprintsDir: "nonexistent-openapi",
 	})
-	_, err := o.buildHTTPGenericJobs()
+	_, err := o.buildUniversalRESTJobs()
 	if err == nil {
-		t.Fatal("expected error for nonexistent saas config path, got nil")
+		t.Fatal("expected error for nonexistent openapi config path, got nil")
 	}
 }

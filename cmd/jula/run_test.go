@@ -195,27 +195,29 @@ func TestHandleRun_FullExecution(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	// 2. Create a temporary SaaS configuration pointing to our mock server
+	// 2. Create a temporary OpenAPI blueprint configuration pointing to our mock server
 	outDir := t.TempDir()
-	saasConfigPath := filepath.Join(outDir, "saas_mock.yaml")
-	providersConfigPath := filepath.Join(outDir, "providers.yaml")
-
-	mockProviders := []byte(`
-saas_http:
-  base_url: "` + ts.URL + `"
-  headers: {}
-`)
-	if err := os.WriteFile(providersConfigPath, mockProviders, 0644); err != nil {
-		t.Fatalf("failed to write mock providers config: %v", err)
+	openapiDir := filepath.Join(outDir, "openapi")
+	if err := os.MkdirAll(openapiDir, 0755); err != nil {
+		t.Fatalf("failed to create openapi dir: %v", err)
+	}
+	nativeDir := filepath.Join(outDir, "native")
+	if err := os.MkdirAll(nativeDir, 0755); err != nil {
+		t.Fatalf("failed to create native dir: %v", err)
 	}
 
-	mockConfig := []byte(`
-E-MOCK-01:
-  description: "Mock HTTP Extraction"
-  provider: "saas_http"
-  path: "/"
+	mockBlueprint := []byte(`
+vendor_name: "saas_http"
+base_url: "` + ts.URL + `"
+auth_flow:
+  type: "bearer"
+  token_env: "MOCK_TOKEN"
+endpoints:
+  "/":
+    erl_id: "E-MOCK-01"
+    description: "Mock HTTP Extraction"
 `)
-	if err := os.WriteFile(saasConfigPath, mockConfig, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(openapiDir, "saas_mock.yaml"), mockBlueprint, 0644); err != nil {
 		t.Fatalf("failed to write mock config: %v", err)
 	}
 
@@ -224,11 +226,11 @@ E-MOCK-01:
 	t.Setenv("JULA_SIGNING_KEY", key)
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", outDir)
+	t.Setenv("MOCK_TOKEN", "dummy")
 
-	// Force the engine to use our mock config and ignore GCP/AWS
-	t.Setenv("JULA_SAAS_CONFIG_PATH", saasConfigPath)
-	t.Setenv("JULA_CAI_CONFIG_PATH", filepath.Join(outDir, "missing_cai.yaml"))
-	t.Setenv("JULA_AWS_CONFIG_PATH", filepath.Join(outDir, "missing_aws.yaml"))
+	// Force the engine to use our mock openapi config and empty native config
+	t.Setenv("JULA_OPENAPI_BLUEPRINTS_DIR", openapiDir)
+	t.Setenv("JULA_NATIVE_BLUEPRINTS_DIR", nativeDir)
 
 	// 4. Run the command
 	err := handleRun([]string{})
