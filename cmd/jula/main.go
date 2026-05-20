@@ -129,6 +129,10 @@ func runApp(args []string) int {
 	// Group files in manifest by their control / routing ID (SCF ID)
 	scfGroups := make(map[string][]types.FileChecksum)
 	for _, f := range manifest.EvidenceFiles {
+		if strings.HasSuffix(f.Path, ".log.gz") {
+			slog.Info("evaluator: skipping non-evidence trace log file in manifest", "path", f.Path)
+			continue
+		}
 		scfID := resolveScfIDFromPath(f.Path)
 		if scfID == "" {
 			slog.Warn("evaluator: skipping file in manifest, could not resolve SCF ID from path", "path", f.Path)

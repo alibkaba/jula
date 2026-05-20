@@ -51,6 +51,7 @@ flowchart TB
         APIs["Cloud APIs <br> (AWS, GCP, SaaS)"] -->|Extract Configs| EC["Jula Evidence Collector"]
         EC -->|1. Generate SHA-256 Hashes| H["Raw JSON Payloads"]
         EC -->|2. Asymmetric Signing| M["Signed Manifest.json"]
+        EC -->|3. Mask & Compress Logs| L["Sanitized Trace (run.log.gz)"]
     end
 
     subgraph Ledger ["2. Cryptographic Evidence Ledger (GCS)"]
@@ -58,6 +59,7 @@ flowchart TB
         GCS["Google Cloud Storage <br> (gs://jula-evidence-ledger)"]
         H -->|Upload| GCS
         M -->|Upload| GCS
+        L -->|Upload| GCS
     end
 
     subgraph Policies ["3. Policy-as-Code Registry"]
@@ -83,7 +85,7 @@ flowchart TB
 
 ### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) (The Attestation Engine)
 
-The Collector programmatically extracts infrastructure configurations from multiple cloud environments and SaaS tools, generates SHA-256 hashes of the raw payloads, and outputs an immutable set of evidence files. It also signs a secure runtime manifest containing all hashes, proving that the raw evidence was collected at a specific timestamp and has not been altered.
+The Collector programmatically extracts infrastructure configurations from multiple cloud environments and SaaS tools, generates SHA-256 hashes of the raw payloads, and outputs an immutable set of evidence files. It also captures the complete execution log, masks sensitive credentials, compresses it into `run.log.gz`, and signs a secure runtime manifest containing all hashes, proving that the raw evidence was collected at a specific timestamp, the run completed successfully, and no files have been altered.
 
 ### 2. [Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator) (The Assurance Engine)
 
@@ -101,7 +103,7 @@ The Policy-as-Code Registry houses version-controlled compliance policies writte
 
 2. **Extract & Hash:** The Collector runs queries concurrently across AWS, GCP, and SaaS APIs. Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing perfect data deduplication.
 
-3. **Sign & Attest:** The Collector compiles all hashes into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
+3. **Sign & Attest:** The Collector compiles all raw evidence hashes and the execution trace log (`run.log.gz`) hash into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
 
 4. **Verify & Evaluate:** The Evaluator verifies the manifest signature using the corresponding public key and processes the evidence against target compliance rules to produce automated pass/fail results.
 
