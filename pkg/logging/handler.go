@@ -120,14 +120,14 @@ func maskSecrets(src []byte) []byte {
 		res = p.ReplaceAllFunc(res, func(match []byte) []byte {
 			// Find the delimiter (e.g. colon, equals, bearer prefix) and mask only the value part
 			idx := bytes.IndexAny(match, ":= ")
-			if idx != -1 {
-				prefix := match[:idx+1]
-				out := make([]byte, len(prefix)+len("[MASKED]"))
-				copy(out, prefix)
-				copy(out[len(prefix):], "[MASKED]")
-				return out
+			if idx == -1 {
+				return []byte("[MASKED]")
 			}
-			return []byte("[MASKED]")
+			prefix := match[:idx+1]
+			out := make([]byte, len(prefix)+len("[MASKED]"))
+			copy(out, prefix)
+			copy(out[len(prefix):], "[MASKED]")
+			return out
 		})
 	}
 	return res
