@@ -164,6 +164,7 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 
 	findingsMap := make(map[string]interface{})
 	resMap := make(map[string]interface{})
+	erlMap := make(map[string]map[string]interface{}) // ERL ID-based index
 	for _, ev := range evidences {
 		if ev.SCFID != scfID {
 			continue
@@ -172,16 +173,43 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 		if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
 			raw = string(ev.Finding.RawData)
 		}
-		resMap[ev.SourceID] = map[string]interface{}{
-			"normalized_data": map[string]interface{}{
-				subKey: raw,
-			},
-			"erl_id":    ev.ErlID,
-			"provider":  ev.Finding.Provider,
-			"timestamp": ev.Finding.Timestamp,
+
+		// Build the normalized_data for OPA input. If the Evidence carries a
+		// transformer-produced NormalizedData field, unmarshal it and use it
+		// directly. Otherwise fall back to the legacy subKey wrapping.
+		var normalizedData interface{}
+		if len(ev.NormalizedData) > 0 && string(ev.NormalizedData) != "null" {
+			var nd interface{}
+			if err := json.Unmarshal(ev.NormalizedData, &nd); err == nil {
+				normalizedData = nd
+			}
 		}
+		if normalizedData == nil {
+			normalizedData = map[string]interface{}{
+				subKey: raw,
+			}
+		}
+
+		entry := map[string]interface{}{
+			"normalized_data": normalizedData,
+			"erl_id":          ev.ErlID,
+			"provider":        ev.Finding.Provider,
+			"timestamp":       ev.Finding.Timestamp,
+		}
+
+		// Legacy index: findings[resType][sourceID]
+		resMap[ev.SourceID] = entry
+
+		// ERL ID index: findings["E-BCM-16"][sourceID]
+		if erlMap[ev.ErlID] == nil {
+			erlMap[ev.ErlID] = make(map[string]interface{})
+		}
+		erlMap[ev.ErlID][ev.SourceID] = entry
 	}
 	findingsMap[resType] = resMap
+	for erlID, sourceMap := range erlMap {
+		findingsMap[erlID] = sourceMap
+	}
 
 	regoInput := map[string]interface{}{
 		"findings": findingsMap,
