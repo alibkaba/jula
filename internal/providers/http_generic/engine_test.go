@@ -616,3 +616,81 @@ func TestEngine_RateLimitBackoffAndRetrySuccess(t *testing.T) {
 		t.Errorf("unexpected raw data payload: %s", string(finding.RawData))
 	}
 }
+
+func TestEngine_Extract_LinkHeaderPagination(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/page1" {
+			w.Header().Set("Link", fmt.Sprintf("<http://%s/page2>; rel=\"next\"", r.Host))
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[{"id": 1}]`))
+			return
+		}
+		if r.URL.Path == "/page2" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[{"id": 2}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	engine := NewEngineWithClient(server.Client())
+	cfg := ExtractionConfig{
+		Provider: "github",
+		Method:   "GET",
+		URL:      server.URL + "/page1",
+		Pagination: &PaginationConfig{
+			NextURLField: "header.Link",
+			MaxPages:     3,
+		},
+	}
+
+	finding, err := engine.Extract(context.Background(), "E-TEST-PAGINATION", cfg, "test-run")
+	if err != nil {
+		t.Fatalf("unexpected error during link header pagination: %v", err)
+	}
+
+	var items []map[string]int
+	if err := json.Unmarshal(finding.RawData, &items); err != nil {
+		t.Fatalf("failed to unmarshal findings: %v", err)
+	}
+
+	if len(items) != 2 {
+		t.Errorf("expected 2 items aggregated, got %d", len(items))
+	}
+	if items[0]["id"] != 1 || items[1]["id"] != 2 {
+		t.Errorf("unexpected items content: %s", string(finding.RawData))
+	}
+}
+
+func TestEngine_Extract_Graceful404(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	engine := NewEngineWithClient(server.Client())
+
+	// 1. Without Allow404, should fail.
+	cfg := ExtractionConfig{
+		Provider: "github",
+		Method:   "GET",
+		URL:      server.URL,
+		Allow404: false,
+	}
+	_, err := engine.Extract(context.Background(), "E-TEST-404-FAIL", cfg, "test-run")
+	if err == nil {
+		t.Fatal("expected error on HTTP 404 when Allow404 is disabled")
+	}
+
+	// 2. With Allow404, should return "null" payload successfully.
+	cfg.Allow404 = true
+	finding, err := engine.Extract(context.Background(), "E-TEST-404-OK", cfg, "test-run")
+	if err != nil {
+		t.Fatalf("unexpected error on HTTP 404 when Allow404 is enabled: %v", err)
+	}
+	if string(finding.RawData) != "null" {
+		t.Errorf("expected payload to be 'null', got: %s", string(finding.RawData))
+	}
+}

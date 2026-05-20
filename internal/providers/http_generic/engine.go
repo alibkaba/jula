@@ -67,6 +67,7 @@ type SaaSExtractionConfig struct {
 	Headers     map[string]string `json:"headers,omitempty"`
 	JSONPath    string            `json:"json_path"`
 	Pagination  *PaginationConfig `json:"pagination,omitempty"`
+	Allow404    bool              `json:"allow_404,omitempty"`
 }
 
 // ExtractionConfig represents a single fully-hydrated SaaS HTTP extraction configuration.
@@ -80,6 +81,7 @@ type ExtractionConfig struct {
 	JSONPath    string            `json:"json_path"`
 	Pagination  *PaginationConfig `json:"pagination,omitempty"`
 	Auth        *AuthConfig       `json:"auth,omitempty"`
+	Allow404    bool              `json:"allow_404,omitempty"`
 }
 
 // String implements fmt.Stringer for ExtractionConfig to prevent credential leakage.
@@ -251,6 +253,7 @@ func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 			JSONPath:    saasCfg.JSONPath,
 			Pagination:  saasCfg.Pagination,
 			Auth:        prov.Auth,
+			Allow404:    saasCfg.Allow404,
 		}
 	}
 
@@ -313,14 +316,14 @@ func (e *Engine) Extract(ctx context.Context, erlID string, cfg ExtractionConfig
 
 	if cfg.Pagination != nil && cfg.Pagination.NextURLField != "" {
 		// Paginated extraction.
-		collected, err := e.fetchPaginated(ctx, method, targetURL, headers, cfg.Pagination)
+		collected, err := e.fetchPaginated(ctx, method, targetURL, headers, cfg.Pagination, cfg.Allow404)
 		if err != nil {
 			return types.Finding{}, err
 		}
 		allData = collected
 	} else {
 		// Single-page extraction.
-		body, resp, err := e.fetchSingle(ctx, method, targetURL, headers)
+		body, resp, err := e.fetchSingle(ctx, method, targetURL, headers, cfg.Allow404)
 		if err != nil {
 			return types.Finding{}, err
 		}
@@ -357,8 +360,26 @@ func hasNextLink(linkHeader string) bool {
 	return strings.Contains(linkHeader, `rel="next"`)
 }
 
+// extractNextLinkHeader parses standard RFC 5988 Link header for rel="next" URL.
+func extractNextLinkHeader(linkHeader string) string {
+	if linkHeader == "" {
+		return ""
+	}
+	parts := strings.Split(linkHeader, ",")
+	for _, part := range parts {
+		if strings.Contains(part, `rel="next"`) {
+			start := strings.Index(part, "<")
+			end := strings.Index(part, ">")
+			if start != -1 && end != -1 && start < end {
+				return part[start+1 : end]
+			}
+		}
+	}
+	return ""
+}
+
 // fetchSingle makes an HTTP request with exponential backoff on HTTP 429 rate limiting.
-func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers map[string]string) (json.RawMessage, *http.Response, error) {
+func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers map[string]string, allow404 bool) (json.RawMessage, *http.Response, error) {
 	const (
 		maxRetries  = 3
 		baseBackoff = 2 * time.Second
@@ -410,6 +431,11 @@ func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers ma
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			if resp.StatusCode == http.StatusNotFound && allow404 {
+				slog.Warn("http_generic: resource not found (404), proceeding with null payload", "url", url)
+				resp.Body.Close()
+				return json.RawMessage("null"), resp, nil
+			}
 			resp.Body.Close()
 			return nil, nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 		}
@@ -428,7 +454,7 @@ func (e *Engine) fetchSingle(ctx context.Context, method, url string, headers ma
 
 // fetchPaginated follows cursor-based pagination by extracting the next URL
 // from the response body. It aggregates all pages into a single JSON array.
-func (e *Engine) fetchPaginated(ctx context.Context, method, url string, headers map[string]string, pagination *PaginationConfig) (json.RawMessage, error) {
+func (e *Engine) fetchPaginated(ctx context.Context, method, url string, headers map[string]string, pagination *PaginationConfig, allow404 bool) (json.RawMessage, error) {
 	var allItems []json.RawMessage
 	currentURL := url
 	maxPages := pagination.MaxPages
@@ -437,7 +463,7 @@ func (e *Engine) fetchPaginated(ctx context.Context, method, url string, headers
 	}
 
 	for page := 0; page < maxPages; page++ {
-		body, _, err := e.fetchSingle(ctx, method, currentURL, headers)
+		body, resp, err := e.fetchSingle(ctx, method, currentURL, headers, allow404)
 		if err != nil {
 			return nil, fmt.Errorf("page %d: %w", page+1, err)
 		}
@@ -452,7 +478,14 @@ func (e *Engine) fetchPaginated(ctx context.Context, method, url string, headers
 		}
 
 		// Extract the next URL from the response.
-		nextURL, found := extractNextURL(body, pagination.NextURLField)
+		var nextURL string
+		var found bool
+		if pagination.NextURLField == "header.Link" || pagination.NextURLField == "Link" {
+			nextURL = extractNextLinkHeader(resp.Header.Get("Link"))
+			found = nextURL != ""
+		} else {
+			nextURL, found = extractNextURL(body, pagination.NextURLField)
+		}
 		if !found || nextURL == "" {
 			break // No more pages.
 		}
