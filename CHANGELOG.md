@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.5.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.4.0...v1.5.0) (2026-05-20)
+
+
+### Features
+
+* add Allow404 configuration option and support for RFC 5988 Link header pagination ([1349ca4](https://github.com/alibkaba/jula-evidence-collector/commit/1349ca4cc3470527ccf132e922db1f1fd8fdfa0a))
+* add OSCAL assessment plan 2026.1 schema and update extraction c… ([7b78934](https://github.com/alibkaba/jula-evidence-collector/commit/7b7893426ad4e557f30543240c15a983c4fca9d4))
+* add OSCAL assessment plan 2026.1 schema and update extraction configurations ([21768af](https://github.com/alibkaba/jula-evidence-collector/commit/21768af0dd86dcec4e9e102c6f8a543244adaf93))
+* decouple provider configuration from extraction definitions and simplify endpoint paths ([bc255ac](https://github.com/alibkaba/jula-evidence-collector/commit/bc255acc0a0d86610ee5143d12bd30875016afa5))
+* implement E2E testing framework with guidelines, mock server, and compliance fixtures ([f72fab1](https://github.com/alibkaba/jula-evidence-collector/commit/f72fab1f9e3f17cf8aec0651da9102d0185de148))
+* implement sensitive data masking in logging and add execution trace export to local reporter ([ac35ac9](https://github.com/alibkaba/jula-evidence-collector/commit/ac35ac9425860672fbba6633177f32323bb2473e))
+* implement transformation engine to normalize raw findings into cloud-agnostic evidence schemas ([1a92ae4](https://github.com/alibkaba/jula-evidence-collector/commit/1a92ae4d342c3a3e5b6b537981cc8221b3cc8e7d))
+* implement two-tier extraction engine with OpenAPI pagination support and updated system documentation ([88ce6a0](https://github.com/alibkaba/jula-evidence-collector/commit/88ce6a0958ce28c79f2a3f960040884c345403bf))
+* update extraction configs and add search type support to GCP CAI provider ([76bc549](https://github.com/alibkaba/jula-evidence-collector/commit/76bc549c2e67485ce5e948e829f0ab5c008b601c))
+
+
+### Bug Fixes
+
+* **configs:** revert inline comments to restore strict JSON compliance ([621e977](https://github.com/alibkaba/jula-evidence-collector/commit/621e977a7394feb26e485490e524f4dcc6da67fd))
+* **configs:** revert inline comments to restore strict JSON compliance ([365dd76](https://github.com/alibkaba/jula-evidence-collector/commit/365dd764bf2f5d6b93c26a725b8ee90b5d3d7d82))
+* resolve GCS prefix naming bug and correct SaaS provider typos ([bd6150a](https://github.com/alibkaba/jula-evidence-collector/commit/bd6150afe00b7228cb5507ff8776b8451854eeb6))
+* resolve GCS prefix naming bug and correct SaaS provider typos ([ec60ed1](https://github.com/alibkaba/jula-evidence-collector/commit/ec60ed1b05fc256019031e14e1a98d6d6fb0d2fb))
+
 ## [1.4.0](https://github.com/alibkaba/jula-evidence-collector/compare/v1.3.0...v1.4.0) (2026-05-16)
 
 
