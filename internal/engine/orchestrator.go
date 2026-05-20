@@ -69,9 +69,15 @@ func getSaaSSourceID(provider string) string {
 		if org := os.Getenv("GITHUB_ORGANIZATION"); org != "" {
 			return org
 		}
+		if org := os.Getenv("GITHUB_ORG"); org != "" {
+			return org
+		}
 	}
 	if provider == "aikido" {
 		if cid := os.Getenv("AIK_CLIENT_ID"); cid != "" {
+			if len(cid) > 12 {
+				return "client-" + cid[len(cid)-8:]
+			}
 			return cid
 		}
 	}

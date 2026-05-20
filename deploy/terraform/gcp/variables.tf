@@ -73,3 +73,13 @@ variable "repository_name" {
   type        = string
   default     = "jula-evidence-collector"
 }
+
+variable "owner_email" {
+  description = "The email address of the project owner/admin to grant GCS bucket view access."
+  type        = string
+}
+
+variable "github_org" {
+  description = "The GitHub organization or username."
+  type        = string
+}

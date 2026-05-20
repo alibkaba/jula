@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
@@ -159,9 +161,14 @@ func (p *UnifiedAWSConfigProvider) Extract(ctx context.Context, erlID string, ex
 // LoadAWSConfigExtractions reads and parses the declarative extraction
 // configuration from a JSON file. The returned map is keyed by ERL ID.
 func LoadAWSConfigExtractions(path string) (map[string]AWSConfigExtraction, error) {
-	data, err := os.ReadFile(path)
+	cleanedPath := filepath.Clean(path)
+	if strings.Contains(cleanedPath, "..") {
+		return nil, fmt.Errorf("aws_config: path traversal detected: %s", path)
+	}
+
+	data, err := os.ReadFile(cleanedPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading AWS Config extraction file %s: %w", path, err)
+		return nil, fmt.Errorf("reading AWS Config extraction file %s: %w", cleanedPath, err)
 	}
 
 	var configs map[string]AWSConfigExtraction

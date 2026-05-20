@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,9 +39,14 @@ type CAIConfigMap map[string]CAIExtractionConfig
 
 // LoadCAIConfigs reads and parses a JSON file containing CAIExtractionConfig definitions.
 func LoadCAIConfigs(path string) (CAIConfigMap, error) {
-	data, err := os.ReadFile(path)
+	cleanedPath := filepath.Clean(path)
+	if strings.Contains(cleanedPath, "..") {
+		return nil, fmt.Errorf("gcp_cai: path traversal detected: %s", path)
+	}
+
+	data, err := os.ReadFile(cleanedPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading CAI config file %s: %w", path, err)
+		return nil, fmt.Errorf("reading CAI config file %s: %w", cleanedPath, err)
 	}
 
 	var configs CAIConfigMap

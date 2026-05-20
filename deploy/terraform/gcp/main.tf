@@ -66,6 +66,7 @@ locals {
     "roles/compute.viewer",
     "roles/cloudsql.viewer",
     "roles/cloudkms.viewer",
+    "roles/cloudasset.viewer",
   ]
 }
 
@@ -100,6 +101,12 @@ resource "google_storage_bucket_iam_member" "jula_runner_storage" {
   bucket = google_storage_bucket.evidence.name
   role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.jula_runner.email}"
+}
+
+resource "google_storage_bucket_iam_member" "owner_viewer" {
+  bucket = google_storage_bucket.evidence.name
+  role   = "roles/storage.objectViewer"
+  member = "user:${var.owner_email}"
 }
 
 # ──────────────────────────────────────────────────────────────
@@ -200,6 +207,10 @@ resource "google_cloud_run_v2_service" "jula" {
         value = var.project_id
       }
       env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
         name  = "JULA_PLATFORM_TYPE"
         value = "GCP"
       }
@@ -224,8 +235,12 @@ resource "google_cloud_run_v2_service" "jula" {
         value = "gcp,aikido,github"
       }
       env {
+        name  = "GITHUB_ORG"
+        value = var.github_org
+      }
+      env {
         name  = "GITHUB_REPO"
-        value = "alibkaba/jula-evidence-collector"
+        value = "jula-evidence-collector"
       }
       env {
         name = "GITHUB_TOKEN"

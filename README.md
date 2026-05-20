@@ -46,44 +46,73 @@ Jula Controls operates as a two-stage decoupled pipeline, cleanly separating raw
 
 ```mermaid
 flowchart TB
-    subgraph Upstream ["1. Attestation Layer (Collector)"]
+    %% Styling Classes
+    classDef collector fill:#0f172a,stroke:#0ea5e9,stroke-width:2px,color:#e2e8f0;
+    classDef ledger fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#e2e8f0;
+    classDef policy fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0;
+    classDef evaluator fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0;
+    classDef security fill:#1e293b,stroke:#ef4444,stroke-width:1px,color:#f8fafc;
+    classDef output fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#f0fdf4;
+
+    subgraph Phase1 ["1. Attestation Layer (Jula Evidence Collector)"]
         direction LR
-        APIs["Cloud APIs <br> (AWS, GCP, SaaS)"] -->|Extract Configs| EC["Jula Evidence Collector"]
-        EC -->|1. Generate SHA-256 Hashes| H["Raw JSON Payloads"]
-        EC -->|2. Asymmetric Signing| M["Signed Manifest.json"]
+        APIs["☁️ Cloud APIs <br> (AWS Config, GCP CAI, SaaS)"] -->|1. Extract Configs| EC["⚡ Jula Evidence Collector <br> (Go CLI / Container)"]
+        KMS["🔑 GCP Secret Manager <br> (Asymmetric Private Key)"] -.->|Sign Manifest & Prov| EC
+        EC -->|2a. Deduplicate & Hash| H["📄 Raw Evidence Payloads <br> (JSON Files)"]
+        EC -->|2b. Sign Provenance| P["🛡️ Provenance Sidecars <br> (*.prov.json)"]
+        EC -->|2c. Sign Manifest| M["📜 Cryptographic Manifest <br> (manifest.json)"]
+        EC -->|2d. Mask & Compress Logs| L["📝 Sanitized Execution Trace <br> (run.log.gz)"]
     end
 
-    subgraph Ledger ["2. Cryptographic Evidence Ledger (GCS)"]
+    subgraph Phase2 ["2. Attestation Ledger (GCS Vault)"]
         direction TB
-        GCS["Google Cloud Storage <br> (gs://jula-evidence-ledger)"]
+        GCS[("🪣 Secure Cloud Storage <br> gs://jula-evidence-ledger <br> (Uniform Bucket Access Enabled)")]
         H -->|Upload| GCS
+        P -->|Upload| GCS
         M -->|Upload| GCS
+        L -->|Upload| GCS
     end
 
-    subgraph Policies ["3. Policy-as-Code Registry"]
-        PR["jula-compliance-policies <br> (Versioned Rego & OPA Tests)"]
+    subgraph Phase3 ["3. Policy-as-Code Registry"]
+        direction LR
+        PR["📂 jula-compliance-policies <br> (Versioned Rego OPA Rules)"]
     end
 
-    subgraph Downstream ["4. Continuous Assurance Layer (Evaluator)"]
+    subgraph Phase4 ["4. Continuous Assurance Layer (Jula Evidence Evaluator)"]
         direction TB
-        EE["Jula Evidence Evaluator <br> (Stateless CLI Go Runtime)"]
-        GK["Gatekeeper Module <br> (ECDSA PEM Signature Check)"]
-        NS["Null-State Verification <br> (Set-Theory Integrity Check)"]
-        OPA["Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        EE["🔍 Jula Evidence Evaluator <br> (Stateless Go CLI)"]
         
-        EE --> GK
-        GK --> NS
-        NS --> OPA
+        subgraph GK ["Gatekeeper Modules"]
+            direction LR
+            SigCheck["🔑 Signature Verification <br> (JULA_PUBLIC_KEY PEM)"]
+            HashCheck["✅ Integrity Check <br> (Manifest vs Payload Hash)"]
+            ProvCheck["🛡️ Provenance Verification <br> (Sidecar Payload Check)"]
+        end
+        
+        OPA["⚙️ Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        
+        EE --> SigCheck
+        SigCheck --> HashCheck
+        HashCheck --> ProvCheck
+        ProvCheck --> OPA
     end
 
-    GCS -->|Pull Manifest & Payloads| EE
-    PR -->|Load Dynamic Policies| EE
-    OPA -->|Output| Findings["Standardized Findings Ledger <br> (COMPLIANT / NON_COMPLIANT)"]
+    GCS -->|Pull Signed Ledger Run| EE
+    PR -->|Load Custom Policies| EE
+    OPA -->|Audit Logs| Findings["🏆 Standardized Findings Ledger <br> (COMPLIANT / NON_COMPLIANT)"]
+
+    %% Apply Styles
+    class APIs,EC,H,P,M,L collector;
+    class GCS ledger;
+    class PR policy;
+    class EE,SigCheck,HashCheck,ProvCheck,OPA evaluator;
+    class KMS security;
+    class Findings output;
 ```
 
 ### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) (The Attestation Engine)
 
-The Collector programmatically extracts infrastructure configurations from multiple cloud environments and SaaS tools, generates SHA-256 hashes of the raw payloads, and outputs an immutable set of evidence files. It also signs a secure runtime manifest containing all hashes, proving that the raw evidence was collected at a specific timestamp and has not been altered.
+The Collector programmatically extracts infrastructure configurations from multiple cloud environments and SaaS tools, generates SHA-256 hashes of the raw payloads, and outputs an immutable set of evidence files. It also captures the complete execution log, masks sensitive credentials, compresses it into `run.log.gz`, and signs a secure runtime manifest containing all hashes, proving that the raw evidence was collected at a specific timestamp, the run completed successfully, and no files have been altered.
 
 ### 2. [Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator) (The Assurance Engine)
 
@@ -101,7 +130,7 @@ The Policy-as-Code Registry houses version-controlled compliance policies writte
 
 2. **Extract & Hash:** The Collector runs queries concurrently across AWS, GCP, and SaaS APIs. Each raw payload is SHA-256 hashed. The hash becomes the filename, guaranteeing perfect data deduplication.
 
-3. **Sign & Attest:** The Collector compiles all hashes into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
+3. **Sign & Attest:** The Collector compiles all raw evidence hashes and the execution trace log (`run.log.gz`) hash into a unified manifest and signs it using an asymmetric private key, generating a cryptographically verifiable attestation of the run.
 
 4. **Verify & Evaluate:** The Evaluator verifies the manifest signature using the corresponding public key and processes the evidence against target compliance rules to produce automated pass/fail results.
 

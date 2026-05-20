@@ -11,6 +11,7 @@ import (
 	time "time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
+	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
@@ -137,6 +138,32 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 	}
 	for p := range providerSet {
 		manifest.Providers = append(manifest.Providers, p)
+	}
+
+	// Capture and write the execution trace log.
+	var logData []byte
+	if globalHandler := logging.GetGlobalHandler(); globalHandler != nil {
+		var err error
+		logData, err = globalHandler.GzipBytes()
+		if err != nil {
+			slog.Warn("failed to compress execution trace log", "error", err)
+		}
+	}
+	if len(logData) > 0 {
+		runDir := filepath.Join(r.OutputDir, runDate)
+		if err := os.MkdirAll(runDir, 0700); err != nil {
+			return nil, fmt.Errorf("creating run root directory: %w", err)
+		}
+		logPath := filepath.Join(runDir, "run.log.gz")
+		if err := os.WriteFile(logPath, logData, 0600); err != nil {
+			return nil, fmt.Errorf("writing execution trace log: %w", err)
+		}
+		// Record run.log.gz in manifest.
+		logRelativePath := filepath.Join(runDate, "run.log.gz")
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   logRelativePath,
+			SHA256: crypto.HashFile(logData),
+		})
 	}
 
 	// Sign the manifest.

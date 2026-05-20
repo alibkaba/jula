@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+
+	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
 )
 
 // version is set at build time via -ldflags.
@@ -50,10 +52,12 @@ func initLogger() {
 		level = slog.LevelError
 	}
 
-	handler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+	baseHandler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		Level: level,
 	})
-	slog.SetDefault(slog.New(handler))
+	capturingHandler := logging.NewCapturingHandler(baseHandler)
+	logging.SetGlobalHandler(capturingHandler)
+	slog.SetDefault(slog.New(capturingHandler))
 }
 
 func printUsage() {

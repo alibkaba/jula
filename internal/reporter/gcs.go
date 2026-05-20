@@ -15,6 +15,7 @@ import (
 	time "time"
 
 	"github.com/alibkaba/jula-evidence-collector/pkg/crypto"
+	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
 	"github.com/alibkaba/jula-evidence-collector/pkg/types"
 )
 
@@ -178,6 +179,27 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 	}
 	for p := range providerSet {
 		manifest.Providers = append(manifest.Providers, p)
+	}
+
+	// Capture and upload the execution trace log.
+	var logData []byte
+	if globalHandler := logging.GetGlobalHandler(); globalHandler != nil {
+		var err error
+		logData, err = globalHandler.GzipBytes()
+		if err != nil {
+			slog.Warn("failed to compress execution trace log", "error", err)
+		}
+	}
+	if len(logData) > 0 {
+		logObject := fmt.Sprintf("%s/run.log.gz", runDate)
+		if err := r.uploadObject(ctx, logObject, logData, "application/gzip"); err != nil {
+			return nil, fmt.Errorf("uploading execution trace log %s: %w", logObject, err)
+		}
+		// Record run.log.gz in manifest.
+		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
+			Path:   logObject,
+			SHA256: crypto.HashFile(logData),
+		})
 	}
 
 	// Sign the manifest.

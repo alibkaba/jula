@@ -166,9 +166,14 @@ func InterpolateEnvVars(input string) string {
 // parameter-level URL escaping to prevent SSRF/Path Traversal, and url.JoinPath.
 func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 	// Read saas_http.json ERL configurations
-	erlData, err := os.ReadFile(path)
+	cleanedPath := filepath.Clean(path)
+	if strings.Contains(cleanedPath, "..") {
+		return nil, fmt.Errorf("saas_http: path traversal detected: %s", path)
+	}
+
+	erlData, err := os.ReadFile(cleanedPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading SaaS config %s: %w", path, err)
+		return nil, fmt.Errorf("reading SaaS config %s: %w", cleanedPath, err)
 	}
 
 	var saasConfigs map[string]SaaSExtractionConfig
@@ -216,11 +221,16 @@ func LoadSaaSConfigs(path string) (map[string]ExtractionConfig, error) {
 			return match
 		})
 
-		// Robust URL assembly using Go-native url.JoinPath
-		fullURL, err := url.JoinPath(interpolatedBase, interpolatedPath)
+		// Robust URL assembly using net/url to preserve query parameters
+		base, err := url.Parse(interpolatedBase)
 		if err != nil {
-			return nil, fmt.Errorf("building URL for SCF %s: %w", scfID, err)
+			return nil, fmt.Errorf("parsing base URL for SCF %s: %w", scfID, err)
 		}
+		rel, err := url.Parse(interpolatedPath)
+		if err != nil {
+			return nil, fmt.Errorf("parsing path for SCF %s: %w", scfID, err)
+		}
+		fullURL := base.ResolveReference(rel).String()
 
 		// Merge headers, prioritizing ERL-specific headers
 		mergedHeaders := make(map[string]string)
