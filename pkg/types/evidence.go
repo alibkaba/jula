@@ -1,5 +1,7 @@
 package types
 
+import "encoding/json"
+
 // Evidence represents a finalized, cryptographically verifiable artifact of
 // raw infrastructure state. It wraps a Finding with a content hash that
 // provides immutable proof of what was collected.
@@ -24,4 +26,8 @@ type Evidence struct {
 	// PayloadHash is the SHA-256 hash of Finding.RawData, providing
 	// cryptographic proof of the exact data that was collected.
 	PayloadHash string `json:"payload_hash"`
+
+	// NormalizedData is the cloud-agnostic, schema-validated representation
+	// of the raw finding data, designed to be easily processed by downstream OPA engines.
+	NormalizedData json.RawMessage `json:"normalized_data,omitempty"`
 }
