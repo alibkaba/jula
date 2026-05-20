@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -15,7 +13,6 @@ import (
 
 	"github.com/alibkaba/jula-evidence-collector/internal/engine"
 	"github.com/alibkaba/jula-evidence-collector/internal/reporter"
-	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 func handleRun(args []string) error {
@@ -90,24 +87,11 @@ func handleRun(args []string) error {
 	})
 
 	ctx := context.Background()
-	findings, err := orch.Extract(ctx)
+	evidence, err := orch.Extract(ctx)
 	if err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
-	slog.Info("run: extraction complete", "findings_count", len(findings))
-
-	// --- Step 2: Convert Findings to Evidence (hash raw data) ---
-	evidence := make([]types.Evidence, 0, len(findings))
-	for _, f := range findings {
-		hash := sha256.Sum256(f.RawData)
-		evidence = append(evidence, types.Evidence{
-			ErlID:       f.ErlID,
-			SCFID:       f.SCFID,
-			SourceID:    f.SourceID,
-			Finding:     f,
-			PayloadHash: hex.EncodeToString(hash[:]),
-		})
-	}
+	slog.Info("run: extraction and transformation complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
 	var rep reporter.Reporter
@@ -145,7 +129,7 @@ func handleRun(args []string) error {
 		"timestamp", time.Now().UTC().Format(time.RFC3339),
 		"environment", orch.Platform().ID,
 		"platform_type", orch.Platform().Type,
-		"total_erl_extractions", len(findings),
+		"total_erl_extractions", len(evidence),
 		"evidence_files", len(manifest.EvidenceFiles),
 		"evidence_location", *pathFlag,
 		"signature", manifest.Signature[:16]+"...",
