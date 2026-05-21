@@ -158,6 +158,12 @@ func TestSignManifest_Negative(t *testing.T) {
 	if err == nil || err.Error() != "signer is nil" {
 		t.Errorf("expected 'signer is nil' error, got %v", err)
 	}
+
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	err = SignManifest(nil, privKey)
+	if err == nil || err.Error() != "manifest is nil" {
+		t.Errorf("expected 'manifest is nil' error, got %v", err)
+	}
 }
 
 func TestVerifyManifest_Negative(t *testing.T) {
@@ -169,6 +175,12 @@ func TestVerifyManifest_Negative(t *testing.T) {
 	_, err := VerifyManifest(manifest, nil)
 	if err == nil || err.Error() != "public key is nil" {
 		t.Errorf("expected 'public key is nil' error, got %v", err)
+	}
+
+	// Test Nil Manifest
+	_, err = VerifyManifest(nil, pubKey)
+	if err == nil || err.Error() != "manifest is nil" {
+		t.Errorf("expected 'manifest is nil' error, got %v", err)
 	}
 
 	// Test 2: Empty Signature
@@ -235,5 +247,27 @@ func TestSignProvenance_Negative(t *testing.T) {
 	err := SignProvenance(prov, nil)
 	if err == nil || err.Error() != "signer is nil" {
 		t.Errorf("expected 'signer is nil' error, got %v", err)
+	}
+
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	err = SignProvenance(nil, privKey)
+	if err == nil || err.Error() != "provenance is nil" {
+		t.Errorf("expected 'provenance is nil' error, got %v", err)
+	}
+}
+
+func TestVerifyProvenance_Negative(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	pubKey := &privKey.PublicKey
+	prov := &Provenance{ErlID: "E-TEST-01", Signature: "abcd"}
+
+	_, err := VerifyProvenance(prov, nil)
+	if err == nil || err.Error() != "public key is nil" {
+		t.Errorf("expected 'public key is nil' error, got %v", err)
+	}
+
+	_, err = VerifyProvenance(nil, pubKey)
+	if err == nil || err.Error() != "provenance is nil" {
+		t.Errorf("expected 'provenance is nil' error, got %v", err)
 	}
 }
