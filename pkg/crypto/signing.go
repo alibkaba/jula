@@ -17,9 +17,6 @@ import (
 // The Signer MUST come from a securely managed source.
 // The Signature field is excluded from the signing input by zeroing it first.
 func SignManifest(manifest *types.Manifest, signer stdcrypto.Signer) error {
-	if manifest == nil {
-		return fmt.Errorf("manifest is nil")
-	}
 	if signer == nil {
 		return fmt.Errorf("signer is nil")
 	}
@@ -45,9 +42,6 @@ func SignManifest(manifest *types.Manifest, signer stdcrypto.Signer) error {
 
 // VerifyManifest verifies the ECDSA signature of a Manifest.
 func VerifyManifest(manifest *types.Manifest, publicKey *ecdsa.PublicKey) (bool, error) {
-	if manifest == nil {
-		return false, fmt.Errorf("manifest is nil")
-	}
 	if publicKey == nil {
 		return false, fmt.Errorf("public key is nil")
 	}
@@ -95,9 +89,6 @@ type Provenance struct {
 
 // SignProvenance signs the provenance metadata.
 func SignProvenance(prov *Provenance, signer stdcrypto.Signer) error {
-	if prov == nil {
-		return fmt.Errorf("provenance is nil")
-	}
 	if signer == nil {
 		return fmt.Errorf("signer is nil")
 	}
@@ -117,9 +108,6 @@ func SignProvenance(prov *Provenance, signer stdcrypto.Signer) error {
 
 // VerifyProvenance verifies the ECDSA signature of a Provenance object.
 func VerifyProvenance(prov *Provenance, publicKey *ecdsa.PublicKey) (bool, error) {
-	if prov == nil {
-		return false, fmt.Errorf("provenance is nil")
-	}
 	if publicKey == nil {
 		return false, fmt.Errorf("public key is nil")
 	}
