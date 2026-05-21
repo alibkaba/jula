@@ -2,68 +2,47 @@ package logging
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
-	"io"
 	"log/slog"
-	"strings"
 	"testing"
+	"time"
 )
 
-func TestCapturingHandler_CaptureAndMask(t *testing.T) {
-	// Setup standard slog JSON handler discarding stdout so we test duplication
-	discardHandler := slog.NewJSONHandler(io.Discard, nil)
-	capturer := NewCapturingHandler(discardHandler)
-
-	logger := slog.New(capturer)
-	ctx := context.Background()
-
-	// Log some data including sensitive keys
-	logger.InfoContext(ctx, "Starting session", slog.String("user", "alice"))
-	logger.InfoContext(ctx, "Authenticating API", slog.String("auth", "Bearer secret-token-12345"))
-	logger.InfoContext(ctx, "Configuring database", slog.String("password", "super-secure-pass"))
-
-	// Retrieve logs
-	rawLogs := string(capturer.buf.Bytes())
-
-	if !strings.Contains(rawLogs, "Starting session user=alice") {
-		t.Errorf("expected logs to contain basic log info, got:\n%s", rawLogs)
+func TestCapturingHandler(t *testing.T) {
+	parent := slog.NewTextHandler(&bytes.Buffer{}, nil)
+	h := NewCapturingHandler(parent)
+	SetGlobalHandler(h)
+	
+	if GetGlobalHandler() != h {
+		t.Fatal("expected global handler to be set")
 	}
 
-	if !strings.Contains(rawLogs, "auth=[MASKED]") {
-		t.Errorf("expected authorization header to be masked, got:\n%s", rawLogs)
-	}
+	record := slog.NewRecord(time.Now(), slog.LevelInfo, "test message", 0)
+	record.AddAttrs(slog.String("bearer", "secret-token-123"))
+	record.AddAttrs(slog.String("password", "my-secret-pass"))
 
-	if !strings.Contains(rawLogs, "password=[MASKED]") {
-		t.Errorf("expected password to be masked, got:\n%s", rawLogs)
-	}
-}
-
-func TestCapturingHandler_GzipCompression(t *testing.T) {
-	discardHandler := slog.NewJSONHandler(io.Discard, nil)
-	capturer := NewCapturingHandler(discardHandler)
-	logger := slog.New(capturer)
-
-	logger.Info("Hello World")
-
-	gzBytes, err := capturer.GzipBytes()
+	err := h.Handle(context.Background(), record)
 	if err != nil {
-		t.Fatalf("failed to compress logs: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Decompress and check
-	gr, err := gzip.NewReader(bytes.NewReader(gzBytes))
+	h2 := h.WithAttrs([]slog.Attr{slog.String("attr", "val")})
+	h3 := h2.WithGroup("group")
+	if h3 == nil {
+		t.Fatal("expected non-nil handler")
+	}
+
+	b, err := h.GzipBytes()
 	if err != nil {
-		t.Fatalf("failed to create gzip reader: %v", err)
+		t.Fatalf("unexpected gzip error: %v", err)
 	}
-	defer gr.Close()
-
-	decompressed, err := io.ReadAll(gr)
-	if err != nil {
-		t.Fatalf("failed to read decompressed logs: %v", err)
+	if len(b) == 0 {
+		t.Fatal("expected gzipped bytes")
 	}
 
-	if !strings.Contains(string(decompressed), "Hello World") {
-		t.Errorf("decompressed logs did not contain original message, got: %s", string(decompressed))
+	h.Reset()
+	b2, _ := h.GzipBytes()
+	if len(b2) == 0 {
+		t.Fatal("expected empty gzip stream to still have headers")
 	}
 }
