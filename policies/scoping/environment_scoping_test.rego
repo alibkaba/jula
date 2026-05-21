@@ -6,13 +6,11 @@ import data.compliance.scf.env_01
 # Helper to build mock input findings
 mock_input(instances) = {
 	"findings": {
-		"databases": {
+		"E-BCM-16": {
 			"src-1": {
 				"provider": "gcp",
 				"timestamp": "2026-05-19T00:00:00Z",
-				"normalized_data": {
-					"instances": instances
-				}
+				"raw_data": instances
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package compliance.scf.dch_10
 
 import rego.v1
+import data.normalization.gcp.storage as storage_norm
 
 # Default compliance status
 default compliant = false
@@ -9,11 +10,11 @@ default compliant = false
 scf_id := "DCH-10"
 customer_control_id := "CC-2.1"
 
-# Check if GCS bucket configs meet the required security standards (Uniform Access, Public Access Prevention, and Lifecycle)
+# Check if GCS bucket configs meet the required security standards
 compliant if {
-	storage_checks := input.findings["storage"]
+	storage_checks := input.findings["E-DCH-10"]
 	every _, check in storage_checks {
-		all_buckets_secured(check.normalized_data.buckets)
+		all_buckets_secured(check.raw_data)
 	}
 }
 
@@ -27,41 +28,39 @@ all_buckets_secured(buckets) if {
 	# Every bucket in the payload must be compliant
 	non_compliant_count := count([b |
 		b := buckets[_]
-		not bucket_is_compliant(b)
+		normalized := storage_norm.normalize(b)
+		not bucket_is_compliant(normalized)
 	])
 	non_compliant_count == 0
 }
 
-# Core security rules for GCP Storage bucket
-bucket_is_compliant(b) if {
+# Core security rules for GCP Storage bucket using normalized properties
+bucket_is_compliant(normalized) if {
 	# Rule 1: Uniform bucket-level access is enabled
-	b.resource.data.iamConfiguration.uniformBucketLevelAccess.enabled == true
+	normalized.uniform_bucket_level_access == true
 	
 	# Rule 2: Public Access Prevention is strictly enforced
-	b.resource.data.publicAccessPrevention == "enforced"
+	normalized.public_access_prevention == "enforced"
 	
 	# Rule 3: Lifecycle compliance
-	bucket_lifecycle_is_compliant(b)
+	bucket_lifecycle_is_compliant(normalized)
 }
 
 # A bucket lifecycle is compliant if it's either non-sensitive OR sensitive with active delete lifecycle rules
-bucket_lifecycle_is_compliant(b) if {
-	not is_sensitive(b)
+bucket_lifecycle_is_compliant(normalized) if {
+	not is_sensitive(normalized)
 }
 
-bucket_lifecycle_is_compliant(b) if {
-	is_sensitive(b)
-	has_delete_lifecycle(b)
+bucket_lifecycle_is_compliant(normalized) if {
+	is_sensitive(normalized)
+	normalized.has_delete_lifecycle == true
 }
 
 # Helper to identify sensitive data classification
-is_sensitive(b) if {
-	b.labels.data_class == "sensitive"
+is_sensitive(normalized) if {
+	normalized.data_class == "sensitive"
 }
 
-# Helper to verify storage deletion limitation lifecycles
-has_delete_lifecycle(b) if {
-	# Ensure there is at least one lifecycle rule where action type is "Delete"
-	rule := b.additionalAttributes.lifecycle.rule[_]
-	rule.action.type == "Delete"
+is_sensitive(normalized) if {
+	normalized.privacy == "gdpr"
 }

@@ -1,0 +1,14 @@
+{
+  "kind": "sql#instance",
+  "name": "mock-db-instance",
+  "settings": {
+    "ipConfiguration": {
+      "requireSsl": true,
+      "ipv4Enabled": true
+    },
+    "dataDiskEncryptionType": "PD_SSD",
+    "userLabels": {
+      "environment": "production"
+    }
+  }
+}

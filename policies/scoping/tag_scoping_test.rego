@@ -6,11 +6,9 @@ import data.compliance.scf.tag_01
 # Helper to build mock input findings
 mock_input(buckets) = {
 	"findings": {
-		"storage": {
+		"E-DCH-10": {
 			"src-1": {
-				"normalized_data": {
-					"buckets": buckets
-				}
+				"raw_data": buckets
 			}
 		}
 	}

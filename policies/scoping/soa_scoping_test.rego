@@ -30,23 +30,21 @@ test_applicable_compliant if {
 			}
 		},
 		"findings": {
-			"databases": {
+			"E-BCM-16": {
 				"src-1": {
-					"normalized_data": {
-						"instances": [
-							{
-								"resource": {
-									"data": {
-										"settings": {
-											"ipConfiguration": {
-												"requireSsl": true
-											}
+					"raw_data": [
+						{
+							"resource": {
+								"data": {
+									"settings": {
+										"ipConfiguration": {
+											"requireSsl": true
 										}
 									}
 								}
 							}
-						]
-					}
+						}
+					]
 				}
 			}
 		}
@@ -64,23 +62,21 @@ test_applicable_non_compliant if {
 			}
 		},
 		"findings": {
-			"databases": {
+			"E-BCM-16": {
 				"src-1": {
-					"normalized_data": {
-						"instances": [
-							{
-								"resource": {
-									"data": {
-										"settings": {
-											"ipConfiguration": {
-												"requireSsl": false
-											}
+					"raw_data": [
+						{
+							"resource": {
+								"data": {
+									"settings": {
+										"ipConfiguration": {
+											"requireSsl": false
 										}
 									}
 								}
 							}
-						]
-					}
+						}
+					]
 				}
 			}
 		}
