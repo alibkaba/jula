@@ -224,6 +224,10 @@ endpoints:
 	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", outDir)
 	t.Setenv("MOCK_TOKEN", "dummy")
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ACCESS_KEY_ID", "DUMMYKEY")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "DUMMYSECRET")
+	t.Setenv("GCP_PROJECT_ID", "dummy-project")
 
 	// Force the engine to use our mock integration config
 	t.Setenv("JULA_INTEGRATION_DIR", integrationDir)
