@@ -1,11 +1,13 @@
-// Package universal_rest implements a blueprint-driven REST engine
-// that fetches compliance evidence from SaaS endpoints using OpenAPI-inspired YAML blueprints.
+// Package universal_rest implements an integration-driven REST engine
+// that fetches compliance evidence from SaaS endpoints using declarative YAML integrations.
 package universal_rest
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +24,12 @@ import (
 
 var envVarPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
+// ErrMissingCredentials is returned when an integration's authentication
+// configuration references environment variables that are not set.
+// The orchestrator should catch this specific error and skip the integration
+// gracefully instead of failing the pipeline.
+var ErrMissingCredentials = errors.New("missing auth credentials")
+
 // InterpolateEnvVars replaces all ${VAR_NAME} tokens in a string with their
 // corresponding environment variable values.
 func InterpolateEnvVars(input string, escape bool) string {
@@ -37,7 +45,7 @@ func InterpolateEnvVars(input string, escape bool) string {
 	})
 }
 
-// Engine executes HTTP GET requests based on OpenAPIBlueprint configurations.
+// Engine executes HTTP GET requests based on RESTIntegration configurations.
 type Engine struct {
 	client *http.Client
 }
@@ -52,9 +60,11 @@ func NewEngine(client *http.Client) *Engine {
 	return &Engine{client: client}
 }
 
-// Execute performs HTTP GET requests defined in the blueprint for a specific ERL path.
+// Execute performs HTTP GET requests defined in the integration for a specific ERL path.
 // For paginated endpoints, it returns multiple findings (one per page) with original body bytes.
-func (e *Engine) Execute(ctx context.Context, blueprint *OpenAPIBlueprint, erlPath string, epCfg EndpointConfig, runID string) ([]types.Finding, error) {
+// If authentication credentials are missing, it returns ErrMissingCredentials to allow
+// the orchestrator to skip the integration gracefully.
+func (e *Engine) Execute(ctx context.Context, integration *RESTIntegration, erlPath string, epCfg RESTEndpointConfig, runID string) ([]types.Finding, error) {
 	// 1. Clean the path of any virtual query parameters used for uniqueness
 	cleanErlPath := CleanPath(erlPath)
 
@@ -62,12 +72,12 @@ func (e *Engine) Execute(ctx context.Context, blueprint *OpenAPIBlueprint, erlPa
 	interpolatedPath := InterpolateEnvVars(cleanErlPath, true)
 
 	// 3. Interpolate Base URL without path escaping
-	interpolatedBase := InterpolateEnvVars(blueprint.BaseURL, false)
+	interpolatedBase := InterpolateEnvVars(integration.BaseURL, false)
 
 	// 4. Resolve the full request URL
 	base, err := url.Parse(interpolatedBase)
 	if err != nil {
-		return nil, fmt.Errorf("parsing blueprint base URL: %w", err)
+		return nil, fmt.Errorf("parsing integration base URL: %w", err)
 	}
 	rel, err := url.Parse(interpolatedPath)
 	if err != nil {
@@ -81,9 +91,10 @@ func (e *Engine) Execute(ctx context.Context, blueprint *OpenAPIBlueprint, erlPa
 		headers[k] = InterpolateEnvVars(v, false)
 	}
 
-	// 6. Handle authentication
-	if err := e.applyAuth(ctx, &blueprint.AuthFlow, headers); err != nil {
-		return nil, fmt.Errorf("resolving authentication: %w", err)
+	// 6. Handle authentication validation early if possible
+	if integration.AuthFlow.Type == "bearer" && os.Getenv(integration.AuthFlow.TokenEnv) == "" {
+		slog.Debug("universal_rest: skipping integration due to missing credentials", "vendor", integration.VendorName, "erl_id", epCfg.ErlID)
+		return nil, fmt.Errorf("skipping integration %s: %w", integration.VendorName, ErrMissingCredentials)
 	}
 
 	// 7. Validate that no unresolved environment variables remain in header values
@@ -95,11 +106,11 @@ func (e *Engine) Execute(ctx context.Context, blueprint *OpenAPIBlueprint, erlPa
 
 	// 8. Execute HTTP requests (single or paginated)
 	if epCfg.Pagination != nil && epCfg.Pagination.NextURLField != "" {
-		return e.fetchPaginated(ctx, targetURL, headers, epCfg, blueprint.VendorName, runID)
+		return e.fetchPaginated(ctx, targetURL, headers, epCfg, integration, runID)
 	}
 
 	// Single-page execution
-	body, resp, err := e.fetchSingle(ctx, targetURL, headers, epCfg.Allow404)
+	body, resp, err := e.fetchSingle(ctx, targetURL, headers, epCfg, integration)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +122,7 @@ func (e *Engine) Execute(ctx context.Context, blueprint *OpenAPIBlueprint, erlPa
 
 	finding := types.Finding{
 		ErlID:     epCfg.ErlID,
-		Provider:  blueprint.VendorName,
+		Provider:  integration.VendorName,
 		RawData:   body,
 		Timestamp: time.Now().UTC(),
 		RunID:     runID,
@@ -120,8 +131,8 @@ func (e *Engine) Execute(ctx context.Context, blueprint *OpenAPIBlueprint, erlPa
 	return []types.Finding{finding}, nil
 }
 
-// applyAuth resolves auth credentials and inserts appropriate authorization headers.
-func (e *Engine) applyAuth(ctx context.Context, auth *AuthFlowConfig, headers map[string]string) error {
+// applyAuth resolves auth credentials and inserts appropriate authorization headers directly onto the request.
+func (e *Engine) applyAuth(ctx context.Context, req *http.Request, auth *AuthFlowConfig, payload []byte) error {
 	switch strings.ToLower(auth.Type) {
 	case "bearer":
 		if auth.TokenEnv == "" {
@@ -129,9 +140,10 @@ func (e *Engine) applyAuth(ctx context.Context, auth *AuthFlowConfig, headers ma
 		}
 		token := os.Getenv(auth.TokenEnv)
 		if token == "" {
-			return fmt.Errorf("missing bearer token: environment variable %s is not set", auth.TokenEnv)
+			return fmt.Errorf("%w: environment variable %s is not set", ErrMissingCredentials, auth.TokenEnv)
 		}
-		headers["Authorization"] = "Bearer " + token
+		req.Header.Set("Authorization", "Bearer "+token)
+
 	case "oauth2":
 		if auth.TokenURL == "" || auth.ClientIDEnv == "" || auth.ClientSecretEnv == "" {
 			return fmt.Errorf("oauth2 auth requires token_url, client_id_env, and client_secret_env to be configured")
@@ -139,25 +151,20 @@ func (e *Engine) applyAuth(ctx context.Context, auth *AuthFlowConfig, headers ma
 		clientID := os.Getenv(auth.ClientIDEnv)
 		clientSecret := os.Getenv(auth.ClientSecretEnv)
 		if clientID == "" || clientSecret == "" {
-			return fmt.Errorf("missing oauth2 credentials: %s and %s must be set", auth.ClientIDEnv, auth.ClientSecretEnv)
+			return fmt.Errorf("%w: %s and %s must be set", ErrMissingCredentials, auth.ClientIDEnv, auth.ClientSecretEnv)
 		}
 
 		body := strings.NewReader(`{"grant_type":"client_credentials"}`)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, auth.TokenURL, body)
+		tokenReq, err := http.NewRequestWithContext(ctx, http.MethodPost, auth.TokenURL, body)
 		if err != nil {
 			return fmt.Errorf("creating token request: %w", err)
 		}
 
 		credentials := base64.StdEncoding.EncodeToString([]byte(clientID + ":" + clientSecret))
-		req.Header.Set("Authorization", "Basic "+credentials)
-		req.Header.Set("Content-Type", "application/json")
+		tokenReq.Header.Set("Authorization", "Basic "+credentials)
+		tokenReq.Header.Set("Content-Type", "application/json")
 
-		slog.Debug("oauth: exchanging credentials for bearer token",
-			"token_url", auth.TokenURL,
-			"client_id_env", auth.ClientIDEnv,
-		)
-
-		resp, err := e.client.Do(req)
+		resp, err := e.client.Do(tokenReq)
 		if err != nil {
 			return fmt.Errorf("token exchange request failed: %w", err)
 		}
@@ -183,14 +190,43 @@ func (e *Engine) applyAuth(ctx context.Context, auth *AuthFlowConfig, headers ma
 			return fmt.Errorf("token response missing access_token field")
 		}
 
-		slog.Info("oauth: token exchange successful", "token_url", auth.TokenURL)
-		headers["Authorization"] = "Bearer " + tokenResp.AccessToken
+		req.Header.Set("Authorization", "Bearer "+tokenResp.AccessToken)
+
+	case "aws_sigv4":
+		if err := SignAWSv4(req, payload); err != nil {
+			return fmt.Errorf("aws_sigv4 signing failed: %w", err)
+		}
+
+	case "gcp_adc":
+		if err := SignGCPADC(ctx, req); err != nil {
+			return fmt.Errorf("gcp_adc signing failed: %w", err)
+		}
+
+	case "azure_identity":
+		if err := SignAzureIdentity(ctx, req); err != nil {
+			return fmt.Errorf("azure_identity signing failed: %w", err)
+		}
+
+	case "oci_cavage":
+		if err := SignOCICavage(req, payload); err != nil {
+			return fmt.Errorf("oci_cavage signing failed: %w", err)
+		}
+
+	case "ali_tencent_hmac":
+		if err := SignAliTencentHMAC(req, payload); err != nil {
+			return fmt.Errorf("ali_tencent_hmac signing failed: %w", err)
+		}
+
+	case "jws_financial":
+		if err := SignJWSFinancial(req, payload); err != nil {
+			return fmt.Errorf("jws_financial signing failed: %w", err)
+		}
 	}
 	return nil
 }
 
 // fetchSingle makes an HTTP request with exponential backoff on HTTP 429 rate limiting.
-func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[string]string, allow404 bool) ([]byte, *http.Response, error) {
+func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[string]string, epCfg RESTEndpointConfig, integration *RESTIntegration) ([]byte, *http.Response, error) {
 	const (
 		maxRetries  = 3
 		baseBackoff = 2 * time.Second
@@ -201,6 +237,20 @@ func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[
 	var lastErr error
 
 	currentBackoff := baseBackoff
+
+	method := epCfg.Method
+	if method == "" {
+		method = http.MethodGet
+	}
+
+	var payload []byte
+	if len(epCfg.Body) > 0 {
+		var err error
+		payload, err = json.Marshal(epCfg.Body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("marshaling request body: %w", err)
+		}
+	}
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
@@ -213,13 +263,27 @@ func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[
 			currentBackoff *= 2 // Exponential backoff
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
+		var bodyReader io.Reader
+		if len(payload) > 0 {
+			bodyReader = bytes.NewReader(payload)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
 		if err != nil {
 			return nil, nil, fmt.Errorf("creating request: %w", err)
 		}
 
+		if len(payload) > 0 {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
 		for k, v := range headers {
 			req.Header.Set(k, v)
+		}
+
+		// Apply auth immediately before execution to ensure fresh crypto signatures.
+		if err := e.applyAuth(ctx, req, &integration.AuthFlow, payload); err != nil {
+			return nil, nil, fmt.Errorf("applying authentication: %w", err)
 		}
 
 		resp, err = e.client.Do(req)
@@ -242,7 +306,7 @@ func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			if resp.StatusCode == http.StatusNotFound && allow404 {
+			if resp.StatusCode == http.StatusNotFound && epCfg.Allow404 {
 				slog.Warn("universal_rest: resource not found (404), proceeding with null payload", "url", targetURL)
 				resp.Body.Close()
 				return []byte("null"), resp, nil
@@ -264,7 +328,7 @@ func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[
 }
 
 // fetchPaginated traverses pagination cursors and returns findings for each page fetched.
-func (e *Engine) fetchPaginated(ctx context.Context, targetURL string, headers map[string]string, epCfg EndpointConfig, vendorName, runID string) ([]types.Finding, error) {
+func (e *Engine) fetchPaginated(ctx context.Context, targetURL string, headers map[string]string, epCfg RESTEndpointConfig, integration *RESTIntegration, runID string) ([]types.Finding, error) {
 	var findings []types.Finding
 	currentURL := targetURL
 	maxPages := epCfg.Pagination.MaxPages
@@ -273,14 +337,14 @@ func (e *Engine) fetchPaginated(ctx context.Context, targetURL string, headers m
 	}
 
 	for page := 0; page < maxPages; page++ {
-		body, resp, err := e.fetchSingle(ctx, currentURL, headers, epCfg.Allow404)
+		body, resp, err := e.fetchSingle(ctx, currentURL, headers, epCfg, integration)
 		if err != nil {
 			return nil, fmt.Errorf("page %d: %w", page+1, err)
 		}
 
 		findings = append(findings, types.Finding{
 			ErlID:     epCfg.ErlID,
-			Provider:  vendorName,
+			Provider:  integration.VendorName,
 			RawData:   body,
 			Timestamp: time.Now().UTC(),
 			RunID:     runID,

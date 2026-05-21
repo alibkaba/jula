@@ -1,5 +1,5 @@
-// Package universal_rest implements a blueprint-driven REST engine
-// that fetches compliance evidence from SaaS endpoints using OpenAPI-inspired YAML blueprints.
+// Package universal_rest implements an integration-driven REST engine
+// that fetches compliance evidence from SaaS endpoints using declarative YAML integrations.
 package universal_rest
 
 import (
@@ -7,24 +7,24 @@ import (
 	"strings"
 )
 
-// OpenAPIBlueprint mirrors standard OpenAPI specification formats
-// to configure long-tail SaaS integrations.
-type OpenAPIBlueprint struct {
-	VendorName string                    `yaml:"vendor_name" json:"vendor_name"`
-	BaseURL    string                    `yaml:"base_url" json:"base_url"`
-	AuthFlow   AuthFlowConfig            `yaml:"auth_flow" json:"auth_flow"`
-	Endpoints  map[string]EndpointConfig `yaml:"endpoints" json:"endpoints"`
+// RESTIntegration defines the declarative configuration for a SaaS REST
+// integration, including vendor identity, base URL, auth flow, and endpoints.
+type RESTIntegration struct {
+	VendorName string                        `yaml:"vendor_name" json:"vendor_name"`
+	BaseURL    string                        `yaml:"base_url" json:"base_url"`
+	AuthFlow   AuthFlowConfig                `yaml:"auth_flow" json:"auth_flow"`
+	Endpoints  map[string]RESTEndpointConfig `yaml:"endpoints" json:"endpoints"`
 }
 
 // String implements fmt.Stringer to prevent credential leakage in logging.
-func (b OpenAPIBlueprint) String() string {
+func (b RESTIntegration) String() string {
 	res, _ := b.MarshalJSON()
 	return string(res)
 }
 
 // MarshalJSON implements json.Marshaler to redact sensitive fields.
-func (b OpenAPIBlueprint) MarshalJSON() ([]byte, error) {
-	type Alias OpenAPIBlueprint
+func (b RESTIntegration) MarshalJSON() ([]byte, error) {
+	type Alias RESTIntegration
 	redacted := Alias(b)
 	redacted.AuthFlow = b.AuthFlow.Redacted()
 	return json.Marshal(redacted)
@@ -52,10 +52,12 @@ func (a AuthFlowConfig) Redacted() AuthFlowConfig {
 	return copy
 }
 
-// EndpointConfig defines specific GET routing details and ERL mappings.
-type EndpointConfig struct {
+// RESTEndpointConfig defines specific GET/POST routing details and ERL mappings.
+type RESTEndpointConfig struct {
 	ErlID       string            `yaml:"erl_id" json:"erl_id"`
 	Description string            `yaml:"description" json:"description"`
+	Method      string            `yaml:"method,omitempty" json:"method,omitempty"`
+	Body        map[string]any    `yaml:"body,omitempty" json:"body,omitempty"`
 	Headers     map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 	Pagination  *PaginationConfig `yaml:"pagination,omitempty" json:"pagination,omitempty"`
 	Allow404    bool              `yaml:"allow_404,omitempty" json:"allow_404,omitempty"`

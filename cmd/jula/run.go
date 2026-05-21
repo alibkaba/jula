@@ -1,14 +1,18 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/internal/engine"
@@ -20,6 +24,7 @@ func handleRun(args []string) error {
 
 	targetFlag := runCmd.String("target", os.Getenv("JULA_OUTPUT_TARGET"), "Delivery target: local, gcs")
 	pathFlag := runCmd.String("path", os.Getenv("JULA_OUTPUT_PATH"), "Target path or bucket URI")
+	urlFlag := runCmd.String("integration-url", os.Getenv("JULA_INTEGRATION_URL"), "URL to fetch integrations.tar.gz")
 	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent ERL extraction goroutines")
 	timeoutFlag := runCmd.String("timeout", "5m", "Per-ERL extraction timeout duration")
 
@@ -58,11 +63,17 @@ func handleRun(args []string) error {
 		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
 	}
 
-	// Resolve configuration paths.
-	nativeBlueprintsDir := resolveConfigPath("JULA_NATIVE_BLUEPRINTS_DIR", "configs/blueprints/native")
-	openapiBlueprintsDir := resolveConfigPath("JULA_OPENAPI_BLUEPRINTS_DIR", "configs/blueprints/openapi")
+	var integrationMap map[string][]byte
+	integrationDir := resolveConfigPath("JULA_INTEGRATION_DIR", "integrations")
 
-	// Generate a unique run ID.
+	if *urlFlag != "" && (strings.HasPrefix(*urlFlag, "http://") || strings.HasPrefix(*urlFlag, "https://")) {
+		slog.Info("run: fetching integrations from URL", "url", *urlFlag)
+		var err error
+		integrationMap, err = fetchIntegrationsMap(*urlFlag)
+		if err != nil {
+			return fmt.Errorf("fetching integrations: %w", err)
+		}
+	}
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
 
 	slog.Info("run: pipeline starting",
@@ -70,20 +81,19 @@ func handleRun(args []string) error {
 		"path", *pathFlag,
 		"concurrency", *concurrencyFlag,
 		"timeout", *timeoutFlag,
-		"native_blueprints_dir", nativeBlueprintsDir,
-		"openapi_blueprints_dir", openapiBlueprintsDir,
+		"integration_dir", integrationDir,
 		"run_id", runID,
 	)
 
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Target:               *targetFlag,
-		Path:                 *pathFlag,
-		Concurrency:          *concurrencyFlag,
-		Timeout:              timeout,
-		RunID:                runID,
-		NativeBlueprintsDir:  nativeBlueprintsDir,
-		OpenAPIBlueprintsDir: openapiBlueprintsDir,
+		Target:         *targetFlag,
+		Path:           *pathFlag,
+		Concurrency:    *concurrencyFlag,
+		Timeout:        timeout,
+		RunID:          runID,
+		IntegrationDir: integrationDir,
+		IntegrationMap: integrationMap,
 	})
 
 	ctx := context.Background()
@@ -158,4 +168,45 @@ func resolveConfigPath(envKey, defaultPath string) string {
 		path = defaultPath
 	}
 	return path
+}
+
+func fetchIntegrationsMap(url string) (map[string][]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("http get: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	gzr, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	result := make(map[string][]byte)
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("tar reader: %w", err)
+		}
+
+		if header.Typeflag == tar.TypeReg {
+			data, err := io.ReadAll(tr)
+			if err != nil {
+				return nil, fmt.Errorf("reading file %s: %w", header.Name, err)
+			}
+			result[header.Name] = data
+		}
+	}
+
+	return result, nil
 }

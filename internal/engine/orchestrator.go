@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/alibkaba/jula-evidence-collector/internal/platform"
-	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
-	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 	universalrest "github.com/alibkaba/jula-evidence-collector/internal/providers/universal_rest"
 	"github.com/alibkaba/jula-core/pkg/types"
 	"go.yaml.in/yaml/v4"
@@ -24,13 +22,13 @@ import (
 // The "Collector Only" paradigm means there is no Framework field.
 // The engine blindly executes every ERL extraction defined in its config.
 type RunConfig struct {
-	Target               string
-	Path                 string
-	Concurrency          int
-	Timeout              time.Duration
-	RunID                string
-	NativeBlueprintsDir  string
-	OpenAPIBlueprintsDir string
+	Target         string
+	Path           string
+	Concurrency    int
+	Timeout        time.Duration
+	RunID          string
+	IntegrationDir string
+	IntegrationMap map[string][]byte
 }
 
 // extractionJob represents a single ERL extraction to be executed.
@@ -115,31 +113,22 @@ func (o *Orchestrator) Platform() platform.EnvironmentInfo {
 func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 	var jobs []extractionJob
 
-	// --- GCP CAI Provider ---
-	if o.cfg.NativeBlueprintsDir != "" {
-		gcpJobs, err := o.buildGCPJobs(ctx)
+	// --- Universal Cloud Provider ---
+	cloudDir := filepath.Join(o.cfg.IntegrationDir, "universal_cloud")
+	if _, err := os.Stat(cloudDir); err == nil {
+		cloudJobs, err := o.buildUniversalCloudJobs(ctx)
 		if err != nil {
-			slog.Warn("orchestrator: skipping GCP CAI provider", "error", err)
-		} else {
-			jobs = append(jobs, gcpJobs...)
+			return nil, fmt.Errorf("universal_cloud initialization failed: %w", err)
 		}
+		jobs = append(jobs, cloudJobs...)
 	}
 
-	// --- AWS Config Provider ---
-	if o.cfg.NativeBlueprintsDir != "" {
-		awsJobs, err := o.buildAWSJobs(ctx)
-		if err != nil {
-			slog.Warn("orchestrator: skipping AWS Config provider", "error", err)
-		} else {
-			jobs = append(jobs, awsJobs...)
-		}
-	}
-
-	// --- OpenAPI SaaS Blueprints Provider ---
-	if o.cfg.OpenAPIBlueprintsDir != "" {
+	// --- Universal REST Integrations Provider ---
+	restDir := filepath.Join(o.cfg.IntegrationDir, "universal_rest")
+	if _, err := os.Stat(restDir); err == nil {
 		saasJobs, err := o.buildUniversalRESTJobs()
 		if err != nil {
-			slog.Warn("orchestrator: skipping SaaS OpenAPI provider", "error", err)
+			slog.Warn("orchestrator: skipping REST integrations provider", "error", err)
 		} else {
 			jobs = append(jobs, saasJobs...)
 		}
@@ -249,130 +238,62 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 	return allFindings, nil
 }
 
-// buildGCPJobs loads the GCP CAI config and creates extraction jobs.
-func (o *Orchestrator) buildGCPJobs(ctx context.Context) ([]extractionJob, error) {
-	caiPath := filepath.Join(o.cfg.NativeBlueprintsDir, "gcp_cai.yaml")
-	if _, err := os.Stat(caiPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("GCP CAI config file does not exist: %s", caiPath)
-	}
-
-	configs, err := gcp.LoadCAIConfigs(caiPath)
-	if err != nil {
-		return nil, fmt.Errorf("loading GCP CAI configs: %w", err)
-	}
-
-	provider, err := gcp.NewUnifiedCAIProvider(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("initializing GCP CAI provider: %w", err)
-	}
-
-	var jobs []extractionJob
-	for scfID, cfg := range configs {
-		sID := scfID
-		c := cfg
-		jobs = append(jobs, extractionJob{
-			scfID:       sID,
-			erlID:       c.ErlID,
-			description: c.Description,
-			execute: func(ctx context.Context) ([]types.Finding, error) {
-				finding, err := provider.Extract(ctx, c.ErlID, c, o.cfg.RunID)
-				if err != nil {
-					return nil, err
-				}
-				finding.SCFID = sID
-				finding.SourceID = getGCPSourceID(c.Scope)
-				return []types.Finding{finding}, nil
-			},
-		})
-	}
-
-	return jobs, nil
+type IntegrationHeader struct {
+	Provider string `yaml:"provider"`
 }
 
-// buildAWSJobs loads the AWS Config extraction config and creates extraction jobs.
-func (o *Orchestrator) buildAWSJobs(ctx context.Context) ([]extractionJob, error) {
-	awsPath := filepath.Join(o.cfg.NativeBlueprintsDir, "aws_config.yaml")
-	if _, err := os.Stat(awsPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("AWS Config config file does not exist: %s", awsPath)
-	}
+// buildUniversalCloudJobs dynamically walks the universal_cloud directory
+// and explicitly routes extraction jobs via the Universal REST engine.
+func (o *Orchestrator) buildUniversalCloudJobs(ctx context.Context) ([]extractionJob, error) {
+	var integrations []*universalrest.RESTIntegration
 
-	// Verify AWS credentials are available before attempting to load.
-	if os.Getenv("AWS_REGION") == "" && os.Getenv("AWS_DEFAULT_REGION") == "" {
-		return nil, fmt.Errorf("AWS_REGION or AWS_DEFAULT_REGION is required for AWS Config provider")
-	}
-
-	configs, err := awsconfig.LoadAWSConfigExtractions(awsPath)
-	if err != nil {
-		return nil, fmt.Errorf("loading AWS Config extractions: %w", err)
-	}
-
-	provider, err := awsconfig.NewUnifiedAWSConfigProvider(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("initializing AWS Config provider: %w", err)
-	}
-
-	var jobs []extractionJob
-	for scfID, cfg := range configs {
-		sID := scfID
-		c := cfg
-		jobs = append(jobs, extractionJob{
-			scfID:       sID,
-			erlID:       c.ErlID,
-			description: c.Description,
-			execute: func(ctx context.Context) ([]types.Finding, error) {
-				finding, err := provider.Extract(ctx, c.ErlID, c, o.cfg.RunID)
-				if err != nil {
-					return nil, err
-				}
-				finding.SCFID = sID
-				finding.SourceID = getAWSSourceID()
-				return []types.Finding{finding}, nil
-			},
-		})
-	}
-
-	return jobs, nil
-}
-
-// buildUniversalRESTJobs loads SaaS OpenAPI blueprints and maps GET endpoints to jobs.
-func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
-	if _, err := os.Stat(o.cfg.OpenAPIBlueprintsDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("OpenAPI blueprints directory does not exist: %s", o.cfg.OpenAPIBlueprintsDir)
-	}
-
-	files, err := os.ReadDir(o.cfg.OpenAPIBlueprintsDir)
-	if err != nil {
-		return nil, fmt.Errorf("reading OpenAPI blueprints dir: %w", err)
-	}
-
-	var blueprints []*universalrest.OpenAPIBlueprint
-	for _, f := range files {
-		if f.IsDir() {
-			continue
+	if len(o.cfg.IntegrationMap) > 0 {
+		for key, data := range o.cfg.IntegrationMap {
+			if !strings.HasPrefix(key, "universal_cloud/") || (!strings.HasSuffix(key, ".yaml") && !strings.HasSuffix(key, ".yml")) {
+				continue
+			}
+			var integration universalrest.RESTIntegration
+			if err := yaml.Unmarshal(data, &integration); err != nil {
+				return nil, fmt.Errorf("malformed YAML syntax in %s: %w", key, err)
+			}
+			integrations = append(integrations, &integration)
 		}
-		name := f.Name()
-		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
-			continue
-		}
-		path := filepath.Join(o.cfg.OpenAPIBlueprintsDir, name)
-		data, err := os.ReadFile(path)
+	} else {
+		cloudDir := filepath.Join(o.cfg.IntegrationDir, "universal_cloud")
+		files, err := os.ReadDir(cloudDir)
 		if err != nil {
-			return nil, fmt.Errorf("reading blueprint %s: %w", name, err)
+			return nil, fmt.Errorf("reading universal_cloud directory: %w", err)
 		}
 
-		var bp universalrest.OpenAPIBlueprint
-		if err := yaml.Unmarshal(data, &bp); err != nil {
-			return nil, fmt.Errorf("parsing blueprint %s: %w", name, err)
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			name := f.Name()
+			if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+				continue
+			}
+
+			path := filepath.Join(cloudDir, name)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("reading cloud integration %s: %w", name, err)
+			}
+
+			var integration universalrest.RESTIntegration
+			if err := yaml.Unmarshal(data, &integration); err != nil {
+				return nil, fmt.Errorf("malformed YAML syntax in %s: %w", name, err)
+			}
+			integrations = append(integrations, &integration)
 		}
-		blueprints = append(blueprints, &bp)
 	}
 
 	engine := universalrest.NewEngine(nil)
 
 	var jobs []extractionJob
-	for _, bp := range blueprints {
-		bpCopy := bp
-		for erlPath, epCfg := range bp.Endpoints {
+	for _, integ := range integrations {
+		integCopy := integ
+		for erlPath, epCfg := range integ.Endpoints {
 			p := erlPath
 			c := epCfg
 			jobs = append(jobs, extractionJob{
@@ -380,13 +301,91 @@ func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
 				erlID:       c.ErlID,
 				description: c.Description,
 				execute: func(ctx context.Context) ([]types.Finding, error) {
-					findings, err := engine.Execute(ctx, bpCopy, p, c, o.cfg.RunID)
+					findings, err := engine.Execute(ctx, integCopy, p, c, o.cfg.RunID)
 					if err != nil {
 						return nil, err
 					}
 					for i := range findings {
 						findings[i].SCFID = strings.TrimPrefix(c.ErlID, "E-")
-						findings[i].SourceID = getSaaSSourceID(bpCopy.VendorName)
+						findings[i].SourceID = getAWSSourceID() // Use a generic cloud source ID resolver if needed
+					}
+					return findings, nil
+				},
+			})
+		}
+	}
+
+	return jobs, nil
+}
+
+// buildUniversalRESTJobs loads REST integration configs and maps GET endpoints to jobs.
+func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
+	var integrations []*universalrest.RESTIntegration
+
+	if len(o.cfg.IntegrationMap) > 0 {
+		for key, data := range o.cfg.IntegrationMap {
+			if !strings.HasPrefix(key, "universal_rest/") || (!strings.HasSuffix(key, ".yaml") && !strings.HasSuffix(key, ".yml")) {
+				continue
+			}
+			var integration universalrest.RESTIntegration
+			if err := yaml.Unmarshal(data, &integration); err != nil {
+				return nil, fmt.Errorf("parsing integration %s: %w", key, err)
+			}
+			integrations = append(integrations, &integration)
+		}
+	} else {
+		restDir := filepath.Join(o.cfg.IntegrationDir, "universal_rest")
+		if _, err := os.Stat(restDir); os.IsNotExist(err) {
+			return nil, fmt.Errorf("REST integrations directory does not exist: %s", restDir)
+		}
+
+		files, err := os.ReadDir(restDir)
+		if err != nil {
+			return nil, fmt.Errorf("reading REST integrations dir: %w", err)
+		}
+
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			name := f.Name()
+			if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+				continue
+			}
+			path := filepath.Join(restDir, name)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("reading integration %s: %w", name, err)
+			}
+
+			var integration universalrest.RESTIntegration
+			if err := yaml.Unmarshal(data, &integration); err != nil {
+				return nil, fmt.Errorf("parsing integration %s: %w", name, err)
+			}
+			integrations = append(integrations, &integration)
+		}
+	}
+
+	engine := universalrest.NewEngine(nil)
+
+	var jobs []extractionJob
+	for _, integ := range integrations {
+		integCopy := integ
+		for erlPath, epCfg := range integ.Endpoints {
+			p := erlPath
+			c := epCfg
+			jobs = append(jobs, extractionJob{
+				scfID:       strings.TrimPrefix(c.ErlID, "E-"),
+				erlID:       c.ErlID,
+				description: c.Description,
+				execute: func(ctx context.Context) ([]types.Finding, error) {
+					findings, err := engine.Execute(ctx, integCopy, p, c, o.cfg.RunID)
+					if err != nil {
+						return nil, err
+					}
+					for i := range findings {
+						findings[i].SCFID = strings.TrimPrefix(c.ErlID, "E-")
+						findings[i].SourceID = getSaaSSourceID(integCopy.VendorName)
 					}
 					return findings, nil
 				},

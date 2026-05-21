@@ -1,13 +1,20 @@
 package universal_rest
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestCleanPath(t *testing.T) {
@@ -79,7 +86,7 @@ func TestEngine_Execute_BearerSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	bp := &OpenAPIBlueprint{
+	bp := &RESTIntegration{
 		VendorName: "github",
 		BaseURL:    server.URL,
 		AuthFlow: AuthFlowConfig{
@@ -88,7 +95,7 @@ func TestEngine_Execute_BearerSuccess(t *testing.T) {
 		},
 	}
 
-	ep := EndpointConfig{
+	ep := RESTEndpointConfig{
 		ErlID:       "E-CHG-01",
 		Description: "GitHub Repository Metadata",
 	}
@@ -160,7 +167,7 @@ func TestEngine_Execute_OAuth2Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	bp := &OpenAPIBlueprint{
+	bp := &RESTIntegration{
 		VendorName: "aikido",
 		BaseURL:    server.URL,
 		AuthFlow: AuthFlowConfig{
@@ -171,7 +178,7 @@ func TestEngine_Execute_OAuth2Success(t *testing.T) {
 		},
 	}
 
-	ep := EndpointConfig{
+	ep := RESTEndpointConfig{
 		ErlID:       "E-MNT-03",
 		Description: "Aikido Issues",
 	}
@@ -223,7 +230,7 @@ func TestEngine_Execute_LinkHeaderPagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	bp := &OpenAPIBlueprint{
+	bp := &RESTIntegration{
 		VendorName: "github",
 		BaseURL:    server.URL,
 		AuthFlow: AuthFlowConfig{
@@ -232,7 +239,7 @@ func TestEngine_Execute_LinkHeaderPagination(t *testing.T) {
 		},
 	}
 
-	ep := EndpointConfig{
+	ep := RESTEndpointConfig{
 		ErlID:       "E-CHG-03",
 		Description: "GitHub Paginated Issues",
 		Pagination: &PaginationConfig{
@@ -292,7 +299,7 @@ func TestEngine_Execute_JSONPathPagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	bp := &OpenAPIBlueprint{
+	bp := &RESTIntegration{
 		VendorName: "generic",
 		BaseURL:    server.URL,
 		AuthFlow: AuthFlowConfig{
@@ -301,7 +308,7 @@ func TestEngine_Execute_JSONPathPagination(t *testing.T) {
 		},
 	}
 
-	ep := EndpointConfig{
+	ep := RESTEndpointConfig{
 		ErlID:       "E-VPM-01",
 		Description: "JSON Path Paginated Endpoint",
 		Pagination: &PaginationConfig{
@@ -345,7 +352,7 @@ func TestEngine_Execute_404Allowed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	bp := &OpenAPIBlueprint{
+	bp := &RESTIntegration{
 		VendorName: "generic",
 		BaseURL:    server.URL,
 		AuthFlow: AuthFlowConfig{
@@ -354,7 +361,7 @@ func TestEngine_Execute_404Allowed(t *testing.T) {
 		},
 	}
 
-	ep := EndpointConfig{
+	ep := RESTEndpointConfig{
 		ErlID:       "E-CHG-04",
 		Description: "CODEOWNERS file (optional)",
 		Allow404:    true,
@@ -386,7 +393,7 @@ func TestEngine_Execute_StrictPaginationEnforcement(t *testing.T) {
 	}))
 	defer server.Close()
 
-	bp := &OpenAPIBlueprint{
+	bp := &RESTIntegration{
 		VendorName: "generic",
 		BaseURL:    server.URL,
 		AuthFlow: AuthFlowConfig{
@@ -395,7 +402,7 @@ func TestEngine_Execute_StrictPaginationEnforcement(t *testing.T) {
 		},
 	}
 
-	ep := EndpointConfig{
+	ep := RESTEndpointConfig{
 		ErlID:       "E-TEST-STRICT",
 		Description: "No pagination instructions",
 	}
@@ -404,5 +411,86 @@ func TestEngine_Execute_StrictPaginationEnforcement(t *testing.T) {
 	_, err := engine.Execute(context.Background(), bp, "/items", ep, "run-1")
 	if err == nil {
 		t.Fatal("expected error due to strict pagination enforcement, got nil")
+	}
+}
+
+func TestAzureIdentity_TokenCache(t *testing.T) {
+	t.Setenv("AZURE_TENANT_ID", "tenant")
+	t.Setenv("AZURE_CLIENT_ID", "client")
+	t.Setenv("AZURE_CLIENT_SECRET", "secret")
+	
+	globalAzureCache.mu.Lock()
+	globalAzureCache.token = "cached-token"
+	globalAzureCache.expiresAt = time.Now().Add(2 * time.Minute)
+	globalAzureCache.mu.Unlock()
+
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "https://api.azure.com", nil)
+	err := SignAzureIdentity(context.Background(), req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if auth := req.Header.Get("Authorization"); auth != "Bearer cached-token" {
+		t.Errorf("expected cached token, got %q", auth)
+	}
+}
+
+func TestOCICavage_CanonicalString(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	keyBytes := x509.MarshalPKCS1PrivateKey(key)
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	t.Setenv("OCI_KEY_ID", "test-key-id")
+	t.Setenv("OCI_PRIVATE_KEY", string(pemBytes))
+
+	req, _ := http.NewRequest("POST", "https://api.oci.com/path?query=1", bytes.NewBuffer([]byte(`{"test":true}`)))
+	req.Header.Set("Date", "Mon, 02 Jan 2006 15:04:05 GMT") // Fixed date
+	req.Host = "api.oci.com"
+
+	err := SignOCICavage(req, []byte(`{"test":true}`))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	auth := req.Header.Get("Authorization")
+	if !strings.Contains(auth, `Signature version="1",keyId="test-key-id",algorithm="rsa-sha256",headers="date (request-target) host x-content-sha256 content-length content-type",signature="`) {
+		t.Errorf("unexpected authorization header format: %s", auth)
+	}
+}
+
+func TestJWSFinancial_DetachedSignature(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
+	keyBytes := x509.MarshalPKCS1PrivateKey(key)
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	t.Setenv("JWS_KEY_ID", "test-jws-key")
+	t.Setenv("JWS_PRIVATE_KEY", string(pemBytes))
+
+	req, _ := http.NewRequest("POST", "https://api.bank.com", nil)
+	payload := []byte(`{"amount":100}`)
+	err := SignJWSFinancial(req, payload)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	sig := req.Header.Get("X-JWS-Signature")
+	if sig == "" {
+		t.Error("expected X-JWS-Signature to be set")
+	}
+
+	parts := strings.Split(sig, "..")
+	if len(parts) != 2 {
+		t.Errorf("expected 2 parts split by .., got %d parts: %s", len(parts), sig)
+	}
+	
+	headerBytes, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	if !strings.Contains(string(headerBytes), `"kid":"test-jws-key"`) {
+		t.Errorf("expected header to contain kid, got %s", string(headerBytes))
 	}
 }

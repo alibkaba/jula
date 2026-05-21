@@ -7,10 +7,14 @@ import (
 )
 
 func TestBuildUniversalRESTJobs(t *testing.T) {
-	// Create a temp config directory
+	// Create a temp config directory with the integrations/universal_rest structure
 	tmpDir := t.TempDir()
+	restDir := tmpDir + "/universal_rest"
+	if err := os.MkdirAll(restDir, 0755); err != nil {
+		t.Fatalf("failed to create rest dir: %v", err)
+	}
 
-	blueprintData := `
+	integrationData := `
 vendor_name: "test-vendor"
 base_url: "https://api.example.com"
 auth_flow:
@@ -21,14 +25,14 @@ endpoints:
     erl_id: "E-TEST-SaaS"
     description: "Test SaaS"
 `
-	err := os.WriteFile(tmpDir+"/test_blueprint.yaml", []byte(blueprintData), 0644)
+	err := os.WriteFile(restDir+"/test_integration.yaml", []byte(integrationData), 0644)
 	if err != nil {
-		t.Fatalf("failed to write temp blueprint: %v", err)
+		t.Fatalf("failed to write temp integration: %v", err)
 	}
 
 	o := New(RunConfig{
-		OpenAPIBlueprintsDir: tmpDir,
-		RunID:                "test-run",
+		IntegrationDir: tmpDir,
+		RunID:          "test-run",
 	})
 
 	jobs, err := o.buildUniversalRESTJobs()
@@ -49,23 +53,14 @@ endpoints:
 	}
 }
 
-func TestBuildAWSJobs_NoEnv(t *testing.T) {
-	os.Unsetenv("AWS_REGION")
-	os.Unsetenv("AWS_DEFAULT_REGION")
 
-	o := New(RunConfig{})
-	_, err := o.buildAWSJobs(context.Background())
-	if err == nil {
-		t.Error("expected error when AWS_REGION is missing")
-	}
-}
 
-func TestBuildGCPJobs_InvalidPath(t *testing.T) {
+func TestBuildUniversalCloudJobs_InvalidPath(t *testing.T) {
 	o := New(RunConfig{
-		NativeBlueprintsDir: "nonexistent",
+		IntegrationDir: "nonexistent",
 	})
-	_, err := o.buildGCPJobs(context.Background())
+	_, err := o.buildUniversalCloudJobs(context.Background())
 	if err == nil {
-		t.Error("expected error when CAI config path is invalid")
+		t.Error("expected error when universal_cloud config path is invalid")
 	}
 }

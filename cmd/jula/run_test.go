@@ -195,18 +195,15 @@ func TestHandleRun_FullExecution(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	// 2. Create a temporary OpenAPI blueprint configuration pointing to our mock server
+	// 2. Create a temporary integration configuration pointing to our mock server
 	outDir := t.TempDir()
-	openapiDir := filepath.Join(outDir, "openapi")
-	if err := os.MkdirAll(openapiDir, 0755); err != nil {
-		t.Fatalf("failed to create openapi dir: %v", err)
-	}
-	nativeDir := filepath.Join(outDir, "native")
-	if err := os.MkdirAll(nativeDir, 0755); err != nil {
-		t.Fatalf("failed to create native dir: %v", err)
+	integrationDir := filepath.Join(outDir, "integrations")
+	restDir := filepath.Join(integrationDir, "universal_rest")
+	if err := os.MkdirAll(restDir, 0755); err != nil {
+		t.Fatalf("failed to create rest dir: %v", err)
 	}
 
-	mockBlueprint := []byte(`
+	mockIntegration := []byte(`
 vendor_name: "saas_http"
 base_url: "` + ts.URL + `"
 auth_flow:
@@ -217,7 +214,7 @@ endpoints:
     erl_id: "E-MOCK-01"
     description: "Mock HTTP Extraction"
 `)
-	if err := os.WriteFile(filepath.Join(openapiDir, "saas_mock.yaml"), mockBlueprint, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(restDir, "saas_mock.yaml"), mockIntegration, 0644); err != nil {
 		t.Fatalf("failed to write mock config: %v", err)
 	}
 
@@ -228,9 +225,8 @@ endpoints:
 	t.Setenv("JULA_OUTPUT_PATH", outDir)
 	t.Setenv("MOCK_TOKEN", "dummy")
 
-	// Force the engine to use our mock openapi config and empty native config
-	t.Setenv("JULA_OPENAPI_BLUEPRINTS_DIR", openapiDir)
-	t.Setenv("JULA_NATIVE_BLUEPRINTS_DIR", nativeDir)
+	// Force the engine to use our mock integration config
+	t.Setenv("JULA_INTEGRATION_DIR", integrationDir)
 
 	// 4. Run the command
 	err := handleRun([]string{})
