@@ -1,0 +1,4 @@
+- Mocking HTTP clients using httptest.NewServer provides robust, deterministic coverage for universal_rest engine without making live network requests.
+- Environment variables interpolation requires robust tests mapping out cases with missing variables, missing defaults, etc.
+- Testing file loading configs requires creating temporary files that represent valid and invalid configurations (e.g., using t.TempDir()).
+- Go testing t.Setenv allows parallel-safe environment variable overrides and auto-revert after test execution.

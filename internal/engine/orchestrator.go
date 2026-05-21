@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alibkaba/jula-core/pkg/types"
 	"github.com/alibkaba/jula-evidence-collector/internal/platform"
 	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
 	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 	universalrest "github.com/alibkaba/jula-evidence-collector/internal/providers/universal_rest"
-	"github.com/alibkaba/jula-core/pkg/types"
 	"go.yaml.in/yaml/v4"
 )
 

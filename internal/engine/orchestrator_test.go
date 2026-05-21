@@ -522,3 +522,91 @@ func TestBuildUniversalRESTJobs_Error(t *testing.T) {
 		t.Fatal("expected error for nonexistent openapi config path, got nil")
 	}
 }
+
+func TestBuildUniversalRESTJobs_Success(t *testing.T) {
+	validConfigDir := t.TempDir()
+	validConfigPath := filepath.Join(validConfigDir, "openapi.yaml")
+	validConfigData := `
+vendor_name: github
+base_url: https://api.github.com
+endpoints:
+  "/repos/org/repo/hooks":
+    erl_id: "E-TEST-GH"
+    description: "Test GitHub"
+`
+	if err := os.WriteFile(validConfigPath, []byte(validConfigData), 0644); err != nil {
+		t.Fatalf("failed to write valid config: %v", err)
+	}
+
+	invalidConfigPath := filepath.Join(validConfigDir, "invalid.yaml")
+	invalidConfigData := `
+vendor_name: []
+`
+	if err := os.WriteFile(invalidConfigPath, []byte(invalidConfigData), 0644); err != nil {
+		t.Fatalf("failed to write invalid config: %v", err)
+	}
+
+	o := New(RunConfig{
+		OpenAPIBlueprintsDir: validConfigDir,
+	})
+
+	_, err := o.buildUniversalRESTJobs()
+	if err == nil {
+		t.Errorf("expected error due to invalid yaml, got nil")
+	}
+
+	if err := os.Remove(invalidConfigPath); err != nil {
+		t.Fatalf("failed to rm invalid config: %v", err)
+	}
+
+	jobs, err := o.buildUniversalRESTJobs()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(jobs) != 1 {
+		t.Fatalf("expected 1 job, got %d", len(jobs))
+	}
+}
+
+func TestOrchestrator_BuildGCPJobs_Errors(t *testing.T) {
+	o := New(RunConfig{
+		NativeBlueprintsDir: t.TempDir(),
+	})
+
+	// Missing file error
+	_, err := o.buildGCPJobs(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "GCP CAI config file does not exist") {
+		t.Errorf("expected file missing error, got %v", err)
+	}
+
+	// Invalid config error
+	invalidConfigPath := filepath.Join(o.cfg.NativeBlueprintsDir, "gcp_cai.yaml")
+	os.WriteFile(invalidConfigPath, []byte("invalid: yaml: "), 0644)
+	_, err = o.buildGCPJobs(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "loading GCP CAI configs") {
+		t.Errorf("expected loading config error, got %v", err)
+	}
+}
+
+func TestOrchestrator_BuildAWSJobs_Errors(t *testing.T) {
+	o := New(RunConfig{
+		NativeBlueprintsDir: t.TempDir(),
+	})
+
+	// Needs region to pass first check
+	t.Setenv("AWS_REGION", "us-east-1")
+
+	// Missing file error
+	_, err := o.buildAWSJobs(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "AWS Config config file does not exist") {
+		t.Errorf("expected file missing error, got %v", err)
+	}
+
+	// Invalid config error
+	invalidConfigPath := filepath.Join(o.cfg.NativeBlueprintsDir, "aws_config.yaml")
+	os.WriteFile(invalidConfigPath, []byte("invalid: yaml: "), 0644)
+	_, err = o.buildAWSJobs(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "loading AWS Config extractions") {
+		t.Errorf("expected loading config error, got %v", err)
+	}
+}

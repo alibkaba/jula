@@ -67,3 +67,53 @@ func TestCapturingHandler_GzipCompression(t *testing.T) {
 		t.Errorf("decompressed logs did not contain original message, got: %s", string(decompressed))
 	}
 }
+
+func TestGlobalHandler(t *testing.T) {
+	discardHandler := slog.NewJSONHandler(io.Discard, nil)
+	capturer := NewCapturingHandler(discardHandler)
+
+	SetGlobalHandler(capturer)
+	if got := GetGlobalHandler(); got != capturer {
+		t.Errorf("GetGlobalHandler() = %v, want %v", got, capturer)
+	}
+}
+
+
+func TestCapturingHandler_Reset(t *testing.T) {
+	discardHandler := slog.NewJSONHandler(io.Discard, nil)
+	capturer := NewCapturingHandler(discardHandler)
+	logger := slog.New(capturer)
+
+	logger.Info("Before reset")
+	if capturer.buf.Len() == 0 {
+		t.Errorf("Expected buffer to not be empty")
+	}
+
+	capturer.Reset()
+	if capturer.buf.Len() != 0 {
+		t.Errorf("Expected buffer to be empty after Reset(), got len %d", capturer.buf.Len())
+	}
+}
+
+func TestCapturingHandler_WithAttrs(t *testing.T) {
+	discardHandler := slog.NewJSONHandler(io.Discard, nil)
+	capturer := NewCapturingHandler(discardHandler)
+	attrs := []slog.Attr{slog.String("key", "value")}
+	newHandler := capturer.WithAttrs(attrs)
+
+	_, ok := newHandler.(*CapturingHandler)
+	if !ok {
+		t.Errorf("WithAttrs did not return a *CapturingHandler")
+	}
+}
+
+func TestCapturingHandler_WithGroup(t *testing.T) {
+	discardHandler := slog.NewJSONHandler(io.Discard, nil)
+	capturer := NewCapturingHandler(discardHandler)
+	newHandler := capturer.WithGroup("group")
+
+	_, ok := newHandler.(*CapturingHandler)
+	if !ok {
+		t.Errorf("WithGroup did not return a *CapturingHandler")
+	}
+}
