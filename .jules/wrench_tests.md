@@ -1,2 +1,0 @@
-# Wrench's Test Learning Journal
-- **GCP Client Initialization Testing**: When testing functions that initialize GCP clients (like `asset.NewClient`), Google's application default credentials logic will try to parse the credentials file. If providing a fake credentials file for testing, it must not only be valid JSON but also contain a structurally valid RSA private key (e.g. generated using `crypto/rsa` and PEM encoded) to prevent `ParseKey` errors during initialization.

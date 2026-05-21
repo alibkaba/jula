@@ -1,0 +1,75 @@
+name: Scheduled Canary Pipeline & Self-Healing
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Evidence Collector
+        uses: actions/checkout@v4
+        with:
+          path: jula-evidence-collector
+
+      - name: Checkout Evidence Evaluator
+        uses: actions/checkout@v4
+        with:
+          repository: alibkaba/jula-evidence-evaluator
+          path: jula-evidence-evaluator
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Set up OPA
+        uses: open-policy-agent/setup-opa@v2
+        with:
+          version: latest
+
+      - name: Build Jula Collector
+        run: |
+          cd jula-evidence-collector
+          go build -o jula-collector ./cmd/jula
+
+      - name: Build Jula Evaluator
+        run: |
+          cd jula-evidence-evaluator
+          go build -o jula-evaluator ./cmd/jula
+
+      - name: Execute Collector Canary Scan
+        id: collector
+        run: |
+          cd jula-evidence-collector
+          # Run the collector binary to fetch raw findings
+          ./jula-collector -output raw_findings.json
+        continue-on-error: true
+
+      - name: Execute Evaluator Policy Validation
+        id: evaluator
+        run: |
+          gh repo clone alibkaba/jula-compliance-policies jula-compliance-policies
+          cd jula-evidence-evaluator
+          # Evaluate raw findings against compliance policies
+          ./jula-evaluator -findings ../jula-evidence-collector/raw_findings.json -policies ../jula-compliance-policies/policies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Check for Schema Drift and Trigger Self-Healing
+        if: steps.evaluator.outcome == 'failure' || steps.collector.outcome == 'failure'
+        run: |
+          cd jula-evidence-collector
+          echo "⚠️ Anomaly or schema drift detected! Initiating autonomous self-healing loop..."
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          ./automation/autonomous_heal.sh raw_findings.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

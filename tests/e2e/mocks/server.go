@@ -24,7 +24,8 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 
 		// Return a static GCP CAI SQL Instance payload.
-		// The collector's transformGCPDatabaseConfig mapper will map this to DatabaseSchema.
+		// This returns an opaque, raw JSON structure intended exclusively for
+		// dynamic downstream Rego normalization libraries.
 		payload := `{
 	"resource": {
 		"data": {
