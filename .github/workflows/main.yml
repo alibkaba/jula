@@ -40,7 +40,7 @@ jobs:
   # 2. RELEASE (Runs on Main via Release Please)
   # ==========================================
   release:
-    name: Release Please
+    name: Build & Release Please
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
