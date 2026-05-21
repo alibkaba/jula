@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,7 +16,6 @@ import (
 	awsconfig "github.com/alibkaba/jula-evidence-collector/internal/providers/aws"
 	"github.com/alibkaba/jula-evidence-collector/internal/providers/gcp"
 	universalrest "github.com/alibkaba/jula-evidence-collector/internal/providers/universal_rest"
-	"github.com/alibkaba/jula-evidence-collector/internal/transformer"
 	"github.com/alibkaba/jula-core/pkg/types"
 	"go.yaml.in/yaml/v4"
 )
@@ -91,17 +89,15 @@ func getSaaSSourceID(provider string) string {
 // through every ERL ID, executing the corresponding extraction without
 // any framework filtering.
 type Orchestrator struct {
-	cfg         RunConfig
-	envInfo     platform.EnvironmentInfo
-	transformer transformer.Transformer
+	cfg     RunConfig
+	envInfo platform.EnvironmentInfo
 }
 
 // New creates a new Orchestrator with the given configuration.
 func New(cfg RunConfig) *Orchestrator {
 	return &Orchestrator{
-		cfg:         cfg,
-		envInfo:     platform.GetEnvironmentInfo(),
-		transformer: transformer.NewRegistry(),
+		cfg:     cfg,
+		envInfo: platform.GetEnvironmentInfo(),
 	}
 }
 
@@ -162,22 +158,12 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 	for _, f := range findings {
 		hash := sha256.Sum256(f.RawData)
 
-		var normData json.RawMessage
-		if o.transformer != nil {
-			var err error
-			normData, err = o.transformer.Transform(f)
-			if err != nil {
-				slog.Warn("orchestrator: transformation failed", "erl_id", f.ErlID, "provider", f.Provider, "error", err)
-			}
-		}
-
 		evidenceSlice = append(evidenceSlice, types.Evidence{
-			ErlID:          f.ErlID,
-			SCFID:          f.SCFID,
-			SourceID:       f.SourceID,
-			Finding:        f,
-			PayloadHash:    hex.EncodeToString(hash[:]),
-			NormalizedData: normData,
+			ErlID:       f.ErlID,
+			SCFID:       f.SCFID,
+			SourceID:    f.SourceID,
+			Finding:     f,
+			PayloadHash: hex.EncodeToString(hash[:]),
 		})
 	}
 
