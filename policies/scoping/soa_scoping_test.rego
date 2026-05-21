@@ -30,22 +30,20 @@ test_applicable_compliant if {
 			}
 		},
 		"findings": {
-			"E-BCM-16": {
-				"src-1": {
-					"raw_data": [
-						{
-							"resource": {
-								"data": {
-									"settings": {
-										"ipConfiguration": {
-											"requireSsl": true
-										}
+			"E-GCP-INVENTORY": {
+				"gcp": [
+					{
+						"resource": {
+							"data": {
+								"settings": {
+									"ipConfiguration": {
+										"requireSsl": true
 									}
 								}
 							}
 						}
-					]
-				}
+					}
+				]
 			}
 		}
 	}
@@ -62,22 +60,20 @@ test_applicable_non_compliant if {
 			}
 		},
 		"findings": {
-			"E-BCM-16": {
-				"src-1": {
-					"raw_data": [
-						{
-							"resource": {
-								"data": {
-									"settings": {
-										"ipConfiguration": {
-											"requireSsl": false
-										}
+			"E-GCP-INVENTORY": {
+				"gcp": [
+					{
+						"resource": {
+							"data": {
+								"settings": {
+									"ipConfiguration": {
+										"requireSsl": false
 									}
 								}
 							}
 						}
-					]
-				}
+					}
+				]
 			}
 		}
 	}

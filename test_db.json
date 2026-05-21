@@ -1,0 +1,22 @@
+{
+	"findings": {
+		"E-GCP-INVENTORY": {
+			"gcp": [
+				{
+					"name": "//sqladmin.googleapis.com/projects/jula-494603/instances/prod-db",
+					"resource": {
+						"data": {
+							"state": "RUNNING",
+							"settings": {
+								"ipConfiguration": {
+									"requireSsl": true
+								},
+								"dataDiskEncryptionType": "PD_SSD"
+							}
+						}
+					}
+				}
+			]
+		}
+	}
+}

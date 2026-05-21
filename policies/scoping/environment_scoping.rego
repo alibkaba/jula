@@ -3,21 +3,16 @@ package compliance.scf.env_01
 import rego.v1
 import data.normalization.gcp.database as db_norm
 
-# Default compliance status
 default compliant = false
 
 scf_id := "ENV-01"
 customer_control_id := "CC-ENV-1"
 
-# Check if environment resources meet the environment-scoping rules
 compliant if {
-	db_checks := input.findings["E-BCM-16"]
-	every _, check in db_checks {
-		all_instances_compliant(check.raw_data)
-	}
+	instances := db_norm.normalized
+	all_instances_compliant(instances)
 }
 
-# Helper to verify if all database instances are compliant
 all_instances_compliant(instances) if {
 	count(instances) == 0
 }
@@ -26,8 +21,7 @@ all_instances_compliant(instances) if {
 	count(instances) > 0
 	non_compliant_count := count([inst |
 		inst := instances[_]
-		normalized := db_norm.normalize(inst.resource.data)
-		not instance_is_compliant(normalized)
+		not instance_is_compliant(inst)
 	])
 	non_compliant_count == 0
 }

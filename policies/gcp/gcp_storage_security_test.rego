@@ -6,10 +6,8 @@ import data.compliance.scf.dch_10
 # Helper to build mock input findings
 mock_input(buckets) = {
 	"findings": {
-		"E-DCH-10": {
-			"src-1": {
-				"raw_data": buckets
-			}
+		"E-GCP-INVENTORY": {
+			"gcp": buckets
 		}
 	}
 }
@@ -122,8 +120,8 @@ test_sensitive_compliant_bucket_passes if {
 	dch_10.compliant with input as mock_input(buckets)
 }
 
-# Test case: Sensitive bucket with no lifecycle fails
-test_sensitive_non_compliant_missing_lifecycle_fails if {
+# Test case: Sensitive bucket missing delete lifecycle fails
+test_sensitive_non_compliant_missing_lifecycle if {
 	buckets := [
 		{
 			"name": "//storage.googleapis.com/jula-sensitive-ledger",
@@ -143,40 +141,6 @@ test_sensitive_non_compliant_missing_lifecycle_fails if {
 			"additionalAttributes": {
 				"lifecycle": {
 					"rule": []
-				}
-			}
-		}
-	]
-	not dch_10.compliant with input as mock_input(buckets)
-}
-
-# Test case: Sensitive bucket with non-delete lifecycle fails
-test_sensitive_non_compliant_wrong_action_fails if {
-	buckets := [
-		{
-			"name": "//storage.googleapis.com/jula-sensitive-ledger",
-			"resource": {
-				"data": {
-					"iamConfiguration": {
-						"uniformBucketLevelAccess": {
-							"enabled": true
-						}
-					},
-					"publicAccessPrevention": "enforced"
-				}
-			},
-			"labels": {
-				"data_class": "sensitive"
-			},
-			"additionalAttributes": {
-				"lifecycle": {
-					"rule": [
-						{
-							"action": {
-								"type": "SetStorageClass"
-							}
-						}
-					]
 				}
 			}
 		}

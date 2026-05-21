@@ -1,0 +1,9 @@
+vendor_name: "github"
+auth_flow:
+  type: "bearer"
+  token_env: "GITHUB_TOKEN"
+endpoints:
+  "/orgs/${GITHUB_ORG}/repos":
+    method: "GET"
+    erl_id: "E-CHG-01"
+    description: "Extract comprehensive organization repository metadata"

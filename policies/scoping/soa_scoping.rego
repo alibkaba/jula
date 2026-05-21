@@ -27,32 +27,18 @@ details := "Control is out of scope per Statement of Applicability" if {
 # If applicable, perform actual verification (e.g. check db ssl requirement)
 compliant if {
 	is_applicable
-	db_checks := input.findings["E-BCM-16"]
-	every _, check in db_checks {
-		every inst in check.raw_data {
-			normalized := db_norm.normalize(inst.resource.data)
-			normalized.require_tls == true
-		}
+	instances := db_norm.normalized
+	every inst in instances {
+		inst.require_tls == true
 	}
 }
 
 details := "Evaluation successfully passed under policy package compliance.scf.soa_01" if {
 	is_applicable
-	db_checks := input.findings["E-BCM-16"]
-	every _, check in db_checks {
-		every inst in check.raw_data {
-			normalized := db_norm.normalize(inst.resource.data)
-			normalized.require_tls == true
-		}
-	}
+	compliant
 }
 
 details := "Evaluation failed: databases missing required SSL configuration" if {
 	is_applicable
-	db_checks := input.findings["E-BCM-16"]
-	# At least one database doesn't require SSL
-	some _, check in db_checks
-	some inst in check.raw_data
-	normalized := db_norm.normalize(inst.resource.data)
-	normalized.require_tls == false
+	not compliant
 }

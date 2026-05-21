@@ -11,10 +11,8 @@ customer_control_id := "CC-TAG-1"
 
 # Check if GCS buckets meet the tag-scoping rule
 compliant if {
-	storage_checks := input.findings["E-DCH-10"]
-	every _, check in storage_checks {
-		all_buckets_compliant(check.raw_data)
-	}
+	buckets := storage_norm.normalized
+	all_buckets_compliant(buckets)
 }
 
 # Helper to verify if all buckets are compliant
@@ -26,8 +24,7 @@ all_buckets_compliant(buckets) if {
 	count(buckets) > 0
 	non_compliant_count := count([b |
 		b := buckets[_]
-		normalized := storage_norm.normalize(b)
-		not bucket_is_compliant(normalized)
+		not bucket_is_compliant(b)
 	])
 	non_compliant_count == 0
 }

@@ -6,10 +6,8 @@ import data.compliance.scf.bcd_11_4
 # Helper to build mock input findings
 mock_input(instances) = {
 	"findings": {
-		"E-BCM-16": {
-			"src-1": {
-				"raw_data": instances
-			}
+		"E-GCP-INVENTORY": {
+			"gcp": instances
 		}
 	}
 }

@@ -6,10 +6,8 @@ import data.compliance.scf.tag_01
 # Helper to build mock input findings
 mock_input(buckets) = {
 	"findings": {
-		"E-DCH-10": {
-			"src-1": {
-				"raw_data": buckets
-			}
+		"E-GCP-INVENTORY": {
+			"gcp": buckets
 		}
 	}
 }

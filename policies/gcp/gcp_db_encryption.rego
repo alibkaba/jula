@@ -12,11 +12,8 @@ customer_control_id := "CC-1.1"
 
 # Check if the database instance configuration meets encryption and SSL rules
 compliant if {
-	# Query raw GCP sql instance configurations directly from input.findings["E-BCM-16"]
-	db_checks := input.findings["E-BCM-16"]
-	every _, check in db_checks {
-		all_instances_encrypted(check.raw_data)
-	}
+	instances := db_norm.normalized
+	all_instances_encrypted(instances)
 }
 
 # Helper to verify if all database instances are encrypted and secured
@@ -29,8 +26,7 @@ all_instances_encrypted(instances) if {
 	# Every instance in the payload must be compliant
 	non_compliant_count := count([inst |
 		inst := instances[_]
-		normalized := db_norm.normalize(inst.resource.data)
-		not instance_is_compliant(normalized)
+		not instance_is_compliant(inst)
 	])
 	non_compliant_count == 0
 }

@@ -1,14 +1,21 @@
-{
-  "kind": "sql#instance",
-  "name": "mock-db-instance",
-  "settings": {
-    "ipConfiguration": {
-      "requireSsl": true,
-      "ipv4Enabled": true
-    },
-    "dataDiskEncryptionType": "PD_SSD",
-    "userLabels": {
-      "environment": "production"
+[
+  {
+    "name": "//sqladmin.googleapis.com/projects/mock/instances/mock-db-instance",
+    "resource": {
+      "data": {
+        "kind": "sql#instance",
+        "state": "RUNNING",
+        "settings": {
+          "ipConfiguration": {
+            "requireSsl": true,
+            "ipv4Enabled": true
+          },
+          "dataDiskEncryptionType": "PD_SSD",
+          "userLabels": {
+            "environment": "production"
+          }
+        }
+      }
     }
   }
-}
+]
