@@ -160,6 +160,32 @@ func TestSignManifest_Negative(t *testing.T) {
 	}
 }
 
+func TestVerifyProvenance_Negative(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	pubKey := &privKey.PublicKey
+	prov := &Provenance{ErlID: "test-run"}
+
+	// Test 1: Nil Public Key
+	_, err := VerifyProvenance(prov, nil)
+	if err == nil || err.Error() != "public key is nil" {
+		t.Errorf("expected 'public key is nil' error, got %v", err)
+	}
+
+	// Test 2: Empty Signature
+	prov.Signature = ""
+	_, err = VerifyProvenance(prov, pubKey)
+	if err == nil || err.Error() != "signature is empty" {
+		t.Errorf("expected 'signature is empty' error, got %v", err)
+	}
+
+	// Test 3: Invalid Hex Signature
+	prov.Signature = "not-a-hex-string"
+	_, err = VerifyProvenance(prov, pubKey)
+	if err == nil || !strings.Contains(err.Error(), "failed to decode signature") {
+		t.Errorf("expected signature decode error, got %v", err)
+	}
+}
+
 func TestVerifyManifest_Negative(t *testing.T) {
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	pubKey := &privKey.PublicKey
