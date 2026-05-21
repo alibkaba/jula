@@ -200,9 +200,9 @@ scf_id := "BCD-11.4"
 customer_control_id := "CC-1"
 
 compliant if {
-	db_checks := input.findings["databases"]
+	db_checks := input.findings["E-BCM-16"]
 	every _, check in db_checks {
-		check.normalized_data.instances[0].resource.data.settings.ipConfiguration.requireSsl == true
+		check.raw_data[0].resource.data.settings.ipConfiguration.requireSsl == true
 	}
 }
 `)

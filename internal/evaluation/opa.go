@@ -33,21 +33,6 @@ type ControlFinding struct {
 	EvaluatedAt       time.Time         `json:"evaluated_at"`
 }
 
-var scfResourceMap = map[string]struct {
-	ResourceType string
-	SubKey       string
-}{
-	"BCD-11.4": {ResourceType: "databases", SubKey: "instances"},
-	"DCH-10":   {ResourceType: "storage", SubKey: "buckets"},
-	"NET-05":   {ResourceType: "network", SubKey: "firewalls"},
-	"CRY-02":   {ResourceType: "kms", SubKey: "keys"},
-	"IAM-03":   {ResourceType: "iam", SubKey: "roles"},
-	"MON-01":   {ResourceType: "monitoring", SubKey: "trails"},
-	"GOV-01":   {ResourceType: "governance", SubKey: "configs"},
-	"AST-01":   {ResourceType: "assets", SubKey: "instances"},
-	"CRY-01":   {ResourceType: "cryptography", SubKey: "encryption"},
-}
-
 // OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
 type OPAEvaluator struct {
 	policyModules map[string]string
@@ -138,7 +123,7 @@ func (e *OPAEvaluator) Compile(ctx context.Context) error {
 }
 
 // EvaluateSCF evaluates compliance for a specific SCF ID using a slice of evidence.
-func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences []types.Evidence) ([]ControlFinding, error) {
+func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) {
 	var findings []ControlFinding
 	now := time.Now().UTC()
 
@@ -154,17 +139,7 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 		regoOptions = append(regoOptions, rego.Module(filename, content))
 	}
 
-	// Normalize evidence findings
-	subKey := "data"
-	resType := "generic"
-	if info, ok := scfResourceMap[scfID]; ok {
-		resType = info.ResourceType
-		subKey = info.SubKey
-	}
-
 	findingsMap := make(map[string]interface{})
-	resMap := make(map[string]interface{})
-	erlMap := make(map[string]map[string]interface{}) // ERL ID-based index
 	for _, ev := range evidences {
 		if ev.SCFID != scfID {
 			continue
@@ -174,45 +149,31 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 			raw = string(ev.Finding.RawData)
 		}
 
-		// Build the normalized_data for OPA input. If the Evidence carries a
-		// transformer-produced NormalizedData field, unmarshal it and use it
-		// directly. Otherwise fall back to the legacy subKey wrapping.
-		var normalizedData interface{}
-		if len(ev.NormalizedData) > 0 && string(ev.NormalizedData) != "null" {
-			var nd interface{}
-			if err := json.Unmarshal(ev.NormalizedData, &nd); err == nil {
-				normalizedData = nd
-			}
-		}
-		if normalizedData == nil {
-			normalizedData = map[string]interface{}{
-				subKey: raw,
-			}
-		}
-
 		entry := map[string]interface{}{
-			"normalized_data": normalizedData,
-			"erl_id":          ev.ErlID,
-			"provider":        ev.Finding.Provider,
-			"timestamp":       ev.Finding.Timestamp,
+			"raw_data":  raw,
+			"erl_id":    ev.ErlID,
+			"provider":  ev.Finding.Provider,
+			"timestamp": ev.Finding.Timestamp,
 		}
 
-		// Legacy index: findings[resType][sourceID]
-		resMap[ev.SourceID] = entry
-
-		// ERL ID index: findings["E-BCM-16"][sourceID]
-		if erlMap[ev.ErlID] == nil {
-			erlMap[ev.ErlID] = make(map[string]interface{})
+		// Group under findingsMap[erlID][sourceID]
+		var sourceMap map[string]interface{}
+		if existing, ok := findingsMap[ev.ErlID]; ok {
+			sourceMap = existing.(map[string]interface{})
+		} else {
+			sourceMap = make(map[string]interface{})
+			findingsMap[ev.ErlID] = sourceMap
 		}
-		erlMap[ev.ErlID][ev.SourceID] = entry
+		sourceMap[ev.SourceID] = entry
 	}
-	findingsMap[resType] = resMap
-	for erlID, sourceMap := range erlMap {
-		findingsMap[erlID] = sourceMap
+
+	if metadata == nil {
+		metadata = make(map[string]interface{})
 	}
 
 	regoInput := map[string]interface{}{
 		"findings": findingsMap,
+		"metadata": metadata,
 	}
 
 	for _, pkgPath := range pkgPaths {

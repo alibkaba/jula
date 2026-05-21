@@ -73,10 +73,10 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 		customer_control_id := "CC-1"
 
 		compliant if {
-			db_checks := input.findings["databases"]
+			db_checks := input.findings["E-BCM-16"]
 			every check in db_checks {
-				count(check.normalized_data.instances) > 0
-				check.normalized_data.instances[0].encrypted == true
+				count(check.raw_data) > 0
+				check.raw_data[0].encrypted == true
 			}
 		}
 	`
@@ -99,7 +99,8 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 		},
 	}
 
-	findings, err := evaluator.EvaluateSCF(ctx, "BCD-11.4", evList)
+	// Test passing nil metadata
+	findings, err := evaluator.EvaluateSCF(ctx, "BCD-11.4", evList, nil)
 	if err != nil {
 		t.Fatalf("EvaluateSCF failed: %v", err)
 	}

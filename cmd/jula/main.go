@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -27,6 +28,7 @@ func runApp(args []string) int {
 	fs := flag.NewFlagSet("jula", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-compliance-policies/policies/)")
+	metadataURLFlag := fs.String("metadata-url", "", "The client metadata file URL or path (e.g. ./client_metadata.json)")
 
 	if err := fs.Parse(args[1:]); err != nil {
 		return 1
@@ -71,6 +73,23 @@ func runApp(args []string) int {
 	if err != nil {
 		slog.Error("evaluator: failed to parse public key PEM", "error", err.Error())
 		return 1
+	}
+
+	// Resolve the target metadata URL.
+	metadataURL := *metadataURLFlag
+	if metadataURL == "" {
+		metadataURL = os.Getenv("JULA_METADATA_URL")
+	}
+
+	var metadata map[string]interface{}
+	if metadataURL != "" {
+		slog.Info("evaluator: loading client metadata", "metadata_url", metadataURL)
+		var err error
+		metadata, err = loadMetadata(metadataURL)
+		if err != nil {
+			slog.Error("evaluator: failed to load client metadata", "error", err.Error())
+			return 1
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -210,7 +229,7 @@ func runApp(args []string) int {
 		}
 
 		// Perform OPA evaluation for the current control
-		findings, err := evaluator.EvaluateSCF(ctx, scfID, evList)
+		findings, err := evaluator.EvaluateSCF(ctx, scfID, evList, metadata)
 		if err != nil {
 			slog.Error("evaluator: policy evaluation error for control", "scf_id", scfID, "error", err.Error())
 			return 1
@@ -259,4 +278,36 @@ func resolveScfIDFromPath(path string) string {
 		}
 	}
 	return ""
+}
+
+func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
+	if pathOrURL == "" {
+		return nil, nil
+	}
+	var data []byte
+	var err error
+	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
+		resp, err := http.Get(pathOrURL)
+		if err != nil {
+			return nil, fmt.Errorf("fetching metadata URL: %w", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("fetching metadata URL returned status: %s", resp.Status)
+		}
+		data, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("reading metadata URL response: %w", err)
+		}
+	} else {
+		data, err = os.ReadFile(pathOrURL)
+		if err != nil {
+			return nil, fmt.Errorf("reading metadata file: %w", err)
+		}
+	}
+	var meta map[string]interface{}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("parsing metadata JSON: %w", err)
+	}
+	return meta, nil
 }
