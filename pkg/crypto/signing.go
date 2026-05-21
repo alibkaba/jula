@@ -42,6 +42,9 @@ func SignManifest(manifest *types.Manifest, signer stdcrypto.Signer) error {
 
 // VerifyManifest verifies the ECDSA signature of a Manifest.
 func VerifyManifest(manifest *types.Manifest, publicKey *ecdsa.PublicKey) (bool, error) {
+	if manifest == nil {
+		return false, fmt.Errorf("manifest is nil")
+	}
 	if publicKey == nil {
 		return false, fmt.Errorf("public key is nil")
 	}

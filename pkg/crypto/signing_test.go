@@ -165,8 +165,14 @@ func TestVerifyManifest_Negative(t *testing.T) {
 	pubKey := &privKey.PublicKey
 	manifest := &types.Manifest{RunID: "test-run"}
 
+	// Test 0: Nil Manifest
+	_, err := VerifyManifest(nil, pubKey)
+	if err == nil || err.Error() != "manifest is nil" {
+		t.Errorf("expected 'manifest is nil' error, got %v", err)
+	}
+
 	// Test 1: Nil Public Key
-	_, err := VerifyManifest(manifest, nil)
+	_, err = VerifyManifest(manifest, nil)
 	if err == nil || err.Error() != "public key is nil" {
 		t.Errorf("expected 'public key is nil' error, got %v", err)
 	}
