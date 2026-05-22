@@ -12,8 +12,8 @@ type Evidence struct {
 	// Duplicated from Finding for flat serialization and path routing.
 	ErlID string `json:"erl_id"`
 
-	// SCFID is the Secure Controls Framework identifier (e.g., "BCD-11.4").
-	SCFID string `json:"scf_id"`
+	// ControlID is the generic control identifier (e.g., "BCD-11.4").
+	ControlID string `json:"control_id"`
 
 	// SourceID is the identifier of the resource source (e.g. GCP project ID or AWS account ID).
 	SourceID string `json:"source_id"`
