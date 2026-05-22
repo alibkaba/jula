@@ -60,7 +60,7 @@ flowchart TB
         direction TB
         APIs["☁️ Cloud & SaaS APIs <br> (AWS, GCP, SaaS)"] -->|1. Extract Configs| Tiers{"Two-Tier Extraction"}
         Tiers -->|Native Go SDKs| Nat["Native Cloud Modules <br> (AWS, GCP, Azure)"]
-        Tiers -->|YAML Blueprints| REST["Universal REST Engine <br> (OpenAPI Blueprints)"]
+        Tiers -->|YAML Integrations| REST["Universal REST Engine <br> (OpenAPI Integrations)"]
         Nat & REST -->|2a. Output Payloads| H["📄 Evidence Payloads <br> (Pure Raw JSON)"]
         KMS["🔑 GCP Secret Manager <br> (Asymmetric Private Key)"] -.->|Sign Manifest & Prov| Sign["Signing Engine"]
         Sign -->|2b. Sign Provenance| P["🛡️ Provenance Sidecars <br> (*.prov.json)"]
@@ -168,7 +168,7 @@ The future Jula Evidence Insights will ingest the OSCAL Assessment Results gener
 
 ## The Continuous Compliance Pipeline
 
-1. **Declare:** Define what you want to extract in declarative YAML configuration files (under `configs/blueprints/`). SaaS integrations are defined using OpenAPI-inspired YAML blueprints mapped to target ERL IDs.
+1. **Declare:** Define what you want to extract in declarative YAML configuration files (under `configs/integrations/`). SaaS integrations are defined using OpenAPI-inspired YAML integrations mapped to target ERL IDs.
 
 2. **Extract & Hash:** The Collector runs queries concurrently. Raw unmodified payloads are saved as `{erl_id}_{provider}_{source_id}.json`. The raw payload is SHA-256 hashed to produce the payload hash.
 
@@ -186,9 +186,9 @@ Jula Controls uses a config-driven schema. Adding new resource checks requires z
 
 * With **Google Cloud (GCP CAI)**, you define resource discovery scopes and asset filters.
 * With **Amazon Web Services (AWS Config)**, you specify SQL queries targeting specific AWS configuration recorders.
-* With **SaaS & External APIs**, you map REST configurations using OpenAPI-inspired YAML blueprints (specifying auth flows like oauth2 or bearer, pagination cursors, header schemas, and ERL ID mappings). Virtual query parameters (`jula_erl=`) are automatically supported to permit mapping a single physical endpoint across multiple unique blueprint registry keys.
+* With **SaaS & External APIs**, you map REST configurations using OpenAPI-inspired YAML integrations (specifying auth flows like oauth2 or bearer, pagination cursors, header schemas, and ERL ID mappings). Virtual query parameters (`jula_erl=`) are automatically supported to permit mapping a single physical endpoint across multiple unique integration registry keys.
 
-### Configuration Example (SaaS OpenAPI Blueprint)
+### Configuration Example (SaaS OpenAPI Integration)
 
 ```yaml
 vendor_name: "github"
