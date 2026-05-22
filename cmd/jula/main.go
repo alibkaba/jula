@@ -20,18 +20,52 @@ import (
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
+// version is set at build time via -ldflags.
+var version = "dev"
+
 func main() {
-	os.Exit(runApp(os.Args))
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(2)
+	}
+
+	switch os.Args[1] {
+	case "run":
+		if err := handleRun(os.Args[2:]); err != nil {
+			slog.Error("run failed", "error", err)
+			os.Exit(1)
+		}
+	case "serve":
+		if err := handleServe(os.Args[2:]); err != nil {
+			slog.Error("serve failed", "error", err)
+			os.Exit(1)
+		}
+	case "version":
+		fmt.Printf("jula %s\n", version)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
+		printUsage()
+		os.Exit(2)
+	}
 }
 
-func runApp(args []string) int {
+func printUsage() {
+	fmt.Fprintln(os.Stderr, `Usage: jula <command> [flags]
+
+Commands:
+  run         Run evaluation pipeline (single-pass, in-memory)
+  serve       Start HTTP server for Cloud Run deployment
+  version     Print binary version and build metadata`)
+}
+
+func handleRun(args []string) error {
 	fs := flag.NewFlagSet("jula", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-compliance-policies/policies/)")
 	metadataURLFlag := fs.String("metadata-url", "", "The client metadata file URL or path (e.g. ./client_metadata.json)")
 
-	if err := fs.Parse(args[1:]); err != nil {
-		return 1
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("flag parse: %w", err)
 	}
 
 	// Setup logging structure.
@@ -45,8 +79,7 @@ func runApp(args []string) int {
 	}
 
 	if bucketURL == "" {
-		slog.Error("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
-		return 1
+		return fmt.Errorf("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
 	// Resolve the target policies URL.
@@ -56,8 +89,7 @@ func runApp(args []string) int {
 	}
 
 	if policyURL == "" {
-		slog.Error("evaluator: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
-		return 1
+		return fmt.Errorf("evaluator: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
 	}
 
 	slog.Info("evaluator: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
@@ -65,14 +97,12 @@ func runApp(args []string) int {
 	// Validate the JULA_PUBLIC_KEY env variable early.
 	pubKeyPEM := os.Getenv("JULA_PUBLIC_KEY")
 	if pubKeyPEM == "" {
-		slog.Error("evaluator: missing public key: JULA_PUBLIC_KEY environment variable is required for gatekeeper signature verification")
-		return 1
+		return fmt.Errorf("evaluator: missing public key: JULA_PUBLIC_KEY environment variable is required for gatekeeper signature verification")
 	}
 
 	pubKey, err := intCrypto.ParseECDSAPublicKey(pubKeyPEM)
 	if err != nil {
-		slog.Error("evaluator: failed to parse public key PEM", "error", err.Error())
-		return 1
+		return fmt.Errorf("evaluator: failed to parse public key PEM: %w", err)
 	}
 
 	// Resolve the target metadata URL.
@@ -87,8 +117,7 @@ func runApp(args []string) int {
 		var err error
 		metadata, err = loadMetadata(metadataURL)
 		if err != nil {
-			slog.Error("evaluator: failed to load client metadata", "error", err.Error())
-			return 1
+			return fmt.Errorf("evaluator: failed to load client metadata: %w", err)
 		}
 	}
 
@@ -100,15 +129,13 @@ func runApp(args []string) int {
 	// 1. Initialize the ingestion reader.
 	reader := ingestion.NewGCSReader(&http.Client{Timeout: 30 * time.Second})
 	if err := reader.Initialize(bucketURL); err != nil {
-		slog.Error("evaluator: failed to initialize GCS downloader", "error", err.Error())
-		return 1
+		return fmt.Errorf("evaluator: failed to initialize GCS downloader: %w", err)
 	}
 
 	// 2. Download the Manifest.
 	manifest, err := reader.ReadManifest(ctx, bucketURL)
 	if err != nil {
-		slog.Error("evaluator: failed to download manifest.json", "error", err.Error())
-		return 1
+		return fmt.Errorf("evaluator: failed to download manifest.json: %w", err)
 	}
 
 	slog.Info("evaluator: downloaded manifest successfully",
@@ -120,8 +147,7 @@ func runApp(args []string) int {
 
 	// 3. Cryptographically verify the manifest signature.
 	if err := intCrypto.VerifyManifestSignature(manifest, pubKey); err != nil {
-		slog.Error("evaluator: signature verification failed", "error", err.Error())
-		return 1
+		return fmt.Errorf("evaluator: signature verification failed: %w", err)
 	}
 	slog.Info("evaluator: manifest signature verified successfully against JULA_PUBLIC_KEY")
 
@@ -133,14 +159,12 @@ func runApp(args []string) int {
 
 	// 3. Load policy files from target path.
 	if err := evaluator.LoadPolicies(policyURL); err != nil {
-		slog.Error("evaluator: failed to load OPA policies", "error", err.Error())
-		return 1
+		return fmt.Errorf("evaluator: failed to load OPA policies: %w", err)
 	}
 
 	// 4. Compile loaded rules in memory and map SCF/ERL targets.
 	if err := evaluator.Compile(ctx); err != nil {
-		slog.Error("evaluator: failed to compile OPA policies", "error", err.Error())
-		return 1
+		return fmt.Errorf("evaluator: failed to compile OPA policies: %w", err)
 	}
 
 	// --- Phase 3: Sequential Evaluation Loop ---
@@ -168,14 +192,12 @@ func runApp(args []string) int {
 		// Ingest only the files for this specific control in memory
 		payloads, err := reader.ReadPayloads(ctx, bucketURL, files)
 		if err != nil {
-			slog.Error("evaluator: failed to download evidence payloads for control", "scf_id", scfID, "error", err.Error())
-			return 1
+			return fmt.Errorf("evaluator: failed to download evidence payloads for control %s: %w", scfID, err)
 		}
 
 		// Gatekeeper validation: verify raw content hashes against manifest checksums
 		if err := intCrypto.VerifyPayloads(files, payloads); err != nil {
-			slog.Error("evaluator: GATEKEEPER FAILURE - file hash mismatch", "scf_id", scfID, "error", err.Error())
-			return 1
+			return fmt.Errorf("evaluator: GATEKEEPER FAILURE - file hash mismatch for control %s: %w", scfID, err)
 		}
 
 		// Cryptographically verify provenance sidecars for evidence files
@@ -191,22 +213,18 @@ func runApp(args []string) int {
 			}
 			var prov pkgCrypto.Provenance
 			if err := json.Unmarshal(provBytes, &prov); err != nil {
-				slog.Error("evaluator: failed to parse provenance sidecar", "file", provPath, "error", err.Error())
-				return 1
+				return fmt.Errorf("evaluator: failed to parse provenance sidecar %s: %w", provPath, err)
 			}
 			okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
 			if err != nil || !okSignature {
-				slog.Error("evaluator: provenance signature is INVALID", "file", provPath, "error", err)
-				return 1
+				return fmt.Errorf("evaluator: provenance signature is INVALID for %s: %w", provPath, err)
 			}
 			var ev types.Evidence
 			if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
-				slog.Error("evaluator: failed to unmarshal evidence payload for provenance check", "file", f.Path, "error", err.Error())
-				return 1
+				return fmt.Errorf("evaluator: failed to unmarshal evidence payload for provenance check %s: %w", f.Path, err)
 			}
 			if prov.PayloadHash != ev.PayloadHash {
-				slog.Error("evaluator: provenance payload hash mismatch", "file", provPath, "expected", prov.PayloadHash, "actual", ev.PayloadHash)
-				return 1
+				return fmt.Errorf("evaluator: provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
 			}
 			slog.Info("evaluator: successfully verified provenance sidecar", "file", provPath)
 		}
@@ -219,8 +237,7 @@ func runApp(args []string) int {
 			}
 			var ev types.Evidence
 			if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
-				slog.Error("evaluator: failed to unmarshal evidence payload", "file", f.Path, "error", err.Error())
-				return 1
+				return fmt.Errorf("evaluator: failed to unmarshal evidence payload %s: %w", f.Path, err)
 			}
 			if ev.SCFID == "" {
 				ev.SCFID = scfID
@@ -231,8 +248,7 @@ func runApp(args []string) int {
 		// Perform OPA evaluation for the current control
 		findings, err := evaluator.EvaluateSCF(ctx, scfID, evList, metadata)
 		if err != nil {
-			slog.Error("evaluator: policy evaluation error for control", "scf_id", scfID, "error", err.Error())
-			return 1
+			return fmt.Errorf("evaluator: policy evaluation error for control %s: %w", scfID, err)
 		}
 
 		allFindings = append(allFindings, findings...)
@@ -262,12 +278,12 @@ func runApp(args []string) int {
 	if hasFailures {
 		slog.Error("evaluator: compliance audit FAILED - security issues detected!")
 		fmt.Println("STATUS: NON_COMPLIANT")
-		return 1
+		return fmt.Errorf("compliance audit failed")
 	}
 
 	slog.Info("evaluator: compliance audit SUCCESSFUL - system is fully secure!")
 	fmt.Println("STATUS: COMPLIANT")
-	return 0
+	return nil
 }
 
 func resolveScfIDFromPath(path string) string {

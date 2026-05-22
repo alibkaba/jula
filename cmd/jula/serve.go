@@ -1,0 +1,67 @@
+package main
+
+import (
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"time"
+)
+
+// newServeMux creates the HTTP handler for the serve command.
+// Extracted for testability.
+func newServeMux() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"status":"ok"}`)
+	})
+
+	mux.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		slog.Info("serve: /run endpoint invoked, starting pipeline")
+		start := time.Now()
+
+		if err := handleRun([]string{}); err != nil {
+			slog.Error("serve: pipeline failed", "error", err, "duration", time.Since(start))
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			return
+		}
+
+		duration := time.Since(start)
+		slog.Info("serve: pipeline completed", "duration", duration)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status":"completed","duration":"%s"}`, duration)
+	})
+
+	return mux
+}
+
+// handleServe starts a lightweight HTTP server for Cloud Run.
+// POST /run triggers the full evidence collection pipeline.
+// GET  /health returns 200 OK for liveness probes.
+func handleServe(args []string) error {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	mux := newServeMux()
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      6 * time.Minute,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	slog.Info("serve: starting HTTP server", "port", port)
+	return server.ListenAndServe()
+}
