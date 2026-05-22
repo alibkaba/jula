@@ -37,20 +37,20 @@ func generateMockKeyPair() (*ecdsa.PrivateKey, string, error) {
 func TestRunApp_MissingBucketURL(t *testing.T) {
 	t.Setenv("JULA_BUCKET_URL", "")
 	t.Setenv("JULA_POLICY_URL", "policies/")
-	args := []string{"jula", "--policy-url", "policies/"}
-	exitCode := runApp(args)
-	if exitCode != 1 {
-		t.Errorf("expected exit code 1 for missing bucket URL, got %d", exitCode)
+	args := []string{"--policy-url", "policies/"}
+	err := handleRun(args)
+	if err == nil {
+		t.Errorf("expected error for missing bucket URL, got nil")
 	}
 }
 
 func TestRunApp_MissingPolicyURL(t *testing.T) {
 	t.Setenv("JULA_BUCKET_URL", "gs://mock-bucket")
 	t.Setenv("JULA_POLICY_URL", "")
-	args := []string{"jula", "--bucket-url", "gs://mock-bucket"}
-	exitCode := runApp(args)
-	if exitCode != 1 {
-		t.Errorf("expected exit code 1 for missing policy URL, got %d", exitCode)
+	args := []string{"--bucket-url", "gs://mock-bucket"}
+	err := handleRun(args)
+	if err == nil {
+		t.Errorf("expected error for missing policy URL, got nil")
 	}
 }
 
@@ -58,10 +58,10 @@ func TestRunApp_MissingPublicKey(t *testing.T) {
 	t.Setenv("JULA_BUCKET_URL", "gs://mock-bucket")
 	t.Setenv("JULA_POLICY_URL", "policies/")
 	t.Setenv("JULA_PUBLIC_KEY", "")
-	args := []string{"jula", "--bucket-url", "gs://mock-bucket", "--policy-url", "policies/"}
-	exitCode := runApp(args)
-	if exitCode != 1 {
-		t.Errorf("expected exit code 1 for missing public key, got %d", exitCode)
+	args := []string{"--bucket-url", "gs://mock-bucket", "--policy-url", "policies/"}
+	err := handleRun(args)
+	if err == nil {
+		t.Errorf("expected error for missing public key, got nil")
 	}
 }
 
@@ -69,10 +69,10 @@ func TestRunApp_InvalidPublicKey(t *testing.T) {
 	t.Setenv("JULA_BUCKET_URL", "gs://mock-bucket")
 	t.Setenv("JULA_POLICY_URL", "policies/")
 	t.Setenv("JULA_PUBLIC_KEY", "invalid-pem-key")
-	args := []string{"jula", "--bucket-url", "gs://mock-bucket", "--policy-url", "policies/"}
-	exitCode := runApp(args)
-	if exitCode != 1 {
-		t.Errorf("expected exit code 1 for invalid public key, got %d", exitCode)
+	args := []string{"--bucket-url", "gs://mock-bucket", "--policy-url", "policies/"}
+	err := handleRun(args)
+	if err == nil {
+		t.Errorf("expected error for invalid public key, got nil")
 	}
 }
 
@@ -210,16 +210,15 @@ compliant if {
 		t.Fatalf("failed to write policy file: %v", err)
 	}
 
-	// 7. Run runApp with these resources!
+	// 7. Run handleRun with these resources!
 	args := []string{
-		"jula",
 		"--bucket-url", "file://" + mockBucket,
 		"--policy-url", mockPolicies,
 	}
 
-	exitCode := runApp(args)
-	if exitCode != 0 {
-		t.Errorf("expected exit code 0 (compliant audit), got %d", exitCode)
+	err = handleRun(args)
+	if err != nil {
+		t.Errorf("expected nil error (compliant audit), got %v", err)
 	}
 }
 
