@@ -3,8 +3,8 @@ base_url: "https://app.aikido.dev/api/public/v1"
 auth_flow:
   type: "oauth2"
   token_url: "https://app.aikido.dev/api/oauth/token"
-  client_id_env: "AIKIDO_CLIENT_ID"
-  client_secret_env: "AIKIDO_CLIENT_SECRET"
+  client_id_env: "AIK_CLIENT_ID"
+  client_secret_env: "AIK_SECRET_KEY"
 endpoints:
   "/issues/export?jula_erl=E-VPM-01":
     erl_id: "E-VPM-01"
