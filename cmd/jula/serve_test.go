@@ -3,7 +3,9 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 )
 
 func TestServeMux_Health(t *testing.T) {
@@ -36,4 +38,16 @@ func TestServeMux_Run_MethodNotAllowed(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusMethodNotAllowed)
 	}
+}
+
+func TestHandleServe(t *testing.T) {
+	os.Setenv("PORT", "0") // Port 0 binds to a random available port
+	defer os.Unsetenv("PORT")
+
+	errCh := make(chan error)
+	go func() {
+		errCh <- handleServe([]string{})
+	}()
+	
+	time.Sleep(100 * time.Millisecond) // Give the server a moment to start
 }

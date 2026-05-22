@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -239,3 +240,36 @@ func TestResolvers_Main(t *testing.T) {
 		}
 	}
 }
+
+func TestPrintUsage(t *testing.T) {
+	printUsage() // just ensure it doesn't panic
+}
+
+func TestLoadMetadata(t *testing.T) {
+	// Test nonexistent file
+	_, err := loadMetadata("nonexistent.yaml")
+	if err == nil {
+		t.Errorf("expected error for non-existent file")
+	}
+
+	// Test valid file
+	meta, err := loadMetadata("metadata_test.json")
+	if err != nil {
+		t.Errorf("expected no error for valid file, got %v", err)
+	}
+	if meta["key"] != "value" {
+		t.Errorf("expected key to be value")
+	}
+}
+
+func TestDownloadPolicies_LocalPath(t *testing.T) {
+	ctx := context.Background()
+	path, err := downloadPolicies(ctx, "local/path/to/policies")
+	if err != nil {
+		t.Errorf("expected no error for local path, got %v", err)
+	}
+	if path != "local/path/to/policies" {
+		t.Errorf("expected path to be returned unmodified")
+	}
+}
+

@@ -39,6 +39,18 @@ func TestParseECDSAPublicKey(t *testing.T) {
 	if parsedPub.X.Cmp(priv.PublicKey.X) != 0 || parsedPub.Y.Cmp(priv.PublicKey.Y) != 0 {
 		t.Errorf("parsed key does not match original key")
 	}
+
+	// Test invalid PEM
+	_, err = ParseECDSAPublicKey("invalid-pem")
+	if err == nil {
+		t.Errorf("expected error for invalid PEM")
+	}
+
+	// Test invalid PEM
+	_, err = ParseECDSAPublicKey("invalid-pem")
+	if err == nil {
+		t.Errorf("expected error for invalid PEM")
+	}
 }
 
 func TestVerifyManifestSignatureAndPayloads(t *testing.T) {
