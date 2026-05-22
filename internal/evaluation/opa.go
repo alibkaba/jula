@@ -141,9 +141,6 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 
 	findingsMap := make(map[string]interface{})
 	for _, ev := range evidences {
-		if ev.SCFID != scfID {
-			continue
-		}
 		var raw interface{}
 		if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
 			raw = string(ev.Finding.RawData)
