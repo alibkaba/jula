@@ -88,9 +88,12 @@ The `auth_flow` block supports two strategies:
 
 ### 3. Endpoint Mapping
 
+> [!IMPORTANT]
+> **OSCAL Evidence Enforcement:** You must ONLY add endpoints that strictly satisfy an Evidence Request List (ERL) ID defined in the official OSCAL Assessment Plan (`schemas/oscal/oscal-assessment-plan-2026.1.json`). Do not pull in generic endpoints (e.g., SOC2 overviews, user lists, etc.) unless they directly tie to an OSCAL ERL requirement. Evidence without an associated OSCAL mapping brings no value to the audit process.
+
 Map each compliance-relevant API endpoint to an ERL ID. When reading an OpenAPI/Swagger specification:
 
-- Identify GET endpoints that return resource configurations, inventories, scan results, or audit data.
+- Identify GET endpoints that return resource configurations, inventories, scan results, or audit data that map to OSCAL ERLs.
 - Determine if the endpoint supports pagination (check for Link headers in the spec or `next` fields in response schemas).
 - Set `allow_404: true` for endpoints that return optional resources (e.g., a CODEOWNERS file that may not exist).
 
