@@ -82,8 +82,8 @@ func handleRun(args []string) error {
 		return fmt.Errorf("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
-	// Append today's date if the bucketURL is just the root bucket.
-	if !strings.Contains(bucketURL, "20") { // naive check for YYYY
+	// Append today's date if the bucketURL is just the root GCS bucket.
+	if strings.HasPrefix(bucketURL, "gs://") && !strings.Contains(bucketURL, "20") { // naive check for YYYY
 		if !strings.HasSuffix(bucketURL, "/") {
 			bucketURL += "/"
 		}
