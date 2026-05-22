@@ -396,6 +396,9 @@ func downloadPolicies(ctx context.Context, url string) (string, error) {
 			return "", fmt.Errorf("invalid file path %s", header.Name)
 		}
 		target := filepath.Join(tmpDir, cleanName)
+		if !strings.HasPrefix(target, filepath.Clean(tmpDir)+string(filepath.Separator)) {
+			return "", fmt.Errorf("invalid path: path traversal detected in %s", header.Name)
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
