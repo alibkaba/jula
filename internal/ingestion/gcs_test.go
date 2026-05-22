@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -434,5 +435,171 @@ func TestGCSReader_WriteFileLocal(t *testing.T) {
 
 	if string(writtenData) != string(testData) {
 		t.Errorf("Expected written data to be %q, got %q", string(testData), string(writtenData))
+	}
+}
+func TestGCSReader_WriteFileGCS(t *testing.T) {
+	tests := []struct {
+		name        string
+		bucketURL   string
+		fileName    string
+		mockClient  *http.Client
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:      "success without folder",
+			bucketURL: "gs://my-bucket",
+			fileName:  "file.txt",
+			mockClient: &http.Client{
+				Transport: &mockRoundTripper{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						if req.Method != http.MethodPost {
+							t.Errorf("Expected POST request, got %s", req.Method)
+						}
+						if !strings.Contains(req.URL.String(), "uploadType=media&name=file.txt") {
+							t.Errorf("Unexpected URL: %s", req.URL.String())
+						}
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewReader([]byte("{}"))),
+						}, nil
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:      "success with folder",
+			bucketURL: "gs://my-bucket/my-folder",
+			fileName:  "file.txt",
+			mockClient: &http.Client{
+				Transport: &mockRoundTripper{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						if req.Method != http.MethodPost {
+							t.Errorf("Expected POST request, got %s", req.Method)
+						}
+						if !strings.Contains(req.URL.String(), "name=my-folder%2Ffile.txt") {
+							t.Errorf("Unexpected URL: %s", req.URL.String())
+						}
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewReader([]byte("{}"))),
+						}, nil
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:      "http request failure",
+			bucketURL: "gs://my-bucket",
+			fileName:  "file.txt",
+			mockClient: &http.Client{
+				Transport: &mockRoundTripper{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return nil, errors.New("network error")
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "GCS upload request failed",
+		},
+		{
+			name:      "non-200 status error",
+			bucketURL: "gs://my-bucket",
+			fileName:  "file.txt",
+			mockClient: &http.Client{
+				Transport: &mockRoundTripper{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewReader([]byte("server error"))),
+						}, nil
+					},
+				},
+			},
+			wantErr:     true,
+			errContains: "GCS upload API returned HTTP 500",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := NewGCSReader(tt.mockClient)
+			// Mock token since we aren't testing auth here
+			reader.token = "mock-token"
+			err := reader.WriteFile(context.Background(), tt.bucketURL, tt.fileName, []byte("data"))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WriteFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr && err != nil && !strings.Contains(err.Error(), tt.errContains) {
+				t.Errorf("WriteFile() error = %v, expected to contain %v", err, tt.errContains)
+			}
+		})
+	}
+}
+func TestGCSReader_ReadPayloads_Errors(t *testing.T) {
+	tests := []struct {
+		name       string
+		bucketURL  string
+		mockClient *http.Client
+		files      []types.FileChecksum
+		ctx        context.Context
+	}{
+		{
+			name:      "context cancellation",
+			bucketURL: "gs://my-bucket",
+			mockClient: &http.Client{
+				Transport: &mockRoundTripper{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewReader([]byte("{}"))),
+						}, nil
+					},
+				},
+			},
+			files: []types.FileChecksum{{Path: "file1.txt"}, {Path: "file2.txt"}, {Path: "file3.txt"}, {Path: "file4.txt"}, {Path: "file5.txt"}, {Path: "file6.txt"}, {Path: "file7.txt"}, {Path: "file8.txt"}, {Path: "file9.txt"}, {Path: "file10.txt"}, {Path: "file11.txt"}},
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Immediately cancel
+				return ctx
+			}(),
+		},
+		{
+			name:       "local file read error",
+			bucketURL:  "file:///non/existent/dir",
+			mockClient: nil,
+			files:      []types.FileChecksum{{Path: "file1.txt"}},
+			ctx:        context.Background(),
+		},
+		{
+			name:      "gcs download error",
+			bucketURL: "gs://my-bucket",
+			mockClient: &http.Client{
+				Transport: &mockRoundTripper{
+					roundTripFunc: func(req *http.Request) (*http.Response, error) {
+						return nil, errors.New("download failed")
+					},
+				},
+			},
+			files: []types.FileChecksum{{Path: "file1.txt"}},
+			ctx:   context.Background(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := NewGCSReader(tt.mockClient)
+			// Mock Initialize behavior
+			reader.isLocal = strings.HasPrefix(tt.bucketURL, "file://")
+			reader.token = "mock-token"
+
+			_, err := reader.ReadPayloads(tt.ctx, tt.bucketURL, tt.files)
+			if err == nil {
+				t.Errorf("ReadPayloads() expected error for test case: %s", tt.name)
+			}
+		})
 	}
 }
