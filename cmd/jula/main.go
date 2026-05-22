@@ -1,6 +1,8 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"flag"
@@ -9,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -164,9 +167,15 @@ func handleRun(args []string) error {
 	// 1. Initialize OPA Evaluator.
 	evaluator := evaluation.NewOPAEvaluator()
 
+	// 2. Download and extract policies from GitHub tarball.
+	slog.Info("evaluator: fetching policies", "url", policyURL)
+	policiesDir, err := downloadPolicies(ctx, policyURL)
+	if err != nil {
+		return fmt.Errorf("evaluator: failed to download policies: %w", err)
+	}
 
 	// 3. Load policy files from target path.
-	if err := evaluator.LoadPolicies(policyURL); err != nil {
+	if err := evaluator.LoadPolicies(policiesDir); err != nil {
 		return fmt.Errorf("evaluator: failed to load OPA policies: %w", err)
 	}
 
@@ -334,4 +343,80 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("parsing metadata JSON: %w", err)
 	}
 	return meta, nil
+}
+
+func downloadPolicies(ctx context.Context, url string) (string, error) {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return url, nil // Already a local path
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating request: %w", err)
+	}
+
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetching policies: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status fetching policies: %s", resp.Status)
+	}
+
+	tmpDir, err := os.MkdirTemp("", "jula-policies-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+
+	gzr, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("creating gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("reading tar header: %w", err)
+		}
+
+		cleanName := filepath.Clean(header.Name)
+		if strings.Contains(cleanName, "..") || filepath.IsAbs(cleanName) {
+			return "", fmt.Errorf("invalid file path %s", header.Name)
+		}
+		target := filepath.Join(tmpDir, cleanName)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return "", err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return "", err
+			}
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return "", err
+			}
+			if _, err := io.Copy(f, tr); err != nil {
+				f.Close()
+				return "", err
+			}
+			f.Close()
+		}
+	}
+
+	return tmpDir, nil
 }
