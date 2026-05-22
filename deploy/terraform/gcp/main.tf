@@ -243,6 +243,10 @@ resource "google_cloud_run_v2_service" "jula" {
         value = "jula-evidence-collector"
       }
       env {
+        name  = "JULA_INTEGRATION_URL"
+        value = "https://api.github.com/repos/${var.github_org}/jula-compliance-policies/tarball/main"
+      }
+      env {
         name = "GITHUB_TOKEN"
         value_source {
           secret_key_ref {

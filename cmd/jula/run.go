@@ -170,8 +170,18 @@ func resolveConfigPath(envKey, defaultPath string) string {
 	return path
 }
 
-func fetchIntegrationsMap(url string) (map[string][]byte, error) {
-	resp, err := http.Get(url)
+func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http get: %w", err)
 	}
@@ -200,11 +210,21 @@ func fetchIntegrationsMap(url string) (map[string][]byte, error) {
 		}
 
 		if header.Typeflag == tar.TypeReg {
+			// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-compliance-policies-12345/integrations/...').
+			// We strip the first path segment to normalize the keys to 'integrations/...'.
+			parts := strings.SplitN(header.Name, "/", 2)
+			if len(parts) != 2 || !strings.HasPrefix(parts[1], "integrations/") {
+				continue // Skip files not under integrations/
+			}
+			
+			// Use the stripped path (e.g., 'integrations/universal_cloud/gcp_cai.yaml')
+			normalizedName := parts[1]
+
 			data, err := io.ReadAll(tr)
 			if err != nil {
 				return nil, fmt.Errorf("reading file %s: %w", header.Name, err)
 			}
-			result[header.Name] = data
+			result[normalizedName] = data
 		}
 	}
 
