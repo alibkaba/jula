@@ -26,9 +26,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy the static binary from the build stage.
 COPY --from=builder /jula /jula
 
-# Copy the mapping configs (required at runtime).
-COPY --from=builder /build/configs /configs
-
 USER 65532:65532
 
 ENTRYPOINT ["/jula"]

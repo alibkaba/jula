@@ -115,7 +115,8 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 
 	// --- Universal Cloud Provider ---
 	cloudDir := filepath.Join(o.cfg.IntegrationDir, "universal_cloud")
-	if _, err := os.Stat(cloudDir); err == nil {
+	_, cloudErr := os.Stat(cloudDir)
+	if len(o.cfg.IntegrationMap) > 0 || cloudErr == nil {
 		cloudJobs, err := o.buildUniversalCloudJobs(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("universal_cloud initialization failed: %w", err)
@@ -125,7 +126,8 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 
 	// --- Universal REST Integrations Provider ---
 	restDir := filepath.Join(o.cfg.IntegrationDir, "universal_rest")
-	if _, err := os.Stat(restDir); err == nil {
+	_, restErr := os.Stat(restDir)
+	if len(o.cfg.IntegrationMap) > 0 || restErr == nil {
 		saasJobs, err := o.buildUniversalRESTJobs()
 		if err != nil {
 			slog.Warn("orchestrator: skipping REST integrations provider", "error", err)
