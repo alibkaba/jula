@@ -35,7 +35,7 @@ type RunConfig struct {
 // It abstracts over provider-specific details so the orchestrator can
 // dispatch GCP, AWS, and SaaS extractions through a single concurrent loop.
 type extractionJob struct {
-	scfID       string
+	controlID   string
 	erlID       string
 	description string
 	execute     func(ctx context.Context) ([]types.Finding, error)
@@ -151,7 +151,7 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 
 		evidenceSlice = append(evidenceSlice, types.Evidence{
 			ErlID:       f.ErlID,
-			SCFID:       f.SCFID,
+			ControlID:   f.ControlID,
 			SourceID:    f.SourceID,
 			Finding:     f,
 			PayloadHash: hex.EncodeToString(hash[:]),
@@ -299,7 +299,7 @@ func (o *Orchestrator) buildUniversalCloudJobs(ctx context.Context) ([]extractio
 			p := erlPath
 			c := epCfg
 			jobs = append(jobs, extractionJob{
-				scfID:       strings.TrimPrefix(c.ErlID, "E-"),
+				controlID:   strings.TrimPrefix(c.ErlID, "E-"),
 				erlID:       c.ErlID,
 				description: c.Description,
 				execute: func(ctx context.Context) ([]types.Finding, error) {
@@ -308,7 +308,7 @@ func (o *Orchestrator) buildUniversalCloudJobs(ctx context.Context) ([]extractio
 						return nil, err
 					}
 					for i := range findings {
-						findings[i].SCFID = strings.TrimPrefix(c.ErlID, "E-")
+						findings[i].ControlID = strings.TrimPrefix(c.ErlID, "E-")
 						findings[i].SourceID = getAWSSourceID() // Use a generic cloud source ID resolver if needed
 					}
 					return findings, nil
@@ -377,7 +377,7 @@ func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
 			p := erlPath
 			c := epCfg
 			jobs = append(jobs, extractionJob{
-				scfID:       strings.TrimPrefix(c.ErlID, "E-"),
+				controlID:   strings.TrimPrefix(c.ErlID, "E-"),
 				erlID:       c.ErlID,
 				description: c.Description,
 				execute: func(ctx context.Context) ([]types.Finding, error) {
@@ -386,7 +386,7 @@ func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
 						return nil, err
 					}
 					for i := range findings {
-						findings[i].SCFID = strings.TrimPrefix(c.ErlID, "E-")
+						findings[i].ControlID = strings.TrimPrefix(c.ErlID, "E-")
 						findings[i].SourceID = getSaaSSourceID(integCopy.VendorName)
 					}
 					return findings, nil

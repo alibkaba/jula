@@ -20,12 +20,12 @@ func testEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
 			ErlID:       "E-TEST-01",
-			SCFID:       "SCF-1",
+			ControlID:   "CTRL-1",
 			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
 				ErlID:     "E-TEST-01",
-				SCFID:     "SCF-1",
+				ControlID: "CTRL-1",
 				SourceID:  "src-1",
 				Provider:  "gcp_cai",
 				RawData:   []byte(`{"status":"ok"}`),
@@ -35,12 +35,12 @@ func testEvidence() []types.Evidence {
 		},
 		{
 			ErlID:       "E-TEST-02",
-			SCFID:       "SCF-2",
+			ControlID:   "CTRL-2",
 			SourceID:    "src-2",
 			PayloadHash: "def456hash",
 			Finding: types.Finding{
 				ErlID:     "E-TEST-02",
-				SCFID:     "SCF-2",
+				ControlID: "CTRL-2",
 				SourceID:  "src-2",
 				Provider:  "aws_config",
 				RawData:   []byte(`{"status":"ok"}`),
@@ -157,7 +157,7 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 	}
 
 	runDate := time.Now().UTC().Format("2006-01-02")
-	filePath := filepath.Join(tmpDir, runDate, "evidence", "SCF-1", "E-TEST-01_gcp_cai_src-1.json")
+	filePath := filepath.Join(tmpDir, runDate, "evidence", "CTRL-1", "E-TEST-01_gcp_cai_src-1.json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {

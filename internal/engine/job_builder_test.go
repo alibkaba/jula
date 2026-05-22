@@ -53,8 +53,8 @@ endpoints:
 		t.Errorf("expected erlID E-TEST-SaaS, got %s", jobs[0].erlID)
 	}
 
-	if jobs[0].scfID != "TEST-SaaS" {
-		t.Errorf("expected scfID TEST-SaaS, got %s", jobs[0].scfID)
+	if jobs[0].controlID != "TEST-SaaS" {
+		t.Errorf("expected controlID TEST-SaaS, got %s", jobs[0].controlID)
 	}
 }
 

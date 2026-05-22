@@ -56,13 +56,13 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		default:
 		}
 
-		sanitizedSCFID := filepath.Base(ev.SCFID)
+		sanitizedControlID := filepath.Base(ev.ControlID)
 		sanitizedErlID := filepath.Base(ev.ErlID)
 		sanitizedProvider := filepath.Base(ev.Finding.Provider)
 		sanitizedSourceID := filepath.Base(ev.SourceID)
 
-		// Build the SCF-based directory path.
-		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", sanitizedSCFID)
+		// Build the Control-based directory path.
+		dirPath := filepath.Join(r.OutputDir, runDate, "evidence", sanitizedControlID)
 		if err := os.MkdirAll(dirPath, 0700); err != nil {
 			return nil, fmt.Errorf("creating directory %s: %w", dirPath, err)
 		}
@@ -111,14 +111,14 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		// Record evidence in manifest.
-		relativePath := filepath.Join(runDate, "evidence", sanitizedSCFID, fileName)
+		relativePath := filepath.Join(runDate, "evidence", sanitizedControlID, fileName)
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 			Path:   relativePath,
 			SHA256: crypto.HashFile(data),
 		})
 
 		// Record provenance in manifest.
-		provRelativePath := filepath.Join(runDate, "evidence", sanitizedSCFID, provFileName)
+		provRelativePath := filepath.Join(runDate, "evidence", sanitizedControlID, provFileName)
 		manifest.EvidenceFiles = append(manifest.EvidenceFiles, types.FileChecksum{
 			Path:   provRelativePath,
 			SHA256: crypto.HashFile(provData),
@@ -127,7 +127,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		slog.Debug("reporter: wrote evidence and provenance files",
 			"path", filePath,
 			"prov_path", provFilePath,
-			"scf_id", ev.SCFID,
+			"control_id", ev.ControlID,
 		)
 	}
 

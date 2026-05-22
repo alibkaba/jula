@@ -24,12 +24,12 @@ func gcsTestEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
 			ErlID:       "E-TEST-01",
-			SCFID:       "SCF-1",
+			ControlID:   "CTRL-1",
 			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
 				ErlID:     "E-TEST-01",
-				SCFID:     "SCF-1",
+				ControlID: "CTRL-1",
 				SourceID:  "src-1",
 				Provider:  "gcp",
 				RawData:   []byte(`{"status":"ok"}`),

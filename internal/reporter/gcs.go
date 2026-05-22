@@ -113,14 +113,14 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
 		}
 
-		sanitizedSCFID := filepath.Base(ev.SCFID)
+		sanitizedControlID := filepath.Base(ev.ControlID)
 		sanitizedErlID := filepath.Base(ev.ErlID)
 		sanitizedProvider := filepath.Base(ev.Finding.Provider)
 		sanitizedSourceID := filepath.Base(ev.SourceID)
 
 		// Predictable namespace filename
 		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
-		objectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedSCFID, fileName)
+		objectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedControlID, fileName)
 
 		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
@@ -149,7 +149,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 
 		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
-		provObjectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedSCFID, provFileName)
+		provObjectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedControlID, provFileName)
 
 		if err := r.uploadObject(ctx, provObjectName, provData, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading provenance %s: %w", provObjectName, err)
@@ -168,7 +168,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		slog.Debug("gcs: uploaded evidence and provenance",
 			"object", objectName,
 			"prov_object", provObjectName,
-			"scf_id", sanitizedSCFID,
+			"control_id", sanitizedControlID,
 		)
 	}
 
