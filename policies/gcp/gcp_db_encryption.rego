@@ -1,7 +1,7 @@
 package compliance.scf.bcd_11_4
 
 import rego.v1
-import data.normalization.gcp.database as db_norm
+import data.transformer.gcp.database as db_norm
 
 # Default compliance status
 default compliant = false

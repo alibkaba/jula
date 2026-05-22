@@ -1,4 +1,4 @@
-package normalization.aikido.issues
+package transformer.aikido.issues
 import rego.v1
 
 normalize(resource) = normalized if {

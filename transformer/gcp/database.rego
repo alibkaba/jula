@@ -1,4 +1,4 @@
-package normalization.gcp.database
+package transformer.gcp.database
 import rego.v1
 
 normalized contains res if {

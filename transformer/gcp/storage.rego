@@ -1,4 +1,4 @@
-package normalization.gcp.storage
+package transformer.gcp.storage
 import rego.v1
 
 normalized contains res if {

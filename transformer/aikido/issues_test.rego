@@ -1,7 +1,7 @@
-package normalization.aikido.issues_test
+package transformer.aikido.issues_test
 import rego.v1
 
-import data.normalization.aikido.issues
+import data.transformer.aikido.issues
 
 test_normalize_issue if {
     input_data := {

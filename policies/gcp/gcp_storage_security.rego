@@ -1,7 +1,7 @@
 package compliance.scf.dch_10
 
 import rego.v1
-import data.normalization.gcp.storage as storage_norm
+import data.transformer.gcp.storage as storage_norm
 
 # Default compliance status
 default compliant = false

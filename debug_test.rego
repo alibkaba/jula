@@ -1,6 +1,6 @@
 package debug_test
 import rego.v1
-import data.normalization.gcp.database as db_norm
+import data.transformer.gcp.database as db_norm
 
 test_debug if {
 	instances := [
