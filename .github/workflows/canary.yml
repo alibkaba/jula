@@ -14,18 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Evidence Collector
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: jula-evidence-collector
 
       - name: Checkout Evidence Evaluator
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: alibkaba/jula-evidence-evaluator
           path: jula-evidence-evaluator
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.25'
 
