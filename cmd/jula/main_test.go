@@ -115,11 +115,11 @@ func TestRunApp_FullIntegration(t *testing.T) {
 
 	rawHash := pkgCrypto.HashFile(rawFindingData)
 	evidenceObj := &types.Evidence{
-		SCFID:    "BCD-11.4",
+		ControlID:    "BCD-11.4",
 		ErlID:    "E-BCM-16",
 		SourceID: "src-1",
 		Finding: types.Finding{
-			SCFID:     "BCD-11.4",
+			ControlID:     "BCD-11.4",
 			ErlID:     "E-BCM-16",
 			SourceID:  "src-1",
 			Provider:  "gcp_cai",
@@ -193,11 +193,12 @@ func TestRunApp_FullIntegration(t *testing.T) {
 	}
 	defer os.RemoveAll(mockPolicies)
 
-	policyContent := []byte(`package compliance.scf.bcd_11_4
+	policyContent := []byte(`package compliance.controls.bcd_11_4
+
 import rego.v1
 
+control_id := "BCD-11.4"
 default compliant = false
-scf_id := "BCD-11.4"
 customer_control_id := "CC-1"
 
 compliant if {
@@ -241,21 +242,7 @@ compliant if {
 }
 
 func TestResolvers_Main(t *testing.T) {
-	// Test resolveScfIDFromPath
-	scfTests := []struct {
-		path     string
-		expected string
-	}{
-		{"evidence/BCD-11.4/db_cai.json", "BCD-11.4"},
-		{"evidence/E-BCM-16/db_cai.json", "E-BCM-16"},
-		{"nested/evidence/SCF-1/file.json", "SCF-1"},
-		{"no_evidence/here/file.json", ""},
-	}
-	for _, tc := range scfTests {
-		if got := resolveScfIDFromPath(tc.path); got != tc.expected {
-			t.Errorf("resolveScfIDFromPath(%s) = %s, expected %s", tc.path, got, tc.expected)
-		}
-	}
+
 }
 
 func TestPrintUsage(t *testing.T) {

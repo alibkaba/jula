@@ -21,10 +21,10 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 
 	// Write a valid rego policy file
 	regoContent := `
-		package compliance.scf.bcd_11_4
+		package compliance.controls.bcd_11_4
 		import rego.v1
 		default compliant = false
-		scf_id := "BCD-11.4"
+		control_id := "BCD-11.4"
 	`
 	regoFile := filepath.Join(tmpDir, "db_encryption.rego")
 	if err := os.WriteFile(regoFile, []byte(regoContent), 0644); err != nil {
@@ -33,7 +33,7 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 
 	// Write a test rego policy file (should be ignored)
 	regoTestContent := `
-		package compliance.scf.bcd_11_4_test
+		package compliance.controls.bcd_11_4_test
 	`
 	regoTestFile := filepath.Join(tmpDir, "db_encryption_test.rego")
 	if err := os.WriteFile(regoTestFile, []byte(regoTestContent), 0644); err != nil {
@@ -61,16 +61,16 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 	}
 }
 
-func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
+func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 	ctx := context.Background()
 
 	evaluator := NewOPAEvaluator()
 	mockRego := `
-		package compliance.scf.bcd_11_4
+		package compliance.controls.bcd_11_4
 		import rego.v1
 
 		default compliant = false
-		scf_id := "BCD-11.4"
+		control_id := "BCD-11.4"
 		customer_control_id := "CC-1"
 
 		compliant if {
@@ -81,16 +81,16 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 			}
 		}
 	`
-	evaluator.policyModules["compliance/scf/bcd_11_4.rego"] = mockRego
+	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
 
 	if err := evaluator.Compile(ctx); err != nil {
 		t.Fatalf("failed to compile policies: %v", err)
 	}
 
-	evList := []types.Evidence{
+	evidenceList := []types.Evidence{
 		{
 			ErlID:    "E-BCM-16",
-			SCFID:    "BCD-11.4",
+			ControlID: "BCD-11.4",
 			SourceID: "src-1",
 			Finding: types.Finding{
 				Provider:  "gcp_cai",
@@ -101,9 +101,9 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 	}
 
 	// Test passing nil metadata
-	findings, err := evaluator.EvaluateSCF(ctx, "BCD-11.4", evList, nil)
+	findings, err := evaluator.EvaluateControl(ctx, "BCD-11.4", evidenceList, nil)
 	if err != nil {
-		t.Fatalf("EvaluateSCF failed: %v", err)
+		t.Fatalf("EvaluateControl failed: %v", err)
 	}
 
 	if len(findings) != 1 {
@@ -114,8 +114,8 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 		t.Errorf("expected COMPLIANT verdict, got: %s", findings[0].Verdict)
 	}
 
-	if findings[0].SCFID != "BCD-11.4" {
-		t.Errorf("expected scf_id to be BCD-11.4, got: %s", findings[0].SCFID)
+	if findings[0].ControlID != "BCD-11.4" {
+		t.Errorf("expected control_id to be BCD-11.4, got: %s", findings[0].ControlID)
 	}
 
 	if findings[0].CustomerControlID != "CC-1" {
@@ -123,28 +123,29 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 	}
 }
 
-func TestOPAEvaluator_EvaluateSCF_UnmappedPolicy(t *testing.T) {
+func TestOPAEvaluator_EvaluateControl_UnmappedPolicy(t *testing.T) {
 	ctx := context.Background()
 
 	evaluator := NewOPAEvaluator()
+	evidenceList := []types.Evidence{}
 
 	// Load a policy that maps to "BCD-11.4" only
 	mockRego := `
-		package compliance.scf.bcd_11_4
+		package compliance.controls.bcd_11_4
 		import rego.v1
 		default compliant = false
-		scf_id := "BCD-11.4"
+		control_id := "BCD-11.4"
 	`
-	evaluator.policyModules["compliance/scf/bcd_11_4.rego"] = mockRego
+	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
 
 	if err := evaluator.Compile(ctx); err != nil {
 		t.Fatalf("failed to compile policies: %v", err)
 	}
 
 	// Evaluate a completely different SCF ID that has no mapped policy
-	findings, err := evaluator.EvaluateSCF(ctx, "VPM-01", nil, nil)
+	findings, err := evaluator.EvaluateControl(ctx, "VPM-01", evidenceList, nil)
 	if err != nil {
-		t.Fatalf("EvaluateSCF returned unexpected error: %v", err)
+		t.Fatalf("EvaluateControl returned unexpected error: %v", err)
 	}
 
 	if len(findings) != 1 {
@@ -155,8 +156,8 @@ func TestOPAEvaluator_EvaluateSCF_UnmappedPolicy(t *testing.T) {
 		t.Errorf("expected FAILED verdict for unmapped policy, got: %s", findings[0].Verdict)
 	}
 
-	if findings[0].SCFID != "VPM-01" {
-		t.Errorf("expected scf_id to be VPM-01, got: %s", findings[0].SCFID)
+	if findings[0].ControlID != "VPM-01" {
+		t.Errorf("expected control_id to be VPM-01, got: %s", findings[0].ControlID)
 	}
 
 	if !strings.Contains(findings[0].Details, "No Rego policy") {
@@ -164,15 +165,15 @@ func TestOPAEvaluator_EvaluateSCF_UnmappedPolicy(t *testing.T) {
 	}
 }
 
-func TestOPAEvaluator_EvaluateSCF_EmptyEvaluator(t *testing.T) {
+func TestOPAEvaluator_EvaluateControl_EmptyEvaluator(t *testing.T) {
 	ctx := context.Background()
 
 	// Freshly created evaluator with no policies loaded at all
 	evaluator := NewOPAEvaluator()
 
-	findings, err := evaluator.EvaluateSCF(ctx, "ANY-01", nil, nil)
+	findings, err := evaluator.EvaluateControl(ctx, "ANY-01", nil, nil)
 	if err != nil {
-		t.Fatalf("EvaluateSCF returned unexpected error: %v", err)
+		t.Fatalf("EvaluateControl returned unexpected error: %v", err)
 	}
 
 	if len(findings) != 1 {

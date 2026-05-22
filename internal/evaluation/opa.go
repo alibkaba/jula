@@ -26,7 +26,7 @@ const (
 
 // ControlFinding represents a standardized compliance record generated post-evaluation.
 type ControlFinding struct {
-	SCFID             string            `json:"scf_id"`
+	ControlID         string            `json:"control_id"`
 	CustomerControlID string            `json:"customer_control_id,omitempty"`
 	Verdict           ComplianceVerdict `json:"verdict"`
 	Details           string            `json:"details"`
@@ -36,14 +36,14 @@ type ControlFinding struct {
 // OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
 type OPAEvaluator struct {
 	policyModules map[string]string
-	scfPackageMap map[string][]string // SCF ID -> List of OPA Package paths
+	controlPackageMap map[string][]string // Control ID -> List of OPA Package paths
 }
 
 // NewOPAEvaluator creates a new OPAEvaluator.
 func NewOPAEvaluator() *OPAEvaluator {
 	return &OPAEvaluator{
 		policyModules: make(map[string]string),
-		scfPackageMap: make(map[string][]string),
+		controlPackageMap: make(map[string][]string),
 	}
 }
 
@@ -81,40 +81,40 @@ func (e *OPAEvaluator) LoadPolicies(policiesDir string) error {
 	return nil
 }
 
-// Compile compiles all loaded policies and dynamically maps declared SCF IDs to their respective Rego packages.
+// Compile compiles all loaded policies and dynamically maps declared Control IDs to their respective Rego packages.
 func (e *OPAEvaluator) Compile(ctx context.Context) error {
 	if len(e.policyModules) == 0 {
 		slog.Warn("evaluation: no policy modules loaded to compile")
 		return nil
 	}
 
-	slog.Info("evaluation: compiling loaded Rego policies and resolving SCF maps")
+	slog.Info("evaluation: compiling loaded Rego policies and resolving control maps")
 
 	var regoOptions []func(*rego.Rego)
 	for filename, content := range e.policyModules {
 		regoOptions = append(regoOptions, rego.Module(filename, content))
 	}
 
-	// Query SCF IDs
-	scfQueryOptions := append(regoOptions, rego.Query("data.compliance.scf[rule].scf_id"))
-	rScf := rego.New(scfQueryOptions...)
-	pqScf, err := rScf.PrepareForEval(ctx)
+	// Query Control IDs
+	controlQueryOptions := append(regoOptions, rego.Query("data.compliance.controls[rule].control_id"))
+	rControl := rego.New(controlQueryOptions...)
+	pqControl, err := rControl.PrepareForEval(ctx)
 	if err != nil {
-		slog.Error("evaluation: failed to prepare OPA compiler for SCF rules", "error", err.Error())
-		return fmt.Errorf("prepare SCF compiler: %w", err)
+		slog.Error("evaluation: failed to prepare OPA compiler for control rules", "error", err.Error())
+		return fmt.Errorf("prepare control compiler: %w", err)
 	}
-	results, err := pqScf.Eval(ctx)
+	results, err := pqControl.Eval(ctx)
 	if err != nil {
-		slog.Error("evaluation: failed to evaluate SCF mapping query", "error", err.Error())
-		return fmt.Errorf("evaluate SCF mapping: %w", err)
+		slog.Error("evaluation: failed to evaluate control mapping query", "error", err.Error())
+		return fmt.Errorf("evaluate control mapping: %w", err)
 	}
-	e.scfPackageMap = make(map[string][]string)
+	e.controlPackageMap = make(map[string][]string)
 	for _, result := range results {
-		if scfIDVal, ok := result.Expressions[0].Value.(string); ok {
+		if controlIDVal, ok := result.Expressions[0].Value.(string); ok {
 			if rule, ok2 := result.Bindings["rule"].(string); ok2 {
-				pkgPath := fmt.Sprintf("data.compliance.scf.%s", rule)
-				e.scfPackageMap[scfIDVal] = append(e.scfPackageMap[scfIDVal], pkgPath)
-				slog.Info("evaluation: registered SCF policy map", "scf_id", scfIDVal, "package", pkgPath)
+				pkgPath := fmt.Sprintf("data.compliance.controls.%s", rule)
+				e.controlPackageMap[controlIDVal] = append(e.controlPackageMap[controlIDVal], pkgPath)
+				slog.Info("evaluation: registered control policy map", "control_id", controlIDVal, "package", pkgPath)
 			}
 		}
 	}
@@ -122,18 +122,27 @@ func (e *OPAEvaluator) Compile(ctx context.Context) error {
 	return nil
 }
 
-// EvaluateSCF evaluates compliance for a specific SCF ID using a slice of evidence.
-func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) {
+// GetRegisteredControlIDs returns a list of all Control IDs dynamically mapped from the loaded OPA policies.
+func (e *OPAEvaluator) GetRegisteredControlIDs() []string {
+	var ids []string
+	for id := range e.controlPackageMap {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// EvaluateControl evaluates compliance for a specific control ID using a slice of evidence.
+func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) {
 	var findings []ControlFinding
 	now := time.Now().UTC()
 
-	pkgPaths, exists := e.scfPackageMap[scfID]
+	pkgPaths, exists := e.controlPackageMap[controlID]
 	if !exists || len(pkgPaths) == 0 {
-		slog.Warn("evaluation: no Rego policy is mapped for SCF ID", "scf_id", scfID)
+		slog.Warn("evaluation: no Rego policy is mapped for control ID", "control_id", controlID)
 		return []ControlFinding{{
-			SCFID:       scfID,
+			ControlID:   controlID,
 			Verdict:     VerdictFailed,
-			Details:     fmt.Sprintf("No Rego policy is currently mapped for SCF control %q", scfID),
+			Details:     fmt.Sprintf("No Rego policy is currently mapped for control %q", controlID),
 			EvaluatedAt: now,
 		}}, nil
 	}
@@ -188,9 +197,9 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 		r := rego.New(queryOptions...)
 		pq, err := r.PrepareForEval(ctx)
 		if err != nil {
-			slog.Error("evaluation: OPA compilation error", "scf_id", scfID, "error", err.Error())
+			slog.Error("evaluation: OPA compilation error", "control_id", controlID, "error", err.Error())
 			findings = append(findings, ControlFinding{
-				SCFID:       scfID,
+				ControlID:   controlID,
 				Verdict:     VerdictFailed,
 				Details:     fmt.Sprintf("OPA compilation error for package %q: %v", pkgPath, err),
 				EvaluatedAt: now,
@@ -200,9 +209,9 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 
 		results, err := pq.Eval(ctx)
 		if err != nil {
-			slog.Error("evaluation: OPA evaluation execution error", "scf_id", scfID, "error", err.Error())
+			slog.Error("evaluation: OPA evaluation execution error", "control_id", controlID, "error", err.Error())
 			findings = append(findings, ControlFinding{
-				SCFID:       scfID,
+				ControlID:   controlID,
 				Verdict:     VerdictFailed,
 				Details:     fmt.Sprintf("OPA execution error for package %q: %v", pkgPath, err),
 				EvaluatedAt: now,
@@ -211,9 +220,9 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 		}
 
 		if len(results) == 0 {
-			slog.Error("evaluation: OPA returned empty results for target query", "scf_id", scfID, "query", queryStr)
+			slog.Error("evaluation: OPA returned empty results for target query", "control_id", controlID, "query", queryStr)
 			findings = append(findings, ControlFinding{
-				SCFID:       scfID,
+				ControlID:   controlID,
 				Verdict:     VerdictFailed,
 				Details:     fmt.Sprintf("OPA returned empty evaluation result for query %q", queryStr),
 				EvaluatedAt: now,
@@ -252,9 +261,9 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 			details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
 		}
 
-		slog.Info("evaluation: evaluated control policy", "scf_id", scfID, "verdict", verdict, "package", pkgPath)
+		slog.Info("evaluation: evaluated control policy", "control_id", controlID, "verdict", verdict, "package", pkgPath)
 		findings = append(findings, ControlFinding{
-			SCFID:             scfID,
+			ControlID:         controlID,
 			CustomerControlID: custControlID,
 			Verdict:           verdict,
 			Details:           details,

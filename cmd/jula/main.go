@@ -184,97 +184,80 @@ func handleRun(args []string) error {
 		return fmt.Errorf("evaluator: failed to compile OPA policies: %w", err)
 	}
 
-	// --- Phase 3: Sequential Evaluation Loop ---
+	// --- Phase 3: Unified Global Evaluation Loop ---
 
-	// Group files in manifest by their control / routing ID (SCF ID)
-	scfGroups := make(map[string][]types.FileChecksum)
+	var validFiles []types.FileChecksum
 	for _, f := range manifest.EvidenceFiles {
 		if strings.HasSuffix(f.Path, ".log.gz") {
 			slog.Info("evaluator: skipping non-evidence trace log file in manifest", "path", f.Path)
 			continue
 		}
-		scfID := resolveScfIDFromPath(f.Path)
-		if scfID == "" {
-			slog.Warn("evaluator: skipping file in manifest, could not resolve SCF ID from path", "path", f.Path)
+		validFiles = append(validFiles, f)
+	}
+
+	// Ingest all files into memory
+	slog.Info("evaluator: downloading all evidence payloads", "files_count", len(validFiles))
+	payloads, err := reader.ReadPayloads(ctx, bucketURL, validFiles)
+	if err != nil {
+		return fmt.Errorf("evaluator: failed to download evidence payloads: %w", err)
+	}
+
+	// Gatekeeper validation: verify raw content hashes against manifest checksums
+	if err := intCrypto.VerifyPayloads(validFiles, payloads); err != nil {
+		return fmt.Errorf("evaluator: GATEKEEPER FAILURE - file hash mismatch: %w", err)
+	}
+
+	// Cryptographically verify provenance sidecars
+	var allEvidences []types.Evidence
+	for _, f := range validFiles {
+		if strings.HasSuffix(f.Path, ".prov.json") {
 			continue
 		}
-		scfGroups[scfID] = append(scfGroups[scfID], f)
+		provPath := strings.TrimSuffix(f.Path, ".json") + ".prov.json"
+		provBytes, ok := payloads[provPath]
+		if !ok {
+			slog.Warn("evaluator: missing provenance sidecar for evidence file", "file", f.Path)
+			continue
+		}
+		var prov pkgCrypto.Provenance
+		if err := json.Unmarshal(provBytes, &prov); err != nil {
+			return fmt.Errorf("evaluator: failed to parse provenance sidecar %s: %w", provPath, err)
+		}
+		okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
+		if err != nil || !okSignature {
+			return fmt.Errorf("evaluator: provenance signature is INVALID for %s: %w", provPath, err)
+		}
+		var ev types.Evidence
+		if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
+			return fmt.Errorf("evaluator: failed to unmarshal evidence payload %s: %w", f.Path, err)
+		}
+		if prov.PayloadHash != ev.PayloadHash {
+			return fmt.Errorf("evaluator: provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
+		}
+		allEvidences = append(allEvidences, ev)
+		slog.Info("evaluator: successfully verified provenance sidecar", "file", provPath)
 	}
 
 	allFindings := make([]evaluation.ControlFinding, 0)
+	registeredIDs := evaluator.GetRegisteredControlIDs()
+	slog.Info("evaluator: starting sequential control evaluation", "controls_count", len(registeredIDs))
 
-	for scfID, files := range scfGroups {
-		slog.Info("evaluator: sequentially evaluating control", "scf_id", scfID, "files_count", len(files))
+	for _, controlID := range registeredIDs {
+		slog.Info("evaluator: sequentially evaluating control", "control_id", controlID)
 
-		// Ingest only the files for this specific control in memory
-		payloads, err := reader.ReadPayloads(ctx, bucketURL, files)
+		findings, err := evaluator.EvaluateControl(ctx, controlID, allEvidences, metadata)
 		if err != nil {
-			return fmt.Errorf("evaluator: failed to download evidence payloads for control %s: %w", scfID, err)
-		}
-
-		// Gatekeeper validation: verify raw content hashes against manifest checksums
-		if err := intCrypto.VerifyPayloads(files, payloads); err != nil {
-			return fmt.Errorf("evaluator: GATEKEEPER FAILURE - file hash mismatch for control %s: %w", scfID, err)
-		}
-
-		// Cryptographically verify provenance sidecars for evidence files
-		for _, f := range files {
-			if strings.HasSuffix(f.Path, ".prov.json") {
-				continue
-			}
-			provPath := strings.TrimSuffix(f.Path, ".json") + ".prov.json"
-			provBytes, ok := payloads[provPath]
-			if !ok {
-				slog.Warn("evaluator: missing provenance sidecar for evidence file", "file", f.Path)
-				continue
-			}
-			var prov pkgCrypto.Provenance
-			if err := json.Unmarshal(provBytes, &prov); err != nil {
-				return fmt.Errorf("evaluator: failed to parse provenance sidecar %s: %w", provPath, err)
-			}
-			okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
-			if err != nil || !okSignature {
-				return fmt.Errorf("evaluator: provenance signature is INVALID for %s: %w", provPath, err)
-			}
-			var ev types.Evidence
-			if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
-				return fmt.Errorf("evaluator: failed to unmarshal evidence payload for provenance check %s: %w", f.Path, err)
-			}
-			if prov.PayloadHash != ev.PayloadHash {
-				return fmt.Errorf("evaluator: provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
-			}
-			slog.Info("evaluator: successfully verified provenance sidecar", "file", provPath)
-		}
-
-		// Build Evidence slice for Rego evaluation
-		var evList []types.Evidence
-		for _, f := range files {
-			if strings.HasSuffix(f.Path, ".prov.json") {
-				continue
-			}
-			var ev types.Evidence
-			if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
-				return fmt.Errorf("evaluator: failed to unmarshal evidence payload %s: %w", f.Path, err)
-			}
-			if ev.SCFID == "" {
-				ev.SCFID = scfID
-			}
-			evList = append(evList, ev)
-		}
-
-		// Perform OPA evaluation for the current control
-		findings, err := evaluator.EvaluateSCF(ctx, scfID, evList, metadata)
-		if err != nil {
-			return fmt.Errorf("evaluator: policy evaluation error for control %s: %w", scfID, err)
+			return fmt.Errorf("evaluator: policy evaluation error for control %s: %w", controlID, err)
 		}
 
 		allFindings = append(allFindings, findings...)
-
-		// Release memory and run GC
-		payloads = nil
-		evList = nil
 		runtime.GC()
 	}
+
+	// Free global payloads
+	payloads = nil
+	allEvidences = nil
+	runtime.GC()
 
 	// --- Output Results ---
 	slog.Info("evaluator: completed compliance evaluation", "findings_count", len(allFindings))
@@ -306,16 +289,6 @@ func handleRun(args []string) error {
 	slog.Info("evaluator: compliance audit SUCCESSFUL - system is fully secure!")
 	fmt.Println("STATUS: COMPLIANT")
 	return nil
-}
-
-func resolveScfIDFromPath(path string) string {
-	parts := strings.Split(path, "/")
-	for i, part := range parts {
-		if part == "evidence" && i+1 < len(parts) {
-			return parts[i+1]
-		}
-	}
-	return ""
 }
 
 func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
