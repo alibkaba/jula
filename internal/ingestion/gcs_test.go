@@ -406,3 +406,33 @@ func TestGCSReader_Failures(t *testing.T) {
 		t.Error("Expected ReadManifest to fail when GCS API returns 404")
 	}
 }
+
+func TestGCSReader_WriteFileLocal(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "jula-evaluator-write-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create tmp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	reader := NewGCSReader(nil)
+	err = reader.Initialize("file://" + tmpDir)
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	testData := []byte(`{"test": "data"}`)
+	err = reader.WriteFile(context.Background(), "file://"+tmpDir, "evaluator_ledger.json", testData)
+	if err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	// Verify the file was written
+	writtenData, err := os.ReadFile(filepath.Join(tmpDir, "evaluator_ledger.json"))
+	if err != nil {
+		t.Fatalf("Failed to read written file: %v", err)
+	}
+
+	if string(writtenData) != string(testData) {
+		t.Errorf("Expected written data to be %q, got %q", string(testData), string(writtenData))
+	}
+}

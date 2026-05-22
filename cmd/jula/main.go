@@ -290,6 +290,11 @@ func handleRun(args []string) error {
 	fmt.Println("\n================ JULA ASSURANCE FINDINGS LEDGER ================")
 	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
+	
+	if err := reader.WriteFile(ctx, bucketURL, "evaluator_ledger.json", findingsJSON); err != nil {
+		slog.Error("evaluator: failed to export evaluator ledger to file", "error", err)
+	}
+
 	fmt.Println("================================================================")
 
 	if hasFailures {

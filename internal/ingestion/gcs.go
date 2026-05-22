@@ -1,6 +1,7 @@
 package ingestion
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -165,6 +166,50 @@ func (r *GCSReader) ReadPayloads(ctx context.Context, bucketURL string, files []
 	return payloads, nil
 }
 
+// WriteFile writes the data payload to the target directory or GCS bucket as fileName.
+func (r *GCSReader) WriteFile(ctx context.Context, bucketURL string, fileName string, data []byte) error {
+	if r.isLocal {
+		localPath := strings.TrimPrefix(bucketURL, "file://")
+		filePath := filepath.Join(localPath, fileName)
+		slog.Info("ingestion: writing file locally", "path", filePath)
+		return os.WriteFile(filePath, data, 0644)
+	}
+
+	bucket, folder := parseGCSURL(bucketURL)
+	objectName := fileName
+	if folder != "" {
+		objectName = folder + "/" + fileName
+	}
+
+	slog.Info("ingestion: uploading file to GCS", "bucket", bucket, "object", objectName)
+
+	uploadURL := fmt.Sprintf("https://storage.googleapis.com/upload/storage/v1/b/%s/o?uploadType=media&name=%s",
+		url.PathEscape(bucket),
+		url.QueryEscape(objectName),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadURL, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("creating GCS upload request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+r.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("GCS upload request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("GCS upload API returned HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	slog.Info("ingestion: file successfully uploaded to GCS", "object", objectName)
+	return nil
+}
+
 // downloadGCSObject downloads raw bytes from a GCS object using the GCS JSON API.
 func (r *GCSReader) downloadGCSObject(ctx context.Context, bucket string, objectName string) ([]byte, error) {
 	downloadURL := fmt.Sprintf("%s/b/%s/o/%s?alt=media",
@@ -255,7 +300,7 @@ func exchangeToken(client *http.Client, key any, privateKey *rsa.PrivateKey, tok
 
 	claims := map[string]any{
 		"iss":   saKey.ClientEmail,
-		"scope": "https://www.googleapis.com/auth/cloud-platform.read-only",
+		"scope": "https://www.googleapis.com/auth/cloud-platform",
 		"aud":   tokenURL,
 		"iat":   now.Unix(),
 		"exp":   now.Add(time.Hour).Unix(),
