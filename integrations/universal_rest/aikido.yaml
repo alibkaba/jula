@@ -1,0 +1,43 @@
+vendor_name: "aikido"
+base_url: "https://app.aikido.dev/api/public/v1"
+auth_flow:
+  type: "oauth2"
+  token_url: "https://app.aikido.dev/api/oauth/token"
+  client_id_env: "AIKIDO_CLIENT_ID"
+  client_secret_env: "AIKIDO_CLIENT_SECRET"
+endpoints:
+  "/issues/export?jula_erl=E-VPM-01":
+    erl_id: "E-VPM-01"
+    description: "Vulnerability & Patch Management Program"
+    headers:
+      Accept: "application/json"
+  "/issues/export?jula_erl=E-VPM-05":
+    erl_id: "E-VPM-05"
+    description: "Vulnerability Assessments"
+    headers:
+      Accept: "application/json"
+  "/issues/export?jula_erl=E-VPM-10":
+    erl_id: "E-VPM-10"
+    description: "Applicable Flaws & Vulnerabilities"
+    headers:
+      Accept: "application/json"
+  "/issues/export?jula_erl=E-VPM-11":
+    erl_id: "E-VPM-11"
+    description: "Vulnerability Scanning"
+    headers:
+      Accept: "application/json"
+  "/pentests/assessments/{assessment_id}/detail":
+    erl_id: "E-VPM-02"
+    description: "Penetration Testing - Application"
+    headers:
+      Accept: "application/json"
+  "/research/malware/packages":
+    erl_id: "E-END-03"
+    description: "Antimalware Scanning Results"
+    headers:
+      Accept: "application/json"
+  "/repositories/code/{code_repo_id}/licenses/export":
+    erl_id: "E-BCM-09"
+    description: "COOP Dependency Analysis (SBOM)"
+    headers:
+      Accept: "application/json"
