@@ -137,7 +137,7 @@ resource "google_cloud_run_v2_service" "jula_eval" {
         value = "GCP"
       }
       env {
-        name  = "JULA_OUTPUT_PATH"
+        name  = "JULA_BUCKET_URL"
         value = "gs://${var.evidence_bucket_name}"
       }
       env {
@@ -166,7 +166,7 @@ resource "google_cloud_run_v2_service" "jula_eval" {
         }
       }
       env {
-        name = "JULA_SIGNING_KEY"
+        name = "JULA_PUBLIC_KEY"
         value_source {
           secret_key_ref {
             secret  = data.google_secret_manager_secret.signing_key.secret_id

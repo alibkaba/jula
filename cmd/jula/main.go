@@ -82,6 +82,14 @@ func handleRun(args []string) error {
 		return fmt.Errorf("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
+	// Append today's date if the bucketURL is just the root bucket.
+	if !strings.Contains(bucketURL, "20") { // naive check for YYYY
+		if !strings.HasSuffix(bucketURL, "/") {
+			bucketURL += "/"
+		}
+		bucketURL += time.Now().UTC().Format("2006-01-02")
+	}
+
 	// Resolve the target policies URL.
 	policyURL := *policyURLFlag
 	if policyURL == "" {
