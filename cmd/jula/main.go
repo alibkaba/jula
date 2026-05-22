@@ -201,7 +201,7 @@ func handleRun(args []string) error {
 		scfGroups[scfID] = append(scfGroups[scfID], f)
 	}
 
-	var allFindings []evaluation.ControlFinding
+	allFindings := make([]evaluation.ControlFinding, 0)
 
 	for scfID, files := range scfGroups {
 		slog.Info("evaluator: sequentially evaluating control", "scf_id", scfID, "files_count", len(files))

@@ -221,6 +221,23 @@ compliant if {
 	if err != nil {
 		t.Errorf("expected nil error (compliant audit), got %v", err)
 	}
+
+	// Verify the evaluator_ledger.json file was written to the mock bucket
+	ledgerPath := filepath.Join(mockBucket, "evaluator_ledger.json")
+	ledgerData, err := os.ReadFile(ledgerPath)
+	if err != nil {
+		t.Fatalf("expected evaluator_ledger.json to be written, got error: %v", err)
+	}
+
+	// Verify it contains valid JSON (not null)
+	var ledgerFindings []map[string]interface{}
+	if err := json.Unmarshal(ledgerData, &ledgerFindings); err != nil {
+		t.Fatalf("expected valid JSON array in evaluator_ledger.json, got error: %v", err)
+	}
+
+	if len(ledgerFindings) == 0 {
+		t.Errorf("expected at least 1 finding in evaluator_ledger.json, got 0")
+	}
 }
 
 func TestResolvers_Main(t *testing.T) {

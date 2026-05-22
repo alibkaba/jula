@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,5 +120,66 @@ func TestOPAEvaluator_EvaluateSCF(t *testing.T) {
 
 	if findings[0].CustomerControlID != "CC-1" {
 		t.Errorf("expected customer_control_id to be CC-1, got: %s", findings[0].CustomerControlID)
+	}
+}
+
+func TestOPAEvaluator_EvaluateSCF_UnmappedPolicy(t *testing.T) {
+	ctx := context.Background()
+
+	evaluator := NewOPAEvaluator()
+
+	// Load a policy that maps to "BCD-11.4" only
+	mockRego := `
+		package compliance.scf.bcd_11_4
+		import rego.v1
+		default compliant = false
+		scf_id := "BCD-11.4"
+	`
+	evaluator.policyModules["compliance/scf/bcd_11_4.rego"] = mockRego
+
+	if err := evaluator.Compile(ctx); err != nil {
+		t.Fatalf("failed to compile policies: %v", err)
+	}
+
+	// Evaluate a completely different SCF ID that has no mapped policy
+	findings, err := evaluator.EvaluateSCF(ctx, "VPM-01", nil, nil)
+	if err != nil {
+		t.Fatalf("EvaluateSCF returned unexpected error: %v", err)
+	}
+
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding for unmapped policy, got %d", len(findings))
+	}
+
+	if findings[0].Verdict != VerdictFailed {
+		t.Errorf("expected FAILED verdict for unmapped policy, got: %s", findings[0].Verdict)
+	}
+
+	if findings[0].SCFID != "VPM-01" {
+		t.Errorf("expected scf_id to be VPM-01, got: %s", findings[0].SCFID)
+	}
+
+	if !strings.Contains(findings[0].Details, "No Rego policy") {
+		t.Errorf("expected details to mention missing policy, got: %s", findings[0].Details)
+	}
+}
+
+func TestOPAEvaluator_EvaluateSCF_EmptyEvaluator(t *testing.T) {
+	ctx := context.Background()
+
+	// Freshly created evaluator with no policies loaded at all
+	evaluator := NewOPAEvaluator()
+
+	findings, err := evaluator.EvaluateSCF(ctx, "ANY-01", nil, nil)
+	if err != nil {
+		t.Fatalf("EvaluateSCF returned unexpected error: %v", err)
+	}
+
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+
+	if findings[0].Verdict != VerdictFailed {
+		t.Errorf("expected FAILED verdict, got: %s", findings[0].Verdict)
 	}
 }

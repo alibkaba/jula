@@ -130,7 +130,12 @@ func (e *OPAEvaluator) EvaluateSCF(ctx context.Context, scfID string, evidences 
 	pkgPaths, exists := e.scfPackageMap[scfID]
 	if !exists || len(pkgPaths) == 0 {
 		slog.Warn("evaluation: no Rego policy is mapped for SCF ID", "scf_id", scfID)
-		return nil, nil
+		return []ControlFinding{{
+			SCFID:       scfID,
+			Verdict:     VerdictFailed,
+			Details:     fmt.Sprintf("No Rego policy is currently mapped for SCF control %q", scfID),
+			EvaluatedAt: now,
+		}}, nil
 	}
 
 	// Prepare rego options
