@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alibkaba/jula-core/pkg/types"
 	"github.com/alibkaba/jula-evidence-collector/internal/platform"
 	universalrest "github.com/alibkaba/jula-evidence-collector/internal/providers/universal_rest"
-	"github.com/alibkaba/jula-core/pkg/types"
 	"go.yaml.in/yaml/v4"
 )
 

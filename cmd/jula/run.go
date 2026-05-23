@@ -216,7 +216,7 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 			if len(parts) != 2 || !strings.HasPrefix(parts[1], "integrations/") {
 				continue // Skip files not under integrations/
 			}
-			
+
 			// Use the stripped path (e.g., 'universal_cloud/gcp_cai.yaml')
 			normalizedName := strings.TrimPrefix(parts[1], "integrations/")
 

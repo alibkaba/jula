@@ -262,8 +262,6 @@ func TestExecuteJobs_ContextCancellation(t *testing.T) {
 	}
 }
 
-
-
 func TestSourceIDResolvers(t *testing.T) {
 	// Test getGCPSourceID
 	t.Setenv("GCP_PROJECT_ID", "env-project")

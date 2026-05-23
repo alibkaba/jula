@@ -89,10 +89,10 @@ func SignOCICavage(req *http.Request, payload []byte) error {
 		hashBase64 := base64.StdEncoding.EncodeToString(hash[:])
 		req.Header.Set("X-Content-Sha256", hashBase64)
 		headersToSign = append(headersToSign, "x-content-sha256")
-		
+
 		req.Header.Set("Content-Length", fmt.Sprintf("%d", len(payload)))
 		headersToSign = append(headersToSign, "content-length")
-		
+
 		if req.Header.Get("Content-Type") == "" {
 			req.Header.Set("Content-Type", "application/json")
 		}
@@ -123,7 +123,7 @@ func SignOCICavage(req *http.Request, payload []byte) error {
 	}
 
 	signatureBase64 := base64.StdEncoding.EncodeToString(signatureBytes)
-	
+
 	// 7. Inject Authorization Header
 	authHeader := fmt.Sprintf(`Signature version="1",keyId="%s",algorithm="rsa-sha256",headers="%s",signature="%s"`,
 		keyID, strings.Join(headersToSign, " "), signatureBase64)

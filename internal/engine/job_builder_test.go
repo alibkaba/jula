@@ -11,7 +11,7 @@ func TestBuildUniversalRESTJobs(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "DUMMYKEY")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "DUMMYSECRET")
 	t.Setenv("GCP_PROJECT_ID", "dummy-project")
-	
+
 	// Create a temp config directory with the integrations/universal_rest structure
 	tmpDir := t.TempDir()
 	restDir := tmpDir + "/universal_rest"
