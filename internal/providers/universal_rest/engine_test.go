@@ -418,7 +418,7 @@ func TestAzureIdentity_TokenCache(t *testing.T) {
 	t.Setenv("AZURE_TENANT_ID", "tenant")
 	t.Setenv("AZURE_CLIENT_ID", "client")
 	t.Setenv("AZURE_CLIENT_SECRET", "secret")
-	
+
 	globalAzureCache.mu.Lock()
 	globalAzureCache.token = "cached-token"
 	globalAzureCache.expiresAt = time.Now().Add(2 * time.Minute)
@@ -488,7 +488,7 @@ func TestJWSFinancial_DetachedSignature(t *testing.T) {
 	if len(parts) != 2 {
 		t.Errorf("expected 2 parts split by .., got %d parts: %s", len(parts), sig)
 	}
-	
+
 	headerBytes, _ := base64.RawURLEncoding.DecodeString(parts[0])
 	if !strings.Contains(string(headerBytes), `"kid":"test-jws-key"`) {
 		t.Errorf("expected header to contain kid, got %s", string(headerBytes))

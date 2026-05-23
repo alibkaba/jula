@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// SignAliTencentHMAC implements canonical string sorting and HMAC-SHA256 derivation 
+// SignAliTencentHMAC implements canonical string sorting and HMAC-SHA256 derivation
 // for Alibaba Cloud RPC formatting and Tencent Cloud TC3-HMAC-SHA256 signatures.
 func SignAliTencentHMAC(req *http.Request, payload []byte) error {
 	secretID := os.Getenv("CLOUD_SECRET_ID")

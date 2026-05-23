@@ -11,8 +11,8 @@ import (
 	time "time"
 
 	"github.com/alibkaba/jula-core/pkg/crypto"
-	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
 	"github.com/alibkaba/jula-core/pkg/types"
+	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
 )
 
 // LocalReporter writes evidence artifacts to the local filesystem.

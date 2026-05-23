@@ -12,7 +12,7 @@ func TestCapturingHandler(t *testing.T) {
 	parent := slog.NewTextHandler(&bytes.Buffer{}, nil)
 	h := NewCapturingHandler(parent)
 	SetGlobalHandler(h)
-	
+
 	if GetGlobalHandler() != h {
 		t.Fatal("expected global handler to be set")
 	}
