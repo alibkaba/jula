@@ -1,15 +1,28 @@
 package crypto
 
 import (
+	stdcrypto "crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/alibkaba/jula-core/pkg/types"
 )
+
+type errorSigner struct{}
+
+func (e errorSigner) Public() stdcrypto.PublicKey {
+	return nil
+}
+
+func (e errorSigner) Sign(rand io.Reader, digest []byte, opts stdcrypto.SignerOpts) (signature []byte, err error) {
+	return nil, errors.New("mock signing error")
+}
 
 func testManifest() *types.Manifest {
 	return &types.Manifest{
@@ -235,5 +248,81 @@ func TestSignProvenance_Negative(t *testing.T) {
 	err := SignProvenance(prov, nil)
 	if err == nil || err.Error() != "signer is nil" {
 		t.Errorf("expected 'signer is nil' error, got %v", err)
+	}
+}
+
+func TestSignManifest_SignerError(t *testing.T) {
+	m := testManifest()
+	err := SignManifest(m, errorSigner{})
+	if err == nil || !strings.Contains(err.Error(), "failed to sign manifest") {
+		t.Errorf("expected sign error, got: %v", err)
+	}
+}
+
+func TestSignProvenance_SignerError(t *testing.T) {
+	prov := &Provenance{
+		ErlID: "E-TEST-02",
+	}
+	err := SignProvenance(prov, errorSigner{})
+	if err == nil || !strings.Contains(err.Error(), "failed to sign provenance") {
+		t.Errorf("expected sign error, got: %v", err)
+	}
+}
+
+func TestVerifyProvenance_Negative(t *testing.T) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		prov      *Provenance
+		pubKey    *ecdsa.PublicKey
+		wantErr   bool
+		errString string
+	}{
+		{
+			name: "Nil public key",
+			prov: &Provenance{
+				ErlID:     "E-TEST-03",
+				Signature: "valid-sig",
+			},
+			pubKey:    nil,
+			wantErr:   true,
+			errString: "public key is nil",
+		},
+		{
+			name: "Empty signature",
+			prov: &Provenance{
+				ErlID:     "E-TEST-03",
+				Signature: "",
+			},
+			pubKey:    &privKey.PublicKey,
+			wantErr:   true,
+			errString: "signature is empty",
+		},
+		{
+			name: "Malformed signature",
+			prov: &Provenance{
+				ErlID:     "E-TEST-03",
+				Signature: "not-a-valid-hex-!@#",
+			},
+			pubKey:    &privKey.PublicKey,
+			wantErr:   true,
+			errString: "failed to decode signature",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := VerifyProvenance(tt.prov, tt.pubKey)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyProvenance() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr && err != nil && !strings.Contains(err.Error(), tt.errString) {
+				t.Errorf("expected error containing %q, got: %v", tt.errString, err)
+			}
+		})
 	}
 }
