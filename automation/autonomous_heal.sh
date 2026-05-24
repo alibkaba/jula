@@ -36,10 +36,10 @@ cleanup() {
 trap cleanup EXIT ERR INT TERM
 
 # Ensure we have the policies repository cloned locally (sibling directory)
-POLICY_REPO_DIR="jula-compliance-policies"
+POLICY_REPO_DIR="jula-compliance-as-code"
 if [ ! -d "$POLICY_REPO_DIR" ]; then
-  echo "📦 Cloning jula-compliance-policies repository..."
-  gh repo clone alibkaba/jula-compliance-policies "$POLICY_REPO_DIR"
+  echo "📦 Cloning jula-compliance-as-code repository..."
+  gh repo clone alibkaba/jula-compliance-as-code "$POLICY_REPO_DIR"
 fi
 
 # Step 1: Fetch historical payloads

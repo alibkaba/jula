@@ -20,15 +20,15 @@ If the integration target is a SaaS vendor with a REST API and an OpenAPI/Swagge
 
 ## Workspace Root Convention
 
-Both `jula-evidence-collector` and `jula-compliance-policies` repositories must be checked out as sibling directories under a single workspace root folder:
+Both `jula-evidence-collector` and `jula-compliance-as-code` repositories must be checked out as sibling directories under a single workspace root folder:
 
 ```
 workspace/
   jula-evidence-collector/    # Go provider code, YAML configs, automation
-  jula-compliance-policies/   # Rego normalizers, compliance policies, fixtures
+  jula-compliance-as-code/   # Rego normalizers, compliance policies, fixtures
 ```
 
-When generating cross-repo stubs (e.g., Rego normalizers), use relative paths from the collector root: `../jula-compliance-policies/policies/normalization/<cloud>/`.
+When generating cross-repo stubs (e.g., Rego normalizers), use relative paths from the collector root: `../jula-compliance-as-code/policies/normalization/<cloud>/`.
 
 ---
 
@@ -80,7 +80,7 @@ Follow the established format in `configs/blueprints/native/gcp_cai.yaml` and `c
 
 ### 3. Rego Normalizer Stubs
 
-Create stub normalizers in the compliance policies repository at `../jula-compliance-policies/policies/normalization/<cloud>/`.
+Create stub normalizers in the compliance policies repository at `../jula-compliance-as-code/policies/normalization/<cloud>/`.
 
 For each resource type that requires compliance evaluation, create a `.rego` file following the established pattern:
 
@@ -124,7 +124,7 @@ Reference implementations:
 When a cloud API introduces new resource types, deprecates fields, or changes pagination behavior:
 
 1. **Update the YAML extraction config** by adding new Evidence entries or modifying existing queries.
-2. **Update or add Rego normalizers** in `jula-compliance-policies` to handle the new resource structure. Always use `object.get` with fallback defaults to handle both old and new field names gracefully.
+2. **Update or add Rego normalizers** in `jula-compliance-as-code` to handle the new resource structure. Always use `object.get` with fallback defaults to handle both old and new field names gracefully.
 3. **Update unit tests** to cover the new resource types or field changes with fresh mock responses.
 4. **Do not modify the Go provider code** unless the cloud SDK itself introduces breaking changes to its pagination or query interface.
 

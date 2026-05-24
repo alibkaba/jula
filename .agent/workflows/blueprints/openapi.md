@@ -17,15 +17,15 @@ If the integration target is a cloud provider's resource inventory API that requ
 
 ## Workspace Root Convention
 
-Both `jula-evidence-collector` and `jula-compliance-policies` repositories must be checked out as sibling directories under a single workspace root folder:
+Both `jula-evidence-collector` and `jula-compliance-as-code` repositories must be checked out as sibling directories under a single workspace root folder:
 
 ```
 workspace/
   jula-evidence-collector/    # Blueprint YAML configs, universal REST engine
-  jula-compliance-policies/   # Rego normalizers, compliance policies, fixtures
+  jula-compliance-as-code/   # Rego normalizers, compliance policies, fixtures
 ```
 
-When generating Rego normalizer stubs, use relative paths from the collector root: `../jula-compliance-policies/policies/normalization/<vendor>/`.
+When generating Rego normalizer stubs, use relative paths from the collector root: `../jula-compliance-as-code/policies/normalization/<vendor>/`.
 
 ---
 
@@ -156,7 +156,7 @@ The engine resolves these at runtime from environment variables. Path variables 
 
 ### 7. Rego Normalizer Stubs (Optional)
 
-If the vendor's data feeds compliance evaluation rules, create stub normalizers in `../jula-compliance-policies/policies/normalization/<vendor>/`:
+If the vendor's data feeds compliance evaluation rules, create stub normalizers in `../jula-compliance-as-code/policies/normalization/<vendor>/`:
 
 ```rego
 package normalization.<vendor>.<resource_type>

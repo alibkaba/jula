@@ -26,7 +26,7 @@ echo "📂 Fetching historical context into $SCRATCH_DIR (looking back up to $DA
 # Step 1: Extract preceding valid payloads from Git history
 FIXTURE_PATHS=(
   "tests/e2e/fixtures/mock_api.yaml"
-  "../jula-compliance-policies/policies/normalization/gcp/fixtures/sample_api_response.json"
+  "../jula-compliance-as-code/policies/normalization/gcp/fixtures/sample_api_response.json"
 )
 
 # Loop through the git log commits to extract past versions
