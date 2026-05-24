@@ -27,7 +27,7 @@ auth_flow:
   token_env: "TEST_TOKEN"
 endpoints:
   "/data":
-    erl_id: "E-TEST-SaaS"
+    evidence_id: "EVID-TEST-SaaS"
     description: "Test SaaS"
 `
 	err := os.WriteFile(restDir+"/test_integration.yaml", []byte(integrationData), 0644)
@@ -49,8 +49,8 @@ endpoints:
 		t.Errorf("expected 1 job, got %d", len(jobs))
 	}
 
-	if jobs[0].erlID != "E-TEST-SaaS" {
-		t.Errorf("expected erlID E-TEST-SaaS, got %s", jobs[0].erlID)
+	if jobs[0].evidenceID != "EVID-TEST-SaaS" {
+		t.Errorf("expected evidenceID EVID-TEST-SaaS, got %s", jobs[0].evidenceID)
 	}
 
 	if jobs[0].controlID != "TEST-SaaS" {
@@ -78,7 +78,7 @@ auth_flow:
 endpoints:
   "https://config.us-east-1.amazonaws.com/":
     method: "POST"
-    erl_id: "E-TEST-CLOUD"
+    evidence_id: "EVID-TEST-CLOUD"
     description: "Test Cloud"
     body:
       Expression: "SELECT resourceId"
@@ -102,8 +102,8 @@ endpoints:
 		t.Errorf("expected 1 job, got %d", len(jobs))
 	}
 
-	if jobs[0].erlID != "E-TEST-CLOUD" {
-		t.Errorf("expected erlID E-TEST-CLOUD, got %s", jobs[0].erlID)
+	if jobs[0].evidenceID != "EVID-TEST-CLOUD" {
+		t.Errorf("expected evidenceID EVID-TEST-CLOUD, got %s", jobs[0].evidenceID)
 	}
 }
 

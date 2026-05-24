@@ -20,7 +20,7 @@ import (
 
 // RunConfig holds the validated configuration for a pipeline execution.
 // The "Collector Only" paradigm means there is no Framework field.
-// The engine blindly executes every ERL extraction defined in its config.
+// The engine blindly executes every Evidence extraction defined in its config.
 type RunConfig struct {
 	Target         string
 	Path           string
@@ -31,12 +31,12 @@ type RunConfig struct {
 	IntegrationMap map[string][]byte
 }
 
-// extractionJob represents a single ERL extraction to be executed.
+// extractionJob represents a single Evidence extraction to be executed.
 // It abstracts over provider-specific details so the orchestrator can
 // dispatch GCP, AWS, and SaaS extractions through a single concurrent loop.
 type extractionJob struct {
 	controlID   string
-	erlID       string
+	evidenceID       string
 	description string
 	execute     func(ctx context.Context) ([]types.Finding, error)
 }
@@ -84,7 +84,7 @@ func getSaaSSourceID(provider string) string {
 
 // Orchestrator manages the execution of the evidence collection pipeline.
 // It loads declarative configs for all available providers and iterates
-// through every ERL ID, executing the corresponding extraction without
+// through every Evidence ID, executing the corresponding extraction without
 // any framework filtering.
 type Orchestrator struct {
 	cfg     RunConfig
@@ -105,11 +105,11 @@ func (o *Orchestrator) Platform() platform.EnvironmentInfo {
 }
 
 // Extract loads declarative extraction configs for all available providers,
-// builds a unified job queue, and executes every ERL extraction concurrently
+// builds a unified job queue, and executes every Evidence extraction concurrently
 // with bounded concurrency. It converts extracted findings to signed/normalized Evidence.
 //
 // This is the "blind extraction loop": no framework filtering, no evaluation.
-// Every ERL defined across all provider configs is executed unconditionally.
+// Every Evidence defined across all provider configs is executed unconditionally.
 func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 	var jobs []extractionJob
 
@@ -150,7 +150,7 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 		hash := sha256.Sum256(f.RawData)
 
 		evidenceSlice = append(evidenceSlice, types.Evidence{
-			ErlID:       f.ErlID,
+			EvidenceID:       f.EvidenceID,
 			ControlID:   f.ControlID,
 			SourceID:    f.SourceID,
 			Finding:     f,
@@ -186,35 +186,35 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 				defer func() { <-sem }()
 			case <-ctx.Done():
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("erl %q: context cancelled before start", j.erlID))
+				errs = append(errs, fmt.Errorf("erl %q: context cancelled before start", j.evidenceID))
 				mu.Unlock()
 				return
 			}
 
-			// Per-ERL timeout context.
+			// Per-Evidence timeout context.
 			erlCtx, cancel := context.WithTimeout(ctx, o.cfg.Timeout)
 			defer cancel()
 
-			slog.Info("extract: starting ERL extraction",
-				"erl_id", j.erlID,
+			slog.Info("extract: starting Evidence extraction",
+				"evidence_id", j.evidenceID,
 				"description", j.description,
 				"run_id", o.cfg.RunID,
 			)
 
 			findings, err := j.execute(erlCtx)
 			if err != nil {
-				slog.Error("extract: ERL extraction failed",
-					"erl_id", j.erlID,
+				slog.Error("extract: Evidence extraction failed",
+					"evidence_id", j.evidenceID,
 					"error", err,
 				)
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("erl %q: %w", j.erlID, err))
+				errs = append(errs, fmt.Errorf("erl %q: %w", j.evidenceID, err))
 				mu.Unlock()
 				return
 			}
 
-			slog.Info("extract: ERL extraction complete",
-				"erl_id", j.erlID,
+			slog.Info("extract: Evidence extraction complete",
+				"evidence_id", j.evidenceID,
 				"findings_extracted", len(findings),
 			)
 
@@ -228,8 +228,8 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 
 	if len(errs) > 0 {
 		if len(allFindings) == 0 {
-			// Total failure: no findings extracted from any ERL.
-			return nil, fmt.Errorf("all ERL extractions failed: %v", errs)
+			// Total failure: no findings extracted from any Evidence.
+			return nil, fmt.Errorf("all Evidence extractions failed: %v", errs)
 		}
 		// Partial failure: log warnings but return what we have.
 		for _, e := range errs {
@@ -299,8 +299,8 @@ func (o *Orchestrator) buildUniversalCloudJobs(ctx context.Context) ([]extractio
 			p := erlPath
 			c := epCfg
 			jobs = append(jobs, extractionJob{
-				controlID:   strings.TrimPrefix(c.ErlID, "E-"),
-				erlID:       c.ErlID,
+				controlID:   strings.TrimPrefix(c.EvidenceID, "EVID-"),
+				evidenceID:       c.EvidenceID,
 				description: c.Description,
 				execute: func(ctx context.Context) ([]types.Finding, error) {
 					findings, err := engine.Execute(ctx, integCopy, p, c, o.cfg.RunID)
@@ -308,7 +308,7 @@ func (o *Orchestrator) buildUniversalCloudJobs(ctx context.Context) ([]extractio
 						return nil, err
 					}
 					for i := range findings {
-						findings[i].ControlID = strings.TrimPrefix(c.ErlID, "E-")
+						findings[i].ControlID = strings.TrimPrefix(c.EvidenceID, "EVID-")
 						findings[i].SourceID = getAWSSourceID() // Use a generic cloud source ID resolver if needed
 					}
 					return findings, nil
@@ -377,8 +377,8 @@ func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
 			p := erlPath
 			c := epCfg
 			jobs = append(jobs, extractionJob{
-				controlID:   strings.TrimPrefix(c.ErlID, "E-"),
-				erlID:       c.ErlID,
+				controlID:   strings.TrimPrefix(c.EvidenceID, "EVID-"),
+				evidenceID:       c.EvidenceID,
 				description: c.Description,
 				execute: func(ctx context.Context) ([]types.Finding, error) {
 					findings, err := engine.Execute(ctx, integCopy, p, c, o.cfg.RunID)
@@ -386,7 +386,7 @@ func (o *Orchestrator) buildUniversalRESTJobs() ([]extractionJob, error) {
 						return nil, err
 					}
 					for i := range findings {
-						findings[i].ControlID = strings.TrimPrefix(c.ErlID, "E-")
+						findings[i].ControlID = strings.TrimPrefix(c.EvidenceID, "EVID-")
 						findings[i].SourceID = getSaaSSourceID(integCopy.VendorName)
 					}
 					return findings, nil

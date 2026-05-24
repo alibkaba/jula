@@ -50,10 +50,10 @@ auth_flow:
   token_env: "VENDOR_API_TOKEN"                      # required for bearer
 endpoints:
   "/resources":
-    erl_id: "E-XXX-NN"
+    evidence_id: "EVID-XXX-NN"
     description: "Human-readable description of what this endpoint provides"
   "/resources/{id}/details":
-    erl_id: "E-XXX-MM"
+    evidence_id: "EVID-XXX-MM"
     description: "Detailed resource configuration"
     headers:
       Accept: "application/json"
@@ -89,33 +89,33 @@ The `auth_flow` block supports two strategies:
 ### 3. Endpoint Mapping
 
 > [!IMPORTANT]
-> **OSCAL Evidence Enforcement:** You must ONLY add endpoints that strictly satisfy an Evidence Request List (ERL) ID defined in the official OSCAL Assessment Plan (`schemas/oscal/oscal-assessment-plan-2026.1.json`). Do not pull in generic endpoints (e.g., SOC2 overviews, user lists, etc.) unless they directly tie to an OSCAL ERL requirement. Evidence without an associated OSCAL mapping brings no value to the audit process.
+> **OSCAL Evidence Enforcement:** You must ONLY add endpoints that strictly satisfy an Evidence Request List (Evidence) ID defined in the official OSCAL Assessment Plan (`schemas/oscal/oscal-assessment-plan-2026.1.json`). Do not pull in generic endpoints (e.g., SOC2 overviews, user lists, etc.) unless they directly tie to an OSCAL Evidence requirement. Evidence without an associated OSCAL mapping brings no value to the audit process.
 
-Map each compliance-relevant API endpoint to an ERL ID. When reading an OpenAPI/Swagger specification:
+Map each compliance-relevant API endpoint to an Evidence ID. When reading an OpenAPI/Swagger specification:
 
-- Identify GET endpoints that return resource configurations, inventories, scan results, or audit data that map to OSCAL ERLs.
+- Identify GET endpoints that return resource configurations, inventories, scan results, or audit data that map to OSCAL Evidence.
 - Determine if the endpoint supports pagination (check for Link headers in the spec or `next` fields in response schemas).
 - Set `allow_404: true` for endpoints that return optional resources (e.g., a CODEOWNERS file that may not exist).
 
-### 4. The `jula_erl=` Collision Pattern
+### 4. The `jula_evidence=` Collision Pattern
 
-In the blueprint YAML, the `endpoints` block is a map where the key is the URI path. When a single SaaS API endpoint returns a heavy dataset that fulfills multiple distinct ERL requirements, you cannot reuse the same URI key twice in a YAML map.
+In the blueprint YAML, the `endpoints` block is a map where the key is the URI path. When a single SaaS API endpoint returns a heavy dataset that fulfills multiple distinct Evidence requirements, you cannot reuse the same URI key twice in a YAML map.
 
-**The solution:** Append a virtual query parameter `jula_erl=E-XXX-NN` to create unique map keys:
+**The solution:** Append a virtual query parameter `jula_evidence=EVID-XXX-NN` to create unique map keys:
 
 ```yaml
 endpoints:
-  "/issues/export?format=json&filter_status=open&jula_erl=E-MNT-03":
-    erl_id: "E-MNT-03"
+  "/issues/export?format=json&filter_status=open&jula_evidence=EVID-MNT-03":
+    evidence_id: "EVID-MNT-03"
     description: "Patch Management Audits (Open Vulnerabilities)"
-  "/issues/export?format=json&filter_status=open&jula_erl=E-VPM-11":
-    erl_id: "E-VPM-11"
+  "/issues/export?format=json&filter_status=open&jula_evidence=EVID-VPM-11":
+    evidence_id: "EVID-VPM-11"
     description: "Open Vulnerability Scan"
 ```
 
-The `CleanPath` function in the universal REST engine automatically strips `jula_erl=` parameters before firing the HTTP request, guaranteeing clean upstream API calls. The vendor's API never sees this parameter.
+The `CleanPath` function in the universal REST engine automatically strips `jula_evidence=` parameters before firing the HTTP request, guaranteeing clean upstream API calls. The vendor's API never sees this parameter.
 
-Production examples of this pattern are visible in `configs/blueprints/openapi/aikido.yaml` where `/issues/export` and `/report/ciScans` each appear multiple times with different `jula_erl=` suffixes.
+Production examples of this pattern are visible in `configs/blueprints/openapi/aikido.yaml` where `/issues/export` and `/report/ciScans` each appear multiple times with different `jula_evidence=` suffixes.
 
 ### 5. Pagination Configuration
 
@@ -148,7 +148,7 @@ Endpoint paths support `${VAR_NAME}` interpolation for dynamic values:
 
 ```yaml
 "/repos/${GITHUB_ORG}/${GITHUB_REPO}/commits":
-  erl_id: "E-AST-22"
+  evidence_id: "EVID-AST-22"
   description: "Repository Commit Provenance"
 ```
 
@@ -179,7 +179,7 @@ Follow the Rego v1 standards defined in the Architectural Guardrails section bel
 
 When a SaaS vendor changes its API:
 
-1. **Endpoint changes:** Update or add endpoint entries in the existing blueprint YAML. If an endpoint is removed, delete its entry. If a new endpoint is added, map it to the appropriate ERL ID.
+1. **Endpoint changes:** Update or add endpoint entries in the existing blueprint YAML. If an endpoint is removed, delete its entry. If a new endpoint is added, map it to the appropriate Evidence ID.
 2. **Auth flow rotation:** Update the `auth_flow` block if the vendor migrates from Bearer to OAuth2 or changes their token URL.
 3. **Pagination changes:** Add, modify, or remove `pagination` blocks as the vendor updates its pagination strategy.
 4. **Field deprecations:** Update corresponding Rego normalizers to handle both old and new field names using `object.get` with fallback defaults.

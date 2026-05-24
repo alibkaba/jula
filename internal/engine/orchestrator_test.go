@@ -12,13 +12,13 @@ import (
 )
 
 // makeSuccessJob creates an extractionJob that returns a valid Finding.
-func makeSuccessJob(erlID string) extractionJob {
+func makeSuccessJob(evidenceID string) extractionJob {
 	return extractionJob{
-		erlID:       erlID,
-		description: "test-" + erlID,
+		evidenceID:       evidenceID,
+		description: "test-" + evidenceID,
 		execute: func(ctx context.Context) ([]types.Finding, error) {
 			return []types.Finding{{
-				ErlID:     erlID,
+				EvidenceID:     evidenceID,
 				Provider:  "test",
 				RawData:   []byte(`{"status":"ok"}`),
 				Timestamp: time.Now().UTC(),
@@ -29,12 +29,12 @@ func makeSuccessJob(erlID string) extractionJob {
 }
 
 // makeFailJob creates an extractionJob that returns an error.
-func makeFailJob(erlID string) extractionJob {
+func makeFailJob(evidenceID string) extractionJob {
 	return extractionJob{
-		erlID:       erlID,
-		description: "test-" + erlID,
+		evidenceID:       evidenceID,
+		description: "test-" + evidenceID,
 		execute: func(ctx context.Context) ([]types.Finding, error) {
-			return nil, fmt.Errorf("simulated failure for %s", erlID)
+			return nil, fmt.Errorf("simulated failure for %s", evidenceID)
 		},
 	}
 }
@@ -49,16 +49,16 @@ func TestExecuteJobs_AllSuccess(t *testing.T) {
 	})
 
 	jobs := []extractionJob{
-		makeSuccessJob("E-TEST-01"),
-		makeSuccessJob("E-TEST-02"),
-		makeSuccessJob("E-TEST-03"),
-		makeSuccessJob("E-TEST-04"),
-		makeSuccessJob("E-TEST-05"),
-		makeSuccessJob("E-TEST-06"),
-		makeSuccessJob("E-TEST-07"),
-		makeSuccessJob("E-TEST-08"),
-		makeSuccessJob("E-TEST-09"),
-		makeSuccessJob("E-TEST-10"),
+		makeSuccessJob("EVID-TEST-01"),
+		makeSuccessJob("EVID-TEST-02"),
+		makeSuccessJob("EVID-TEST-03"),
+		makeSuccessJob("EVID-TEST-04"),
+		makeSuccessJob("EVID-TEST-05"),
+		makeSuccessJob("EVID-TEST-06"),
+		makeSuccessJob("EVID-TEST-07"),
+		makeSuccessJob("EVID-TEST-08"),
+		makeSuccessJob("EVID-TEST-09"),
+		makeSuccessJob("EVID-TEST-10"),
 	}
 
 	findings, err := o.executeJobs(context.Background(), jobs)
@@ -72,7 +72,7 @@ func TestExecuteJobs_AllSuccess(t *testing.T) {
 	// Verify each finding has the correct provider tag.
 	for _, f := range findings {
 		if f.Provider != "test" {
-			t.Errorf("expected provider 'test', got %q for ERL %s", f.Provider, f.ErlID)
+			t.Errorf("expected provider 'test', got %q for Evidence %s", f.Provider, f.EvidenceID)
 		}
 	}
 }
@@ -87,11 +87,11 @@ func TestExecuteJobs_PartialFailure(t *testing.T) {
 	})
 
 	jobs := []extractionJob{
-		makeSuccessJob("E-PASS-01"),
-		makeFailJob("E-FAIL-01"),
-		makeSuccessJob("E-PASS-02"),
-		makeFailJob("E-FAIL-02"),
-		makeSuccessJob("E-PASS-03"),
+		makeSuccessJob("EVID-PASS-01"),
+		makeFailJob("EVID-FAIL-01"),
+		makeSuccessJob("EVID-PASS-02"),
+		makeFailJob("EVID-FAIL-02"),
+		makeSuccessJob("EVID-PASS-03"),
 	}
 
 	findings, err := o.executeJobs(context.Background(), jobs)
@@ -113,9 +113,9 @@ func TestExecuteJobs_TotalFailure(t *testing.T) {
 	})
 
 	jobs := []extractionJob{
-		makeFailJob("E-FAIL-01"),
-		makeFailJob("E-FAIL-02"),
-		makeFailJob("E-FAIL-03"),
+		makeFailJob("EVID-FAIL-01"),
+		makeFailJob("EVID-FAIL-02"),
+		makeFailJob("EVID-FAIL-03"),
 	}
 
 	findings, err := o.executeJobs(context.Background(), jobs)
@@ -138,9 +138,9 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 	// Create 10 jobs that each hold a slot for 50ms, tracking peak concurrency.
 	var jobs []extractionJob
 	for i := 0; i < 10; i++ {
-		erlID := fmt.Sprintf("E-CONC-%02d", i+1)
+		evidenceID := fmt.Sprintf("EVID-CONC-%02d", i+1)
 		jobs = append(jobs, extractionJob{
-			erlID:       erlID,
+			evidenceID:       evidenceID,
 			description: "concurrency-test",
 			execute: func(ctx context.Context) ([]types.Finding, error) {
 				running := currentRunning.Add(1)
@@ -160,7 +160,7 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 				currentRunning.Add(-1)
 
 				return []types.Finding{{
-					ErlID:    erlID,
+					EvidenceID:    evidenceID,
 					Provider: "test",
 					RawData:  []byte(`{}`),
 					RunID:    "test-run",
@@ -240,7 +240,7 @@ func TestExecuteJobs_ContextCancellation(t *testing.T) {
 
 	jobs := []extractionJob{
 		{
-			erlID: "E-TEST-01",
+			evidenceID: "EVID-TEST-01",
 			execute: func(ctx context.Context) ([]types.Finding, error) {
 				// simulate work that respects context
 				select {

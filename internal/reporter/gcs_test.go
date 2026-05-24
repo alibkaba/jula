@@ -23,12 +23,12 @@ func (s *staticToken) Token() (string, error) { return s.token, nil }
 func gcsTestEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
-			ErlID:       "E-TEST-01",
+			EvidenceID:       "EVID-TEST-01",
 			ControlID:   "CTRL-1",
 			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
-				ErlID:     "E-TEST-01",
+				EvidenceID:     "EVID-TEST-01",
 				ControlID: "CTRL-1",
 				SourceID:  "src-1",
 				Provider:  "gcp",
@@ -165,10 +165,10 @@ func TestGCSReporter_Deliver(t *testing.T) {
 	foundProvenance := false
 	foundManifest := false
 	for _, p := range uploadedPaths {
-		if strings.HasSuffix(p, "E-TEST-01_gcp_src-1.json") {
+		if strings.HasSuffix(p, "EVID-TEST-01_gcp_src-1.json") {
 			foundEvidence = true
 		}
-		if strings.HasSuffix(p, "E-TEST-01_gcp_src-1.prov.json") {
+		if strings.HasSuffix(p, "EVID-TEST-01_gcp_src-1.prov.json") {
 			foundProvenance = true
 		}
 		if strings.HasSuffix(p, "manifest.json") {

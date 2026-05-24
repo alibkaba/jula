@@ -27,15 +27,15 @@ func TestCleanPath(t *testing.T) {
 			expected: "/issues/export?format=json&filter_status=open",
 		},
 		{
-			input:    "/issues/export?format=json&filter_status=open&jula_erl=E-MNT-03",
+			input:    "/issues/export?format=json&filter_status=open&jula_evidence=EVID-MNT-03",
 			expected: "/issues/export?format=json&filter_status=open",
 		},
 		{
-			input:    "/issues/export?jula_erl=E-MNT-03&format=json",
+			input:    "/issues/export?jula_evidence=EVID-MNT-03&format=json",
 			expected: "/issues/export?format=json",
 		},
 		{
-			input:    "/issues/export?jula_erl=E-MNT-03",
+			input:    "/issues/export?jula_evidence=EVID-MNT-03",
 			expected: "/issues/export",
 		},
 	}
@@ -96,7 +96,7 @@ func TestEngine_Execute_BearerSuccess(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		ErlID:       "E-CHG-01",
+		EvidenceID:       "EVID-CHG-01",
 		Description: "GitHub Repository Metadata",
 	}
 
@@ -111,8 +111,8 @@ func TestEngine_Execute_BearerSuccess(t *testing.T) {
 	}
 
 	f := findings[0]
-	if f.ErlID != "E-CHG-01" {
-		t.Errorf("expected ErlID E-CHG-01, got %q", f.ErlID)
+	if f.EvidenceID != "EVID-CHG-01" {
+		t.Errorf("expected EvidenceID EVID-CHG-01, got %q", f.EvidenceID)
 	}
 	if f.Provider != "github" {
 		t.Errorf("expected Provider github, got %q", f.Provider)
@@ -179,7 +179,7 @@ func TestEngine_Execute_OAuth2Success(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		ErlID:       "E-MNT-03",
+		EvidenceID:       "EVID-MNT-03",
 		Description: "Aikido Issues",
 	}
 
@@ -240,7 +240,7 @@ func TestEngine_Execute_LinkHeaderPagination(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		ErlID:       "E-CHG-03",
+		EvidenceID:       "EVID-CHG-03",
 		Description: "GitHub Paginated Issues",
 		Pagination: &PaginationConfig{
 			NextURLField: "header.Link",
@@ -309,7 +309,7 @@ func TestEngine_Execute_JSONPathPagination(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		ErlID:       "E-VPM-01",
+		EvidenceID:       "EVID-VPM-01",
 		Description: "JSON Path Paginated Endpoint",
 		Pagination: &PaginationConfig{
 			NextURLField: "pagination.next",
@@ -362,7 +362,7 @@ func TestEngine_Execute_404Allowed(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		ErlID:       "E-CHG-04",
+		EvidenceID:       "EVID-CHG-04",
 		Description: "CODEOWNERS file (optional)",
 		Allow404:    true,
 	}
@@ -403,7 +403,7 @@ func TestEngine_Execute_StrictPaginationEnforcement(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		ErlID:       "E-TEST-STRICT",
+		EvidenceID:       "EVID-TEST-STRICT",
 		Description: "No pagination instructions",
 	}
 

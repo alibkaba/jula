@@ -5,5 +5,5 @@ auth_flow:
   token_env: MOCK_TOKEN
 endpoints:
   /mock-db:
-    erl_id: E-BCM-16
+    evidence_id: EVID-BCM-16
     description: Mock database configuration endpoint for E2E tracer bullet testing

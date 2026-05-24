@@ -211,7 +211,7 @@ auth_flow:
   token_env: "MOCK_TOKEN"
 endpoints:
   "/":
-    erl_id: "E-MOCK-01"
+    evidence_id: "EVID-MOCK-01"
     description: "Mock HTTP Extraction"
 `)
 	if err := os.WriteFile(filepath.Join(restDir, "saas_mock.yaml"), mockIntegration, 0644); err != nil {

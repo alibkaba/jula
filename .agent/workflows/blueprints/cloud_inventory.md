@@ -48,14 +48,14 @@ Create a new package at `internal/providers/<cloud>/` containing:
 
 **Extract method:**
 
-- Accept `(ctx context.Context, erlID string, cfg <ExtractionConfig>, runID string)` matching the signature pattern in both existing providers.
+- Accept `(ctx context.Context, evidenceID string, cfg <ExtractionConfig>, runID string)` matching the signature pattern in both existing providers.
 - Use the SDK's native paginator or iterator to traverse all result pages. Aggregate results into a `[]json.RawMessage` or `[]map[string]interface{}` slice.
 - Marshal the aggregated results into `types.Finding.RawData` as opaque JSON bytes. The provider must never interpret, transform, or restructure the cloud API response.
 - Set `Finding.Provider` to a descriptive lowercase identifier (e.g., `gcp_cai`, `aws_config`, `azure_resource_graph`).
 
 **Config loader:**
 
-- Follow the `LoadCAIConfigs` / `LoadAWSConfigExtractions` pattern: read a YAML file, unmarshal into a typed map keyed by ERL ID, validate that the file is non-empty, and enforce path traversal prevention using `filepath.Clean` with `..` rejection.
+- Follow the `LoadCAIConfigs` / `LoadAWSConfigExtractions` pattern: read a YAML file, unmarshal into a typed map keyed by Evidence ID, validate that the file is non-empty, and enforce path traversal prevention using `filepath.Clean` with `..` rejection.
 
 **Reference implementations:**
 
@@ -66,11 +66,11 @@ Create a new package at `internal/providers/<cloud>/` containing:
 
 Create the extraction config at `configs/blueprints/native/<cloud>_<service>.yaml`.
 
-Each entry in the YAML file maps an ERL ID to a specific query against the cloud inventory API:
+Each entry in the YAML file maps an Evidence ID to a specific query against the cloud inventory API:
 
 ```yaml
 DCH-10:
-  erl_id: "E-DCH-10"
+  evidence_id: "EVID-DCH-10"
   description: "Human-readable description of what this extraction collects"
   provider: "<cloud>_<service>"
   query: "The vendor-specific query string"
@@ -123,7 +123,7 @@ Reference implementations:
 
 When a cloud API introduces new resource types, deprecates fields, or changes pagination behavior:
 
-1. **Update the YAML extraction config** by adding new ERL entries or modifying existing queries.
+1. **Update the YAML extraction config** by adding new Evidence entries or modifying existing queries.
 2. **Update or add Rego normalizers** in `jula-compliance-policies` to handle the new resource structure. Always use `object.get` with fallback defaults to handle both old and new field names gracefully.
 3. **Update unit tests** to cover the new resource types or field changes with fresh mock responses.
 4. **Do not modify the Go provider code** unless the cloud SDK itself introduces breaking changes to its pagination or query interface.

@@ -91,9 +91,9 @@ func (r *GCSReporter) Validate(ctx context.Context) error {
 }
 
 // Deliver formats, signs, and uploads evidence to the GCS bucket.
-// Object path structure: {runDate}/evidence/{erl_id}/{hash}.json
+// Object path structure: {runDate}/evidence/{evidence_id}/{hash}.json
 //
-// This routing is purely ERL-based. There are no framework or criteria paths.
+// This routing is purely Evidence-based. There are no framework or criteria paths.
 func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, runID string) (*types.Manifest, error) {
 	runDate := time.Now().UTC().Format("2006-01-02")
 	manifest := &types.Manifest{
@@ -110,16 +110,16 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 		data, err := json.MarshalIndent(ev, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
+			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.EvidenceID, err)
 		}
 
 		sanitizedControlID := filepath.Base(ev.ControlID)
-		sanitizedErlID := filepath.Base(ev.ErlID)
+		sanitizedEvidenceID := filepath.Base(ev.EvidenceID)
 		sanitizedProvider := filepath.Base(ev.Finding.Provider)
 		sanitizedSourceID := filepath.Base(ev.SourceID)
 
 		// Predictable namespace filename
-		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedEvidenceID, sanitizedProvider, sanitizedSourceID)
 		objectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedControlID, fileName)
 
 		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
@@ -128,7 +128,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 		// Generate, sign, and upload provenance sidecar
 		prov := &crypto.Provenance{
-			ErlID:       ev.ErlID,
+			EvidenceID:       ev.EvidenceID,
 			Provider:    ev.Finding.Provider,
 			SourceID:    ev.SourceID,
 			PayloadHash: ev.PayloadHash,
@@ -140,15 +140,15 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 
 		if err := crypto.SignProvenance(prov, r.SigningKey); err != nil {
-			return nil, fmt.Errorf("signing provenance for %s: %w", ev.ErlID, err)
+			return nil, fmt.Errorf("signing provenance for %s: %w", ev.EvidenceID, err)
 		}
 
 		provData, err := json.MarshalIndent(prov, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("marshalling provenance for %s: %w", ev.ErlID, err)
+			return nil, fmt.Errorf("marshalling provenance for %s: %w", ev.EvidenceID, err)
 		}
 
-		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedEvidenceID, sanitizedProvider, sanitizedSourceID)
 		provObjectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedControlID, provFileName)
 
 		if err := r.uploadObject(ctx, provObjectName, provData, "application/json"); err != nil {

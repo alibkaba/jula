@@ -25,8 +25,8 @@ func handleRun(args []string) error {
 	targetFlag := runCmd.String("target", os.Getenv("JULA_OUTPUT_TARGET"), "Delivery target: local, gcs")
 	pathFlag := runCmd.String("path", os.Getenv("JULA_OUTPUT_PATH"), "Target path or bucket URI")
 	urlFlag := runCmd.String("integration-url", os.Getenv("JULA_INTEGRATION_URL"), "URL to fetch integrations.tar.gz")
-	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent ERL extraction goroutines")
-	timeoutFlag := runCmd.String("timeout", "5m", "Per-ERL extraction timeout duration")
+	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent Evidence extraction goroutines")
+	timeoutFlag := runCmd.String("timeout", "5m", "Per-Evidence extraction timeout duration")
 
 	if err := runCmd.Parse(args); err != nil {
 		return fmt.Errorf("parsing run flags: %w", err)

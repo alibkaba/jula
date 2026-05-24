@@ -39,9 +39,9 @@ func (r *LocalReporter) Validate(ctx context.Context) error {
 }
 
 // Deliver writes each evidence artifact as a JSON file and generates a signed manifest.
-// Directory structure: {output_dir}/{run_date}/evidence/{erl_id}/{hash}.json
+// Directory structure: {output_dir}/{run_date}/evidence/{evidence_id}/{hash}.json
 //
-// This routing is purely ERL-based. There are no framework or criteria directories.
+// This routing is purely Evidence-based. There are no framework or criteria directories.
 func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, runID string) (*types.Manifest, error) {
 	runDate := time.Now().UTC().Format("2006-01-02")
 	manifest := &types.Manifest{
@@ -57,7 +57,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		sanitizedControlID := filepath.Base(ev.ControlID)
-		sanitizedErlID := filepath.Base(ev.ErlID)
+		sanitizedEvidenceID := filepath.Base(ev.EvidenceID)
 		sanitizedProvider := filepath.Base(ev.Finding.Provider)
 		sanitizedSourceID := filepath.Base(ev.SourceID)
 
@@ -70,11 +70,11 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		// Marshal the evidence for storage.
 		data, err := json.MarshalIndent(ev, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.ErlID, err)
+			return nil, fmt.Errorf("marshalling evidence for %s: %w", ev.EvidenceID, err)
 		}
 
 		// Predictable namespace filename
-		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedEvidenceID, sanitizedProvider, sanitizedSourceID)
 		filePath := filepath.Join(dirPath, fileName)
 
 		if err := os.WriteFile(filePath, data, 0600); err != nil {
@@ -82,11 +82,11 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		// Generate and sign provenance sidecar
-		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedErlID, sanitizedProvider, sanitizedSourceID)
+		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedEvidenceID, sanitizedProvider, sanitizedSourceID)
 		provFilePath := filepath.Join(dirPath, provFileName)
 
 		prov := &crypto.Provenance{
-			ErlID:       ev.ErlID,
+			EvidenceID:       ev.EvidenceID,
 			Provider:    ev.Finding.Provider,
 			SourceID:    ev.SourceID,
 			PayloadHash: ev.PayloadHash,
@@ -98,12 +98,12 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		}
 
 		if err := crypto.SignProvenance(prov, r.SigningKey); err != nil {
-			return nil, fmt.Errorf("signing provenance for %s: %w", ev.ErlID, err)
+			return nil, fmt.Errorf("signing provenance for %s: %w", ev.EvidenceID, err)
 		}
 
 		provData, err := json.MarshalIndent(prov, "", "  ")
 		if err != nil {
-			return nil, fmt.Errorf("marshalling provenance for %s: %w", ev.ErlID, err)
+			return nil, fmt.Errorf("marshalling provenance for %s: %w", ev.EvidenceID, err)
 		}
 
 		if err := os.WriteFile(provFilePath, provData, 0600); err != nil {

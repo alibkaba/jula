@@ -19,12 +19,12 @@ import (
 func testEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
-			ErlID:       "E-TEST-01",
+			EvidenceID:       "EVID-TEST-01",
 			ControlID:   "CTRL-1",
 			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
-				ErlID:     "E-TEST-01",
+				EvidenceID:     "EVID-TEST-01",
 				ControlID: "CTRL-1",
 				SourceID:  "src-1",
 				Provider:  "gcp_cai",
@@ -34,12 +34,12 @@ func testEvidence() []types.Evidence {
 			},
 		},
 		{
-			ErlID:       "E-TEST-02",
+			EvidenceID:       "EVID-TEST-02",
 			ControlID:   "CTRL-2",
 			SourceID:    "src-2",
 			PayloadHash: "def456hash",
 			Finding: types.Finding{
-				ErlID:     "E-TEST-02",
+				EvidenceID:     "EVID-TEST-02",
 				ControlID: "CTRL-2",
 				SourceID:  "src-2",
 				Provider:  "aws_config",
@@ -116,16 +116,16 @@ func TestLocalReporter_Deliver(t *testing.T) {
 	foundGCPProv := false
 	foundAWSProv := false
 	for _, f := range manifest.EvidenceFiles {
-		if strings.HasSuffix(f.Path, "E-TEST-01_gcp_cai_src-1.json") {
+		if strings.HasSuffix(f.Path, "EVID-TEST-01_gcp_cai_src-1.json") {
 			foundGCP = true
 		}
-		if strings.HasSuffix(f.Path, "E-TEST-02_aws_config_src-2.json") {
+		if strings.HasSuffix(f.Path, "EVID-TEST-02_aws_config_src-2.json") {
 			foundAWS = true
 		}
-		if strings.HasSuffix(f.Path, "E-TEST-01_gcp_cai_src-1.prov.json") {
+		if strings.HasSuffix(f.Path, "EVID-TEST-01_gcp_cai_src-1.prov.json") {
 			foundGCPProv = true
 		}
-		if strings.HasSuffix(f.Path, "E-TEST-02_aws_config_src-2.prov.json") {
+		if strings.HasSuffix(f.Path, "EVID-TEST-02_aws_config_src-2.prov.json") {
 			foundAWSProv = true
 		}
 	}
@@ -157,7 +157,7 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 	}
 
 	runDate := time.Now().UTC().Format("2006-01-02")
-	filePath := filepath.Join(tmpDir, runDate, "evidence", "CTRL-1", "E-TEST-01_gcp_cai_src-1.json")
+	filePath := filepath.Join(tmpDir, runDate, "evidence", "CTRL-1", "EVID-TEST-01_gcp_cai_src-1.json")
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -169,8 +169,8 @@ func TestLocalReporter_EvidenceFileContainsValidJSON(t *testing.T) {
 		t.Fatalf("evidence file is not valid JSON: %v", err)
 	}
 
-	if ev.Finding.ErlID != "E-TEST-01" {
-		t.Errorf("unexpected finding ERL ID in file: %s", ev.Finding.ErlID)
+	if ev.Finding.EvidenceID != "EVID-TEST-01" {
+		t.Errorf("unexpected finding Evidence ID in file: %s", ev.Finding.EvidenceID)
 	}
 }
 
@@ -230,7 +230,7 @@ func TestLocalReporter_Deliver_Negative(t *testing.T) {
 	}
 
 	evidence := []types.Evidence{
-		{ErlID: "E-TEST", Finding: types.Finding{RawData: []byte(`{}`)}},
+		{EvidenceID: "EVID-TEST", Finding: types.Finding{RawData: []byte(`{}`)}},
 	}
 
 	_, err := reporter.Deliver(context.Background(), evidence, "test-run")

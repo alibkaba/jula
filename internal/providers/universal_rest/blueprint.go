@@ -52,9 +52,9 @@ func (a AuthFlowConfig) Redacted() AuthFlowConfig {
 	return copy
 }
 
-// RESTEndpointConfig defines specific GET/POST routing details and ERL mappings.
+// RESTEndpointConfig defines specific GET/POST routing details and Evidence mappings.
 type RESTEndpointConfig struct {
-	ErlID       string            `yaml:"erl_id" json:"erl_id"`
+	EvidenceID       string            `yaml:"evidence_id" json:"evidence_id"`
 	Description string            `yaml:"description" json:"description"`
 	Method      string            `yaml:"method,omitempty" json:"method,omitempty"`
 	Body        map[string]any    `yaml:"body,omitempty" json:"body,omitempty"`
@@ -69,10 +69,10 @@ type PaginationConfig struct {
 	MaxPages     int    `yaml:"max_pages" json:"max_pages"`
 }
 
-// CleanPath removes virtual query parameters like 'jula_erl' from paths
+// CleanPath removes virtual query parameters like 'jula_evidence' from paths
 // to guarantee clean upstream requests while keeping YAML keys unique.
 func CleanPath(path string) string {
-	if !strings.Contains(path, "jula_erl=") {
+	if !strings.Contains(path, "jula_evidence=") {
 		return path
 	}
 	// Split by ? to separate query params
@@ -83,7 +83,7 @@ func CleanPath(path string) string {
 	queryParams := strings.Split(parts[1], "&")
 	var cleanedParams []string
 	for _, param := range queryParams {
-		if !strings.HasPrefix(param, "jula_erl=") {
+		if !strings.HasPrefix(param, "jula_evidence=") {
 			cleanedParams = append(cleanedParams, param)
 		}
 	}

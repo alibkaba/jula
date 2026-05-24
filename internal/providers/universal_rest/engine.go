@@ -60,7 +60,7 @@ func NewEngine(client *http.Client) *Engine {
 	return &Engine{client: client}
 }
 
-// Execute performs HTTP GET requests defined in the integration for a specific ERL path.
+// Execute performs HTTP GET requests defined in the integration for a specific Evidence path.
 // For paginated endpoints, it returns multiple findings (one per page) with original body bytes.
 // If authentication credentials are missing, it returns ErrMissingCredentials to allow
 // the orchestrator to skip the integration gracefully.
@@ -93,7 +93,7 @@ func (e *Engine) Execute(ctx context.Context, integration *RESTIntegration, erlP
 
 	// 6. Handle authentication validation early if possible
 	if integration.AuthFlow.Type == "bearer" && os.Getenv(integration.AuthFlow.TokenEnv) == "" {
-		slog.Debug("universal_rest: skipping integration due to missing credentials", "vendor", integration.VendorName, "erl_id", epCfg.ErlID)
+		slog.Debug("universal_rest: skipping integration due to missing credentials", "vendor", integration.VendorName, "evidence_id", epCfg.EvidenceID)
 		return nil, fmt.Errorf("skipping integration %s: %w", integration.VendorName, ErrMissingCredentials)
 	}
 
@@ -121,7 +121,7 @@ func (e *Engine) Execute(ctx context.Context, integration *RESTIntegration, erlP
 	}
 
 	finding := types.Finding{
-		ErlID:     epCfg.ErlID,
+		EvidenceID:     epCfg.EvidenceID,
 		Provider:  integration.VendorName,
 		RawData:   body,
 		Timestamp: time.Now().UTC(),
@@ -343,7 +343,7 @@ func (e *Engine) fetchPaginated(ctx context.Context, targetURL string, headers m
 		}
 
 		findings = append(findings, types.Finding{
-			ErlID:     epCfg.ErlID,
+			EvidenceID:     epCfg.EvidenceID,
 			Provider:  integration.VendorName,
 			RawData:   body,
 			Timestamp: time.Now().UTC(),
