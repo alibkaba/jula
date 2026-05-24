@@ -1,0 +1,5 @@
+vendor_name: "azure"
+provider: "azure"                # Primary routing discriminator key
+auth_flow:
+  type: "azure_identity"         # Mutex-locked token caching
+endpoints: {}

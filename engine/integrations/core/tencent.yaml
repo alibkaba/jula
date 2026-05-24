@@ -1,0 +1,5 @@
+vendor_name: "tencent"
+provider: "tencent"              # Primary routing discriminator key
+auth_flow:
+  type: "ali_tencent_hmac"       # High-compliance parameter percent-encoding
+endpoints: {}

@@ -1,6 +1,6 @@
 package debug_test
 import rego.v1
-import data.transformer.gcp.database as db_norm
+import data.normalizers.core.gcp.database as db_norm
 
 test_debug if {
 	instances := [
@@ -21,7 +21,7 @@ test_debug if {
 	]
     input_data := {
         "findings": {
-            "E-GCP-INVENTORY": {
+            "EVID-GCP-INVENTORY": {
                 "gcp": instances
             }
         }

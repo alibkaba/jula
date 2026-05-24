@@ -1,0 +1,5 @@
+vendor_name: "aws"
+provider: "aws"                  # Primary routing discriminator key
+auth_flow:
+  type: "aws_sigv4"              # Pure-Go alpha-sorted parameter canonicalization and HMAC hashing
+endpoints: {}

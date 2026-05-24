@@ -1,6 +1,6 @@
 {
 	"findings": {
-		"E-GCP-INVENTORY": {
+		"EVID-GCP-INVENTORY": {
 			"gcp": [
 				{
 					"name": "//sqladmin.googleapis.com/projects/jula-494603/instances/prod-db",

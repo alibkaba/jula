@@ -1,12 +1,12 @@
-package compliance.scf.tag_01
+package compliance.controls.tag_01
 
 import rego.v1
-import data.transformer.gcp.storage as storage_norm
+import data.normalizers.core.gcp.storage as storage_norm
 
 # Default compliance status
 default compliant = false
 
-scf_id := "TAG-01"
+control_id := "TAG-01"
 customer_control_id := "CC-TAG-1"
 
 # Check if GCS buckets meet the tag-scoping rule

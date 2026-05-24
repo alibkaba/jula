@@ -1,7 +1,7 @@
-package compliance.scf.wai_01_test
+package compliance.controls.wai_01_test
 
 import rego.v1
-import data.compliance.scf.wai_01
+import data.compliance.controls.wai_01
 
 # Helper to build mock input findings with metadata waivers
 mock_input(instances, waivers, eval_time) = {

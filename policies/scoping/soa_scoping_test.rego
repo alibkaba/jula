@@ -1,7 +1,7 @@
-package compliance.scf.soa_01_test
+package compliance.controls.soa_01_test
 
 import rego.v1
-import data.compliance.scf.soa_01
+import data.compliance.controls.soa_01
 
 # Test case 1: Control is out of scope (not in applicable_controls list) -> Should pass compliance
 test_not_applicable_passes if {
@@ -30,7 +30,7 @@ test_applicable_compliant if {
 			}
 		},
 		"findings": {
-			"E-GCP-INVENTORY": {
+			"EVID-GCP-INVENTORY": {
 				"gcp": [
 					{
 						"resource": {
@@ -48,7 +48,7 @@ test_applicable_compliant if {
 		}
 	}
 	soa_01.compliant with input as mock_input
-	soa_01.details == "Evaluation successfully passed under policy package compliance.scf.soa_01" with input as mock_input
+	soa_01.details == "Evaluation successfully passed under policy package compliance.controls.soa_01" with input as mock_input
 }
 
 # Test case 3: Control is in scope, databases lack SSL -> Should fail compliance
@@ -60,7 +60,7 @@ test_applicable_non_compliant if {
 			}
 		},
 		"findings": {
-			"E-GCP-INVENTORY": {
+			"EVID-GCP-INVENTORY": {
 				"gcp": [
 					{
 						"resource": {

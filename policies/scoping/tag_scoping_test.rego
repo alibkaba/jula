@@ -1,12 +1,12 @@
-package compliance.scf.tag_01_test
+package compliance.controls.tag_01_test
 
 import rego.v1
-import data.compliance.scf.tag_01
+import data.compliance.controls.tag_01
 
 # Helper to build mock input findings
 mock_input(buckets) = {
 	"findings": {
-		"E-GCP-INVENTORY": {
+		"EVID-GCP-INVENTORY": {
 			"gcp": buckets
 		}
 	}

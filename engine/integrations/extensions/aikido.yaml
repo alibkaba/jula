@@ -1,0 +1,43 @@
+vendor_name: "aikido"
+base_url: "https://app.aikido.dev/api/public/v1"
+auth_flow:
+  type: "oauth2"
+  token_url: "https://app.aikido.dev/api/oauth/token"
+  client_id_env: "AIK_CLIENT_ID"
+  client_secret_env: "AIK_SECRET_KEY"
+endpoints:
+  "/issues/export?jula_evidence=EVID-VPM-01":
+    evidence_id: "EVID-VPM-01"
+    description: "Vulnerability & Patch Management Program"
+    headers:
+      Accept: "application/json"
+  "/issues/export?jula_evidence=EVID-VPM-05":
+    evidence_id: "EVID-VPM-05"
+    description: "Vulnerability Assessments"
+    headers:
+      Accept: "application/json"
+  "/issues/export?jula_evidence=EVID-VPM-10":
+    evidence_id: "EVID-VPM-10"
+    description: "Applicable Flaws & Vulnerabilities"
+    headers:
+      Accept: "application/json"
+  "/issues/export?jula_evidence=EVID-VPM-11":
+    evidence_id: "EVID-VPM-11"
+    description: "Vulnerability Scanning"
+    headers:
+      Accept: "application/json"
+  "/pentests/assessments/{assessment_id}/detail":
+    evidence_id: "EVID-VPM-02"
+    description: "Penetration Testing - Application"
+    headers:
+      Accept: "application/json"
+  "/research/malware/packages":
+    evidence_id: "EVID-END-03"
+    description: "Antimalware Scanning Results"
+    headers:
+      Accept: "application/json"
+  "/repositories/code/{code_repo_id}/licenses/export":
+    evidence_id: "EVID-BCM-09"
+    description: "COOP Dependency Analysis (SBOM)"
+    headers:
+      Accept: "application/json"

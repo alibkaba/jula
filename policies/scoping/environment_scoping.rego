@@ -1,11 +1,11 @@
-package compliance.scf.env_01
+package compliance.controls.env_01
 
 import rego.v1
-import data.transformer.gcp.database as db_norm
+import data.normalizers.core.gcp.database as db_norm
 
 default compliant = false
 
-scf_id := "ENV-01"
+control_id := "ENV-01"
 customer_control_id := "CC-ENV-1"
 
 compliant if {

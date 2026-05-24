@@ -1,12 +1,12 @@
-package compliance.scf.env_01_test
+package compliance.controls.env_01_test
 
 import rego.v1
-import data.compliance.scf.env_01
+import data.compliance.controls.env_01
 
 # Helper to build mock input findings
 mock_input(instances) = {
 	"findings": {
-		"E-GCP-INVENTORY": {
+		"EVID-GCP-INVENTORY": {
 			"gcp": instances
 		}
 	}

@@ -1,11 +1,11 @@
-package compliance.scf.wai_01
+package compliance.controls.wai_01
 
 import rego.v1
 
 # Default compliance status
 default compliant = false
 
-scf_id := "WAI-01"
+control_id := "WAI-01"
 customer_control_id := "CC-WAI-1"
 
 # Check compliance
@@ -49,7 +49,7 @@ has_active_waiver(inst, timestamp) if {
 	waivers := input.metadata.waivers
 	waiver := waivers[_]
 	waiver.resource_name == inst.name
-	waiver.control_id == scf_id
+	waiver.control_id == control_id
 	
 	# Verify that the waiver is not expired
 	ns_expiry := time.parse_rfc3339_ns(waiver.expires_at)

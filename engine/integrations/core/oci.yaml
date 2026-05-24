@@ -1,0 +1,5 @@
+vendor_name: "oci"
+provider: "oci"                  # Primary routing discriminator key
+auth_flow:
+  type: "oci_cavage"             # Asymmetric header signing strictly tracking IETF Cavage formatting rules
+endpoints: {}

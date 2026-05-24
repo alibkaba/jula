@@ -1,18 +1,18 @@
-package compliance.scf.soa_01
+package compliance.controls.soa_01
 
 import rego.v1
-import data.transformer.gcp.database as db_norm
+import data.normalizers.core.gcp.database as db_norm
 
 # Default compliance status
 default compliant = false
 
-scf_id := "SOA-01"
+control_id := "SOA-01"
 customer_control_id := "CC-SOA-1"
 
 # Determine if the control is applicable
 is_applicable if {
 	applicable_controls := input.metadata.soa.applicable_controls
-	scf_id == applicable_controls[_]
+	control_id == applicable_controls[_]
 }
 
 # If NOT applicable, the check automatically passes with an explanatory message
@@ -33,7 +33,7 @@ compliant if {
 	}
 }
 
-details := "Evaluation successfully passed under policy package compliance.scf.soa_01" if {
+details := "Evaluation successfully passed under policy package compliance.controls.soa_01" if {
 	is_applicable
 	compliant
 }
