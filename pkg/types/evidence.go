@@ -4,13 +4,13 @@ package types
 // raw infrastructure state. It wraps a Finding with a content hash that
 // provides immutable proof of what was collected.
 //
-// Evidence objects are routed purely by ERL ID. There are no framework,
+// Evidence objects are routed purely by Evidence ID. There are no framework,
 // criteria, or control-type fields; downstream evaluation tools handle
 // compliance mapping via the OSCAL build-time generated maps.
 type Evidence struct {
-	// ErlID is the Evidence Request List identifier (e.g., "E-BCM-16").
+	// EvidenceID is the Evidence Request List identifier (e.g., "EVID-BCM-16").
 	// Duplicated from Finding for flat serialization and path routing.
-	ErlID string `json:"erl_id"`
+	EvidenceID string `json:"evidence_id"`
 
 	// ControlID is the generic control identifier (e.g., "BCD-11.4").
 	ControlID string `json:"control_id"`

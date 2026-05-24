@@ -3,16 +3,16 @@ package types
 import "time"
 
 // Finding represents the raw state extracted from a provider for a specific
-// Evidence Request List (ERL) entry. This struct carries no evaluation logic.
+// Evidence Request List (Evidence) entry. This struct carries no evaluation logic.
 // It is a pure container for raw infrastructure state data.
 //
 // The RawData field holds opaque bytes: marshaled JSON from the CAI engine,
 // or raw file bytes from the BYOE FileDrop provider. Downstream tools
 // (e.g., OPA/Rego) are responsible for interpreting and evaluating this data.
 type Finding struct {
-	// ErlID is the Evidence Request List identifier that triggered this extraction
-	// (e.g., "E-BCM-16"). This is the primary routing key for the entire system.
-	ErlID string `json:"erl_id"`
+	// EvidenceID is the Evidence Request List identifier that triggered this extraction
+	// (e.g., "EVID-BCM-16"). This is the primary routing key for the entire system.
+	EvidenceID string `json:"evidence_id"`
 
 	// ControlID is the generic control identifier (e.g., "BCD-11.4").
 	ControlID string `json:"control_id"`

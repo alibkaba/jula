@@ -9,19 +9,19 @@ func TestStructInstantiation(t *testing.T) {
 	now := time.Now()
 
 	f := Finding{
-		ErlID:     "E-TEST-01",
+		EvidenceID:     "EVID-TEST-01",
 		Provider:  "test-provider",
 		RawData:   []byte(`{"key":"value"}`),
 		Timestamp: now,
 		RunID:     "test-run",
 	}
 
-	if f.ErlID != "E-TEST-01" {
-		t.Errorf("expected ErlID E-TEST-01, got %s", f.ErlID)
+	if f.EvidenceID != "EVID-TEST-01" {
+		t.Errorf("expected EvidenceID EVID-TEST-01, got %s", f.EvidenceID)
 	}
 
 	e := Evidence{
-		ErlID:       "E-TEST-01",
+		EvidenceID:       "EVID-TEST-01",
 		Finding:     f,
 		PayloadHash: "abc-123",
 	}
@@ -34,7 +34,7 @@ func TestStructInstantiation(t *testing.T) {
 		RunID:     "test-run",
 		Timestamp: now,
 		EvidenceFiles: []FileChecksum{
-			{Path: "E-TEST-01/abc-123.json", SHA256: "abc-123"},
+			{Path: "EVID-TEST-01/abc-123.json", SHA256: "abc-123"},
 		},
 		Signature: "sig-xyz",
 	}

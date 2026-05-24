@@ -206,7 +206,7 @@ func TestProvenance_SignAndVerify(t *testing.T) {
 	}
 
 	prov := &Provenance{
-		ErlID:       "E-TEST-01",
+		EvidenceID:       "EVID-TEST-01",
 		Provider:    "gcp_cai",
 		SourceID:    "src-1",
 		PayloadHash: "abc123hash",
@@ -244,7 +244,7 @@ func TestProvenance_SignAndVerify(t *testing.T) {
 }
 
 func TestSignProvenance_Negative(t *testing.T) {
-	prov := &Provenance{ErlID: "E-TEST-01"}
+	prov := &Provenance{EvidenceID: "EVID-TEST-01"}
 	err := SignProvenance(prov, nil)
 	if err == nil || err.Error() != "signer is nil" {
 		t.Errorf("expected 'signer is nil' error, got %v", err)
@@ -261,7 +261,7 @@ func TestSignManifest_SignerError(t *testing.T) {
 
 func TestSignProvenance_SignerError(t *testing.T) {
 	prov := &Provenance{
-		ErlID: "E-TEST-02",
+		EvidenceID: "EVID-TEST-02",
 	}
 	err := SignProvenance(prov, errorSigner{})
 	if err == nil || !strings.Contains(err.Error(), "failed to sign provenance") {
@@ -285,7 +285,7 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		{
 			name: "Nil public key",
 			prov: &Provenance{
-				ErlID:     "E-TEST-03",
+				EvidenceID:     "EVID-TEST-03",
 				Signature: "valid-sig",
 			},
 			pubKey:    nil,
@@ -295,7 +295,7 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		{
 			name: "Empty signature",
 			prov: &Provenance{
-				ErlID:     "E-TEST-03",
+				EvidenceID:     "EVID-TEST-03",
 				Signature: "",
 			},
 			pubKey:    &privKey.PublicKey,
@@ -305,7 +305,7 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		{
 			name: "Malformed signature",
 			prov: &Provenance{
-				ErlID:     "E-TEST-03",
+				EvidenceID:     "EVID-TEST-03",
 				Signature: "not-a-valid-hex-!@#",
 			},
 			pubKey:    &privKey.PublicKey,

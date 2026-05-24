@@ -78,7 +78,7 @@ func HashFile(content []byte) string {
 
 // Provenance represents metadata about the evidence extraction.
 type Provenance struct {
-	ErlID              string            `json:"erl_id"`
+	EvidenceID              string            `json:"evidence_id"`
 	Provider           string            `json:"provider"`
 	SourceID           string            `json:"source_id"`
 	PayloadHash        string            `json:"payload_hash"`
