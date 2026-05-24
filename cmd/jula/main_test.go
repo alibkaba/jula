@@ -116,11 +116,11 @@ func TestRunApp_FullIntegration(t *testing.T) {
 	rawHash := pkgCrypto.HashFile(rawFindingData)
 	evidenceObj := &types.Evidence{
 		ControlID:    "BCD-11.4",
-		ErlID:    "E-BCM-16",
+		EvidenceID:    "EVID-BCM-16",
 		SourceID: "src-1",
 		Finding: types.Finding{
 			ControlID:     "BCD-11.4",
-			ErlID:     "E-BCM-16",
+			EvidenceID:     "EVID-BCM-16",
 			SourceID:  "src-1",
 			Provider:  "gcp_cai",
 			RawData:   rawFindingData,
@@ -143,7 +143,7 @@ func TestRunApp_FullIntegration(t *testing.T) {
 
 	// 4. Create signed provenance sidecar.
 	prov := &pkgCrypto.Provenance{
-		ErlID:       "E-BCM-16",
+		EvidenceID:       "EVID-BCM-16",
 		Provider:    "gcp_cai",
 		SourceID:    "src-1",
 		PayloadHash: rawHash,
@@ -202,7 +202,7 @@ default compliant = false
 customer_control_id := "CC-1"
 
 compliant if {
-	db_checks := input.findings["E-BCM-16"]
+	db_checks := input.findings["EVID-BCM-16"]
 	every _, check in db_checks {
 		check.raw_data[0].resource.data.settings.ipConfiguration.requireSsl == true
 	}

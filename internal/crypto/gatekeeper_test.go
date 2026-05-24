@@ -61,7 +61,7 @@ func TestVerifyManifestSignatureAndPayloads(t *testing.T) {
 	}
 
 	// 2. Setup mock payload and hash it.
-	fileName := "2026-05-17/evidence/E-BCM-16/gcp_cai_mock.json"
+	fileName := "2026-05-17/evidence/EVID-BCM-16/gcp_cai_mock.json"
 	fileContent := []byte(`{"status": "compliant"}`)
 	fileHash := eeCrypto.HashFile(fileContent)
 

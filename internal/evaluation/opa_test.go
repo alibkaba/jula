@@ -74,7 +74,7 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 		customer_control_id := "CC-1"
 
 		compliant if {
-			db_checks := input.findings["E-BCM-16"]
+			db_checks := input.findings["EVID-BCM-16"]
 			every check in db_checks {
 				count(check.raw_data) > 0
 				check.raw_data[0].encrypted == true
@@ -89,7 +89,7 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 
 	evidenceList := []types.Evidence{
 		{
-			ErlID:    "E-BCM-16",
+			EvidenceID:    "EVID-BCM-16",
 			ControlID: "BCD-11.4",
 			SourceID: "src-1",
 			Finding: types.Finding{

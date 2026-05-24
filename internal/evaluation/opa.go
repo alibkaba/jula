@@ -15,7 +15,7 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 )
 
-// ComplianceVerdict represents the final evaluation status of an ERL rule.
+// ComplianceVerdict represents the final evaluation status of an Dataset rule.
 type ComplianceVerdict string
 
 const (
@@ -162,18 +162,18 @@ func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, ev
 
 		entry := map[string]interface{}{
 			"raw_data":  raw,
-			"erl_id":    ev.ErlID,
+			"evidence_id":    ev.EvidenceID,
 			"provider":  ev.Finding.Provider,
 			"timestamp": ev.Finding.Timestamp,
 		}
 
-		// Group under findingsMap[erlID][sourceID]
+		// Group under findingsMap[evidenceID][sourceID]
 		var sourceMap map[string]interface{}
-		if existing, ok := findingsMap[ev.ErlID]; ok {
+		if existing, ok := findingsMap[ev.EvidenceID]; ok {
 			sourceMap = existing.(map[string]interface{})
 		} else {
 			sourceMap = make(map[string]interface{})
-			findingsMap[ev.ErlID] = sourceMap
+			findingsMap[ev.EvidenceID] = sourceMap
 		}
 		sourceMap[ev.SourceID] = entry
 	}

@@ -7,7 +7,7 @@
 | **[Jula Core](https://github.com/alibkaba/jula-core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-core/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-core/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-core?color=blue&logo=github)](https://github.com/alibkaba/jula-core/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-core?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-core)](https://goreportcard.com/report/github.com/alibkaba/jula-core) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evidence-collector/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-collector/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-collector?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-collector) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evidence-evaluator/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evidence-evaluator/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evidence-evaluator?color=blue&logo=github)](https://github.com/alibkaba/jula-evidence-evaluator/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evidence-evaluator?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evidence-evaluator)](https://goreportcard.com/report/github.com/alibkaba/jula-evidence-evaluator) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
-| **[Jula Compliance Policies](https://github.com/alibkaba/jula-compliance-policies)** | N/A | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
+| **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-compliance-as-code)** | N/A | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 
 ## The Jula Controls Ecosystem
 
@@ -15,7 +15,7 @@ Jula Controls is designed as a decoupled, multi-repository architecture where sp
 
 * The **[Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
 * The **[Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
-* The **[Jula Compliance Policies](https://github.com/alibkaba/jula-compliance-policies) stores Rego policies** in a version-controlled repository that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
+* The **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-compliance-as-code) stores Rego policies** in a version-controlled repository that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
 
 Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
 
@@ -77,7 +77,7 @@ flowchart TB
 
     subgraph Phase3 ["3. Policy-as-Code & Automation Registry"]
         direction LR
-        PR["📂 jula-compliance-policies <br> (Versioned Rego OPA Rules)"]
+        PR["📂 jula-compliance-as-code <br> (Versioned Rego OPA Rules)"]
         Meta["📄 Organization Metadata <br> (client_metadata.json SoA Scope)"]
     end
 
@@ -142,13 +142,13 @@ flowchart TB
 
 ### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-evidence-collector) (The Attestation & Extraction Engine)
 
-The Collector programmatically extracts infrastructure configurations using a Universal REST Engine executing declarative OpenAPI-inspired YAML integrations for both Cloud and SaaS tools. Operating as a pure data extraction engine, it outputs raw, untouched API responses directly into files mapped to explicit ERL configuration scopes. It generates SHA-256 hashes of all payloads, signs ECDSA provenance sidecars for each finding, captures execution logs in `run.log.gz`, and signs a secure runtime manifest, proving execution integrity and chain of custody.
+The Collector programmatically extracts infrastructure configurations using a Universal REST Engine executing declarative OpenAPI-inspired YAML integrations for both Cloud and SaaS tools. Operating as a pure data extraction engine, it outputs raw, untouched API responses directly into files mapped to explicit Dataset configuration scopes. It generates SHA-256 hashes of all payloads, signs ECDSA provenance sidecars for each finding, captures execution logs in `run.log.gz`, and signs a secure runtime manifest, proving execution integrity and chain of custody.
 
 ### 2. [Jula Evidence Evaluator](https://github.com/alibkaba/jula-evidence-evaluator) (The Assurance Engine)
 
-The Evaluator consumes the cryptographically signed manifests and raw evidence artifacts generated by the Collector. It validates the manifest signature and ingests organization-level scopes or Statement of Applicability configurations via the `--metadata-url` CLI flag. It handles processing by grouping finding arrays under `input.findings[erl_id][source_id]`, letting embedded Open Policy Agent rules normalize and evaluate technical control compliance dynamically into Open Security Controls Assessment Language (OSCAL) results.
+The Evaluator consumes the cryptographically signed manifests and raw evidence artifacts generated by the Collector. It validates the manifest signature and ingests organization-level scopes or Statement of Applicability configurations via the `--metadata-url` CLI flag. It handles processing by grouping finding arrays under `input.findings[evidence_id][source_id]`, letting embedded Open Policy Agent rules normalize and evaluate technical control compliance dynamically into Open Security Controls Assessment Language (OSCAL) results.
 
-### 3. [Jula Compliance Policies](https://github.com/alibkaba/jula-compliance-policies) (The Policy-as-Code Registry)
+### 3. [Jula Compliance-as-Code](https://github.com/alibkaba/jula-compliance-as-code) (The Policy-as-Code Registry)
 
 The Policy-as-Code Registry houses version-controlled compliance libraries written in Open Policy Agent (OPA) Rego language. This serves as the single source of truth for both structural data normalization (mapping cloud-specific parameters to agnostic target schemas on the fly) and scoping/applicability rule validation.
 
@@ -164,13 +164,13 @@ The future Jula Evidence Insights will ingest the OSCAL Assessment Results gener
 
 ## The Continuous Compliance Pipeline
 
-1. **Declare:** Define what you want to extract in declarative YAML configuration files. Cloud and SaaS integrations are defined using OpenAPI-inspired YAML integrations mapped to target ERL IDs.
+1. **Declare:** Define what you want to extract in declarative YAML configuration files. Cloud and SaaS integrations are defined using OpenAPI-inspired YAML integrations mapped to target Evidence IDs.
 
-2. **Extract & Hash:** The Collector runs queries concurrently. Raw unmodified payloads are saved as `{erl_id}_{provider}_{source_id}.json`. The raw payload is SHA-256 hashed to produce the payload hash.
+2. **Extract & Hash:** The Collector runs queries concurrently. Raw unmodified payloads are saved as `{evidence_id}_{provider}_{source_id}.json`. The raw payload is SHA-256 hashed to produce the payload hash.
 
 3. **Sign & Attest:** The Collector generates an ECDSA-signed provenance sidecar (`.prov.json`) for each finding containing the payload hash. It compiles all hashes and the execution trace log (`run.log.gz`) hash into a unified manifest (`manifest.json`) and signs it to generate a cryptographically verifiable attestation of the run.
 
-4. **Verify & Evaluate:** The Evaluator verifies the manifest and provenance signatures using the public key. It indexes raw payloads into an evaluation matrix structured under `input.findings[erl_id][source_id]` and loads customer Statement of Applicability details via `--metadata-url`. It passes this data map to the dynamic Rego helper libraries for normalization and compliance check rule verification.
+4. **Verify & Evaluate:** The Evaluator verifies the manifest and provenance signatures using the public key. It indexes raw payloads into an evaluation matrix structured under `input.findings[evidence_id][source_id]` and loads customer Statement of Applicability details via `--metadata-url`. It passes this data map to the dynamic Rego helper libraries for normalization and compliance check rule verification.
 
 5. **Analyze & Simulate:** The Jula Evidence Insights engine models enterprise risk exposure and posture maturity using quantitative FAIR simulations and NIST CSF radar maps.
 
@@ -188,7 +188,7 @@ Jula Controls uses a config-driven schema. Adding new resource checks requires z
 
 * Cloud hyperscalers and SaaS targets are both defined via text-based YAML integrations.
 * They map REST configurations using OpenAPI-inspired schemas specifying auth flows like `aws_sigv4`, `gcp_adc`, `oauth2`, or `bearer`.
-* Support pagination cursors, header schemas, and ERL ID mappings. Virtual query parameters (`jula_erl=`) are automatically supported to permit mapping a single physical endpoint across multiple unique integration registry keys.
+* Support pagination cursors, header schemas, and Evidence ID mappings. Virtual query parameters (`jula_evidence=`) are automatically supported to permit mapping a single physical endpoint across multiple unique integration registry keys.
 
 ### Configuration Example (Cloud POST-Driven Integration)
 
@@ -200,7 +200,7 @@ auth_flow:
 endpoints:
   "https://config.${AWS_REGION}.amazonaws.com/":
     method: "POST"
-    erl_id: "E-IAM-01"
+    evidence_id: "EVID-IAM-01"
     description: "Query IAM Users via AWS Config REST gateway"
     body:
       Expression: "SELECT resourceId WHERE resourceType = 'AWS::IAM::User'"
