@@ -98,7 +98,7 @@ resource "google_secret_manager_secret_iam_member" "eval_runner_github_token" {
 # ──────────────────────────────────────────────────────────────
 
 resource "google_cloud_run_v2_service" "jula_eval" {
-  name     = "jula-evidence-evaluator"
+  name     = "jula-evaluator"
   location = var.region
   project  = var.project_id
 
@@ -154,7 +154,7 @@ resource "google_cloud_run_v2_service" "jula_eval" {
       }
       env {
         name  = "GITHUB_REPO"
-        value = "jula-evidence-evaluator"
+        value = "jula-evaluator"
       }
       env {
         name = "GITHUB_TOKEN"

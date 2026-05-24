@@ -11,7 +11,7 @@
 
 project_id           = "your-gcp-project-id"
 region               = "us-central1"
-docker_image         = "us-central1-docker.pkg.dev/your-gcp-project-id/jula-evidence-evaluator/jula:latest"
+docker_image         = "us-central1-docker.pkg.dev/your-gcp-project-id/jula-evaluator/jula:latest"
 evidence_bucket_name = "jula-evidence-ledger"
 owner_email          = "your-email@example.com"
 github_org           = "your-github-org"

@@ -65,7 +65,7 @@ variable "scheduler_timezone" {
 variable "repository_name" {
   description = "Name of the Artifact Registry repository."
   type        = string
-  default     = "jula-evidence-evaluator"
+  default     = "jula-evaluator"
 }
 
 variable "owner_email" {

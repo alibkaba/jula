@@ -12,7 +12,7 @@ env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_REGION: us-central1
   ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
-  REPOSITORY: jula-evidence-evaluator
+  REPOSITORY: jula-evaluator
   IMAGE_NAME: jula
 
 jobs:
@@ -108,7 +108,7 @@ jobs:
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3.0.0
         with:
-          service: jula-evidence-evaluator
+          service: jula-evaluator
           region: ${{ env.GCP_REGION }}
           image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
