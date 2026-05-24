@@ -3,7 +3,7 @@ module github.com/alibkaba/jula-evidence-evaluator
 go 1.25.10
 
 require (
-	github.com/alibkaba/jula-core v0.0.0-20260522210055-bf803e4fe1d0
+	github.com/alibkaba/jula-core v0.0.0-20260524230312-1841bfb65d9d
 	github.com/open-policy-agent/opa v1.16.2
 )
 
