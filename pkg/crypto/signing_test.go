@@ -326,3 +326,74 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONMarshalErrors(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	invalidTime := time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	manifestSign := testManifest()
+	manifestSign.Timestamp = invalidTime
+
+	manifestVerify := testManifest()
+	manifestVerify.Timestamp = invalidTime
+	manifestVerify.Signature = "deadbeef"
+
+	provSign := &Provenance{
+		ErlID:     "E-TEST-02",
+		Timestamp: invalidTime,
+	}
+
+	provVerify := &Provenance{
+		ErlID:     "E-TEST-02",
+		Timestamp: invalidTime,
+		Signature: "deadbeef",
+	}
+
+	tests := []struct {
+		name      string
+		operation func() error
+		errString string
+	}{
+		{
+			name: "SignManifest Marshal Error",
+			operation: func() error {
+				return SignManifest(manifestSign, privKey)
+			},
+			errString: "failed to marshal manifest",
+		},
+		{
+			name: "VerifyManifest Marshal Error",
+			operation: func() error {
+				_, err := VerifyManifest(manifestVerify, &privKey.PublicKey)
+				return err
+			},
+			errString: "failed to marshal manifest",
+		},
+		{
+			name: "SignProvenance Marshal Error",
+			operation: func() error {
+				return SignProvenance(provSign, privKey)
+			},
+			errString: "failed to marshal provenance",
+		},
+		{
+			name: "VerifyProvenance Marshal Error",
+			operation: func() error {
+				_, err := VerifyProvenance(provVerify, &privKey.PublicKey)
+				return err
+			},
+			errString: "failed to marshal provenance",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.operation()
+			if err == nil {
+				t.Errorf("expected error containing %q, got nil", tt.errString)
+			} else if !strings.Contains(err.Error(), tt.errString) {
+				t.Errorf("expected error containing %q, got: %v", tt.errString, err)
+			}
+		})
+	}
+}
