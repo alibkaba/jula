@@ -16,7 +16,7 @@ import (
 
 	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/types"
-	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
+	"github.com/alibkaba/jula-collector/pkg/logging"
 )
 
 // TokenProvider abstracts how the GCS reporter obtains an OAuth2 access token.

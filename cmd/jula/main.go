@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/alibkaba/jula-evidence-collector/pkg/logging"
+	"github.com/alibkaba/jula-collector/pkg/logging"
 )
 
 // version is set at build time via -ldflags.

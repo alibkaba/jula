@@ -16,13 +16,13 @@ jobs:
       - name: Checkout Evidence Collector
         uses: actions/checkout@v6
         with:
-          path: jula-evidence-collector
+          path: jula-collector
 
       - name: Checkout Evidence Evaluator
         uses: actions/checkout@v6
         with:
-          repository: alibkaba/jula-evidence-evaluator
-          path: jula-evidence-evaluator
+          repository: alibkaba/jula-evaluator
+          path: jula-evaluator
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -36,18 +36,18 @@ jobs:
 
       - name: Build Jula Collector
         run: |
-          cd jula-evidence-collector
+          cd jula-collector
           go build -o jula-collector ./cmd/jula
 
       - name: Build Jula Evaluator
         run: |
-          cd jula-evidence-evaluator
+          cd jula-evaluator
           go build -o jula-evaluator ./cmd/jula
 
       - name: Execute Collector Canary Scan
         id: collector
         run: |
-          cd jula-evidence-collector
+          cd jula-collector
           # Run the collector binary to fetch raw findings
           ./jula-collector -output raw_findings.json
         continue-on-error: true
@@ -56,9 +56,9 @@ jobs:
         id: evaluator
         run: |
           gh repo clone alibkaba/jula-compliance-policies jula-compliance-policies
-          cd jula-evidence-evaluator
+          cd jula-evaluator
           # Evaluate raw findings against compliance policies
-          ./jula-evaluator -findings ../jula-evidence-collector/raw_findings.json -policies ../jula-compliance-policies/policies
+          ./jula-evaluator -findings ../jula-collector/raw_findings.json -policies ../jula-compliance-policies/policies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
@@ -66,7 +66,7 @@ jobs:
       - name: Check for Schema Drift and Trigger Self-Healing
         if: steps.evaluator.outcome == 'failure' || steps.collector.outcome == 'failure'
         run: |
-          cd jula-evidence-collector
+          cd jula-collector
           echo "⚠️ Anomaly or schema drift detected! Initiating autonomous self-healing loop..."
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"

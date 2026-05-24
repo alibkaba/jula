@@ -1,4 +1,4 @@
-module github.com/alibkaba/jula-evidence-collector
+module github.com/alibkaba/jula-collector
 
 go 1.25.10
 

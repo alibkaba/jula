@@ -11,7 +11,7 @@
 
 project_id           = "your-gcp-project-id"
 region               = "us-central1"
-docker_image         = "us-central1-docker.pkg.dev/your-gcp-project-id/jula-evidence-collector/jula:latest"
+docker_image         = "us-central1-docker.pkg.dev/your-gcp-project-id/jula-collector/jula:latest"
 evidence_bucket_name = "jula-evidence-output-your-gcp-project-id"
 
 # Optional overrides (defaults shown):

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/alibkaba/jula-core/pkg/types"
-	"github.com/alibkaba/jula-evidence-collector/internal/platform"
-	universalrest "github.com/alibkaba/jula-evidence-collector/internal/providers/universal_rest"
+	"github.com/alibkaba/jula-collector/internal/platform"
+	universalrest "github.com/alibkaba/jula-collector/internal/providers/universal_rest"
 	"go.yaml.in/yaml/v4"
 )
 

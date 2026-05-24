@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-evidence-collector/internal/engine"
-	"github.com/alibkaba/jula-evidence-collector/internal/reporter"
+	"github.com/alibkaba/jula-collector/internal/engine"
+	"github.com/alibkaba/jula-collector/internal/reporter"
 )
 
 func handleRun(args []string) error {

@@ -172,7 +172,7 @@ resource "google_secret_manager_secret_iam_member" "jula_runner_github_token" {
 # ──────────────────────────────────────────────────────────────
 
 resource "google_cloud_run_v2_service" "jula" {
-  name     = "jula-evidence-collector"
+  name     = "jula-collector"
   location = var.region
   project  = var.project_id
 
@@ -240,7 +240,7 @@ resource "google_cloud_run_v2_service" "jula" {
       }
       env {
         name  = "GITHUB_REPO"
-        value = "jula-evidence-collector"
+        value = "jula-collector"
       }
       env {
         name  = "JULA_INTEGRATION_URL"

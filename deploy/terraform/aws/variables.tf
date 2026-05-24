@@ -11,11 +11,11 @@ variable "aws_region" {
 variable "aws_repository_name" {
   description = "Name of the AWS ECR repository."
   type        = string
-  default     = "jula-evidence-collector"
+  default     = "jula-collector"
 }
 
 variable "github_repo_full_name" {
   description = "Full name of the GitHub repository (owner/repo) for OIDC trust."
   type        = string
-  default     = "alibkaba/jula-evidence-collector"
+  default     = "alibkaba/jula-collector"
 }
