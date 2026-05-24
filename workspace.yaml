@@ -4,18 +4,7 @@ organization: "Enterprise-X"
 active_core_providers:
   - aws
   - azure
-  # - gcp
+  - gcp
 
 # Shared Orchestration: Users declare the names; Jula automation dynamically updates metadata
-active_extensions:
-  - name: "github"
-    oas_spec_version: "3.0.3"
-    vendor_api_version: "v3"
-    last_schema_sync: "2026-05-24"
-    last_schema_change: "2026-01-15"
 
-  - name: "aikido"
-    oas_spec_version: "3.1.0"
-    vendor_api_version: "1.0.4"
-    last_schema_sync: "2026-05-24"
-    last_schema_change: "2026-05-24"
