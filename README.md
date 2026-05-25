@@ -5,16 +5,16 @@
 | Component | Build & Release | Quality & Tech | License |
 | :--- | :--- | :--- | :--- |
 | **[Jula Core](https://github.com/alibkaba/jula-core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-core/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-core/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-core?color=blue&logo=github)](https://github.com/alibkaba/jula-core/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-core?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-core)](https://goreportcard.com/report/github.com/alibkaba/jula-core) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
-| **[Jula Evidence Collector](https://github.com/alibkaba/jula-collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-collector/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-collector?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-collector) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
-| **[Jula Evidence Evaluator](https://github.com/alibkaba/jula-evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evaluator?color=blue&logo=github)](https://github.com/alibkaba/jula-evaluator/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evaluator?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evaluator)](https://goreportcard.com/report/github.com/alibkaba/jula-evaluator) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
+| **[Jula Collector](https://github.com/alibkaba/jula-collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-collector/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-collector?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-collector) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
+| **[Jula Evaluator](https://github.com/alibkaba/jula-evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evaluator?color=blue&logo=github)](https://github.com/alibkaba/jula-evaluator/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evaluator?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evaluator)](https://goreportcard.com/report/github.com/alibkaba/jula-evaluator) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-compliance-as-code)** | N/A | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 
 ## The Jula Controls Ecosystem
 
 Jula Controls is designed as a decoupled, multi-repository architecture where specialized tools cooperate to automate security assurance:
 
-* The **[Jula Evidence Collector](https://github.com/alibkaba/jula-collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
-* The **[Jula Evidence Evaluator](https://github.com/alibkaba/jula-evaluator) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
+* The **[Jula Collector](https://github.com/alibkaba/jula-collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
+* The **[Jula Evaluator](https://github.com/alibkaba/jula-evaluator) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
 * The **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-compliance-as-code) stores Rego policies** in a version-controlled repository that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
 
 Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
@@ -56,7 +56,7 @@ flowchart TB
     classDef insights fill:#0f172a,stroke:#ec4899,stroke-width:2px,color:#e2e8f0;
     classDef core fill:#0f172a,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
 
-    subgraph Phase1 ["1. Attestation Layer (Jula Evidence Collector)"]
+    subgraph Phase1 ["1. Attestation Layer (Jula Collector)"]
         direction TB
         APIs["☁️ Cloud & SaaS APIs <br> (AWS, GCP, SaaS)"] -->|1. Extract Configs| REST["Universal REST Engine <br> (Unified Integrations Registry)"]
         REST -->|2a. Output Payloads| H["📄 Evidence Payloads <br> (Pure Raw JSON)"]
@@ -81,9 +81,9 @@ flowchart TB
         Meta["📄 Organization Metadata <br> (client_metadata.json SoA Scope)"]
     end
 
-    subgraph Phase4 ["4. Continuous Assurance Layer (Jula Evidence Evaluator)"]
+    subgraph Phase4 ["4. Continuous Assurance Layer (Jula Evaluator)"]
         direction TB
-        EE["🔍 Jula Evidence Evaluator <br> (Stateless Go CLI)"]
+        EE["🔍 Jula Evaluator <br> (Stateless Go CLI)"]
         
         subgraph GK ["Gatekeeper Modules"]
             direction LR
@@ -100,9 +100,9 @@ flowchart TB
         ProvCheck --> OPA
     end
 
-    subgraph Phase5 ["5. Executive Risk & Posture Insights (Jula Evidence Insights)"]
+    subgraph Phase5 ["5. Executive Risk & Posture Insights (Jula Insights)"]
         direction TB
-        DB["📊 Jula Evidence Insights <br> (Quantitative Risk & Posture)"]
+        DB["📊 Jula Insights <br> (Quantitative Risk & Posture)"]
         
         subgraph Views ["Visualization Modules"]
             direction LR
@@ -140,11 +140,11 @@ flowchart TB
     class JC core;
 ```
 
-### 1. [Jula Evidence Collector](https://github.com/alibkaba/jula-collector) (The Attestation & Extraction Engine)
+### 1. [Jula Collector](https://github.com/alibkaba/jula-collector) (The Attestation & Extraction Engine)
 
 The Collector programmatically extracts infrastructure configurations using a Universal REST Engine executing declarative OpenAPI-inspired YAML integrations for both Cloud and SaaS tools. Operating as a pure data extraction engine, it outputs raw, untouched API responses directly into files mapped to explicit Dataset configuration scopes. It generates SHA-256 hashes of all payloads, signs ECDSA provenance sidecars for each finding, captures execution logs in `run.log.gz`, and signs a secure runtime manifest, proving execution integrity and chain of custody.
 
-### 2. [Jula Evidence Evaluator](https://github.com/alibkaba/jula-evaluator) (The Assurance Engine)
+### 2. [Jula Evaluator](https://github.com/alibkaba/jula-evaluator) (The Assurance Engine)
 
 The Evaluator consumes the cryptographically signed manifests and raw evidence artifacts generated by the Collector. It validates the manifest signature and ingests organization-level scopes or Statement of Applicability configurations via the `--metadata-url` CLI flag. It handles processing by grouping finding arrays under `input.findings[evidence_id][source_id]`, letting embedded Open Policy Agent rules normalize and evaluate technical control compliance dynamically into Open Security Controls Assessment Language (OSCAL) results.
 
@@ -156,9 +156,9 @@ The Policy-as-Code Registry houses version-controlled compliance libraries writt
 
 The Shared Go Library houses the shared data structures (Finding, Evidence, Manifest) and cryptographic signature signing/verification utilities used across the Jula Attestation and Assurance engines.
 
-### 5. Jula Evidence Insights (Future Analytical Layer)
+### 5. Jula Insights (Future Analytical Layer)
 
-The future Jula Evidence Insights will ingest the OSCAL Assessment Results generated by the Jula Evidence Evaluator to translate technical security findings into operational maturity tracking and quantitative financial risk metrics for board-level reporting.
+The future Jula Insights will ingest the OSCAL Assessment Results generated by the Jula Evaluator to translate technical security findings into operational maturity tracking and quantitative financial risk metrics for board-level reporting.
 
 ---
 
@@ -172,7 +172,7 @@ The future Jula Evidence Insights will ingest the OSCAL Assessment Results gener
 
 4. **Verify & Evaluate:** The Evaluator verifies the manifest and provenance signatures using the public key. It indexes raw payloads into an evaluation matrix structured under `input.findings[evidence_id][source_id]` and loads customer Statement of Applicability details via `--metadata-url`. It passes this data map to the dynamic Rego helper libraries for normalization and compliance check rule verification.
 
-5. **Analyze & Simulate:** The Jula Evidence Insights engine models enterprise risk exposure and posture maturity using quantitative FAIR simulations and NIST CSF radar maps.
+5. **Analyze & Simulate:** The Jula Insights engine models enterprise risk exposure and posture maturity using quantitative FAIR simulations and NIST CSF radar maps.
 
 ---
 
@@ -216,6 +216,14 @@ To trigger an air-gapped E2E validation tracer test locally:
 ```bash
 ./automation/autonomous_heal.sh
 ```
+
+---
+
+## Roadmap
+
+The current ecosystem provides a robust, decoupled architecture for continuous compliance, but deploying it requires manual setup. Upcoming roadmap priorities focus on simplifying the adoption and operational overhead of the Jula suite:
+
+* **[ ] IaC Deployment Templates:** Create unified Infrastructure as Code (IaC) deployment packages (e.g., Terraform modules, AWS CloudFormation templates, Azure Resource Manager templates, or GCP Deployment Manager manifests) to allow users to spin up the entire Collector and Evaluator pipeline with a single command.
 
 ---
 
