@@ -210,15 +210,20 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		}
 
 		if header.Typeflag == tar.TypeReg {
-			// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-compliance-as-code-12345/integrations/...').
-			// We strip the first path segment to normalize the keys to 'integrations/...'.
+			// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-compliance-as-code-12345/engine/integrations/...').
+			// We strip the prefix to normalize the keys to bare filenames (e.g., 'gcp.yaml').
 			parts := strings.SplitN(header.Name, "/", 2)
-			if len(parts) != 2 || !strings.HasPrefix(parts[1], "integrations/") {
-				continue // Skip files not under integrations/
+			if len(parts) != 2 {
+				continue
+			}
+			tail := parts[1]
+
+			// Accept files under engine/integrations/ (flat layout).
+			if !strings.HasPrefix(tail, "engine/integrations/") {
+				continue
 			}
 
-			// Use the stripped path (e.g., 'universal_cloud/gcp_cai.yaml')
-			normalizedName := strings.TrimPrefix(parts[1], "integrations/")
+			normalizedName := strings.TrimPrefix(tail, "engine/integrations/")
 
 			data, err := io.ReadAll(tr)
 			if err != nil {

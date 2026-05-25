@@ -6,18 +6,14 @@ import (
 	"testing"
 )
 
-func TestBuildUniversalRESTJobs(t *testing.T) {
+func TestBuildJobs_RESTIntegration(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("AWS_ACCESS_KEY_ID", "DUMMYKEY")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "DUMMYSECRET")
 	t.Setenv("GCP_PROJECT_ID", "dummy-project")
 
-	// Create a temp config directory with the integrations/universal_rest structure
+	// Create a temp flat integrations directory
 	tmpDir := t.TempDir()
-	restDir := tmpDir + "/universal_rest"
-	if err := os.MkdirAll(restDir, 0755); err != nil {
-		t.Fatalf("failed to create rest dir: %v", err)
-	}
 
 	integrationData := `
 vendor_name: "test-vendor"
@@ -30,7 +26,7 @@ endpoints:
     evidence_id: "EVID-TEST-SaaS"
     description: "Test SaaS"
 `
-	err := os.WriteFile(restDir+"/test_integration.yaml", []byte(integrationData), 0644)
+	err := os.WriteFile(tmpDir+"/test_integration.yaml", []byte(integrationData), 0644)
 	if err != nil {
 		t.Fatalf("failed to write temp integration: %v", err)
 	}
@@ -40,7 +36,7 @@ endpoints:
 		RunID:          "test-run",
 	})
 
-	jobs, err := o.buildUniversalRESTJobs()
+	jobs, err := o.buildJobs(context.Background())
 	if err != nil {
 		t.Fatalf("failed to build jobs: %v", err)
 	}
@@ -58,17 +54,14 @@ endpoints:
 	}
 }
 
-func TestBuildUniversalCloudJobs_Success(t *testing.T) {
+func TestBuildJobs_CloudIntegration(t *testing.T) {
 	t.Setenv("AWS_REGION", "us-east-1")
 	t.Setenv("AWS_ACCESS_KEY_ID", "DUMMYKEY")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "DUMMYSECRET")
 	t.Setenv("GCP_PROJECT_ID", "dummy-project")
 
+	// Create a temp flat integrations directory
 	tmpDir := t.TempDir()
-	cloudDir := tmpDir + "/universal_cloud"
-	if err := os.MkdirAll(cloudDir, 0755); err != nil {
-		t.Fatalf("failed to create cloud dir: %v", err)
-	}
 
 	cloudData := `
 vendor_name: "aws"
@@ -83,7 +76,7 @@ endpoints:
     body:
       Expression: "SELECT resourceId"
 `
-	err := os.WriteFile(cloudDir+"/aws_test.yaml", []byte(cloudData), 0644)
+	err := os.WriteFile(tmpDir+"/aws_test.yaml", []byte(cloudData), 0644)
 	if err != nil {
 		t.Fatalf("failed to write temp cloud integration: %v", err)
 	}
@@ -93,9 +86,9 @@ endpoints:
 		RunID:          "test-run",
 	})
 
-	jobs, err := o.buildUniversalCloudJobs(context.Background())
+	jobs, err := o.buildJobs(context.Background())
 	if err != nil {
-		t.Fatalf("failed to build cloud jobs: %v", err)
+		t.Fatalf("failed to build jobs: %v", err)
 	}
 
 	if len(jobs) != 1 {
@@ -107,12 +100,12 @@ endpoints:
 	}
 }
 
-func TestBuildUniversalCloudJobs_InvalidPath(t *testing.T) {
+func TestBuildJobs_InvalidPath(t *testing.T) {
 	o := New(RunConfig{
 		IntegrationDir: "nonexistent",
 	})
-	_, err := o.buildUniversalCloudJobs(context.Background())
+	_, err := o.buildJobs(context.Background())
 	if err == nil {
-		t.Error("expected error when universal_cloud config path is invalid")
+		t.Error("expected error when integrations directory path is invalid")
 	}
 }

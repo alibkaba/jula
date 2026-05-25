@@ -313,17 +313,17 @@ func TestOrchestrator_Extract_NoJobs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when no configs are provided, got nil")
 	}
-	if !strings.Contains(err.Error(), "no extraction jobs available") {
-		t.Errorf("expected 'no extraction jobs available' error, got %v", err)
+	if !strings.Contains(err.Error(), "no extraction jobs available") && !strings.Contains(err.Error(), "job builder initialization failed") {
+		t.Errorf("expected extraction error, got %v", err)
 	}
 }
 
-func TestBuildUniversalRESTJobs_Error(t *testing.T) {
+func TestBuildJobs_Error(t *testing.T) {
 	o := New(RunConfig{
 		IntegrationDir: "nonexistent-integrations",
 	})
-	_, err := o.buildUniversalRESTJobs()
+	_, err := o.buildJobs(context.Background())
 	if err == nil {
-		t.Fatal("expected error for nonexistent openapi config path, got nil")
+		t.Fatal("expected error for nonexistent integrations path, got nil")
 	}
 }
