@@ -13,6 +13,7 @@
 
 Jula Controls is designed as a decoupled, multi-repository architecture where specialized tools cooperate to automate security assurance:
 
+* The **[Jula Core](https://github.com/alibkaba/jula-core) defines shared models and cryptographic validation** utilities used by all modules, ensuring consistent data schemas across the pipeline.
 * The **[Jula Collector](https://github.com/alibkaba/jula-collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
 * The **[Jula Evaluator](https://github.com/alibkaba/jula-evaluator) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
 * The **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-compliance-as-code) stores Rego policies** in a version-controlled repository that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
@@ -34,7 +35,7 @@ Why pay a massive premium for redundant software? Traditional GRCs justify heavy
 
 * For **policy management**, you do not need a specialized SaaS platform to host an Information Security Policy. Write it in Google Workspace, Notion, or Confluence, and use their native version history and access controls.
 * For **third-party risk management**, standardized intake forms routed through existing IT ticketing (Jira or Zendesk) are vastly superior and less noisy than third-party scanning portals.
-* For **enterprise risk management**, formal financial risk modeling is overkill for scaling startups since that risk tracking belongs at the board level.
+* For **enterprise risk management**, formal financial risk modeling is overkill for velocity-driven engineering organizations since that risk tracking belongs at the board level.
 
 By pairing this containerized evidence suite with your existing tooling, you eliminate redundant SaaS overhead. Stop wasting time organizing policies in a vendor's portal, and start generating the actual evidence required to pass your audit and close enterprise deals.
 
@@ -224,16 +225,8 @@ We maintain an automated continuous assurance loop that validates pipeline integ
 
 To trigger an air-gapped E2E validation tracer test locally:
 ```bash
-./automation/autonomous_heal.sh
+./automation/pipeline_healer.sh
 ```
-
----
-
-## Roadmap
-
-The current ecosystem provides a robust, decoupled architecture for continuous compliance, but deploying it requires manual setup. Upcoming roadmap priorities focus on simplifying the adoption and operational overhead of the Jula suite:
-
-* **[ ] IaC Deployment Templates:** Create unified Infrastructure as Code (IaC) deployment packages (e.g., Terraform modules, AWS CloudFormation templates, Azure Resource Manager templates, or GCP Deployment Manager manifests) to allow users to spin up the entire Collector and Evaluator pipeline with a single command.
 
 ---
 
