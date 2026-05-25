@@ -58,9 +58,10 @@ flowchart TB
 
     subgraph Phase3 ["3. Compliance-as-Code Registry (jula-compliance-as-code)"]
         direction LR
+        Cat["📄 catalog.csv <br> (GRC Controls Catalog)"] -->|AI Extract| Req["📄 requirements.csv <br> (Engineering Requirements Triage)"]
+        Req -->|Human Approval & Gen| PR_Pol["📂 policies/rules/ <br> (Generated Core Rego Policies)"]
         PR_Int["📂 engine/integrations/ <br> (YAML Data Collectors)"]
         PR_Norm["📂 engine/normalizers/ <br> (Rego Payload Adapters)"]
-        PR_Pol["📂 policies/ <br> (Rego Check Rules & Scoping)"]
         Meta["📄 workspace.yaml <br> (Active Scopes & Targets)"]
     end
 
@@ -134,7 +135,7 @@ flowchart TB
     PR_Pol -->|Stream Core Policies| OPA
 
     %% Execution flow
-    GCS -->|Pull Signed Ledger Run| EE
+    GCS -->|Pull Signed Ledger Run| SigCheck
     OPA -->|Audit Logs| Findings["🏆 Standardized Findings Ledger <br> (OSCAL Assessment Results)"]
     Findings -->|Ingest Findings JSON| DB
 
