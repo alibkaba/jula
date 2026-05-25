@@ -26,11 +26,3 @@ Jula Core (`github.com/alibkaba/jula-core`) contains the shared data structures 
 
 * The **`pkg/types` package defines shared models** for findings, evidence, and manifest files.
 * The **`pkg/crypto` package implements ECDSA signature methods** for signing and verifying manifests and provenance sidecars.
-
----
-
-## Roadmap
-
-The current ecosystem provides a robust, decoupled architecture for continuous compliance, but deploying it requires manual setup. Upcoming roadmap priorities focus on simplifying the adoption and operational overhead of the Jula suite:
-
-* **[ ] IaC Deployment Templates:** Create unified Infrastructure as Code (IaC) deployment packages (e.g., Terraform modules, AWS CloudFormation templates, Azure Resource Manager templates, or GCP Deployment Manager manifests) to allow users to spin up the entire Collector and Evaluator pipeline with a single command.
