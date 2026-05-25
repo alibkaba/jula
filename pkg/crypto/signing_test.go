@@ -339,14 +339,14 @@ func TestJSONMarshalErrors(t *testing.T) {
 	manifestVerify.Signature = "deadbeef"
 
 	provSign := &Provenance{
-		ErlID:     "E-TEST-02",
-		Timestamp: invalidTime,
+		EvidenceID: "E-TEST-02",
+		Timestamp:  invalidTime,
 	}
 
 	provVerify := &Provenance{
-		ErlID:     "E-TEST-02",
-		Timestamp: invalidTime,
-		Signature: "deadbeef",
+		EvidenceID: "E-TEST-02",
+		Timestamp:  invalidTime,
+		Signature:  "deadbeef",
 	}
 
 	tests := []struct {
