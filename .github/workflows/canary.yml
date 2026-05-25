@@ -55,10 +55,10 @@ jobs:
       - name: Execute Evaluator Policy Validation
         id: evaluator
         run: |
-          gh repo clone alibkaba/jula-compliance-policies jula-compliance-policies
+          gh repo clone alibkaba/jula-compliance-as-code jula-compliance-as-code
           cd jula-evaluator
           # Evaluate raw findings against compliance policies
-          ./jula-evaluator -findings ../jula-collector/raw_findings.json -policies ../jula-compliance-policies/policies
+          ./jula-evaluator -findings ../jula-collector/raw_findings.json -policies ../jula-compliance-as-code/policies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
