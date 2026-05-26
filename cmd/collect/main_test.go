@@ -37,7 +37,7 @@ func TestMainCrasher(t *testing.T) {
 		if argsStr != "" {
 			os.Args = strings.Split(argsStr, ",")
 		} else {
-			os.Args = []string{"jula"}
+			os.Args = []string{"collect"}
 		}
 		main()
 		return
@@ -49,11 +49,11 @@ func TestMainCrasher(t *testing.T) {
 		expectedStatus int
 		expectedOutput string
 	}{
-		{"no args", []string{"jula"}, 2, "Usage: jula <command>"},
-		{"unknown command", []string{"jula", "unknown_cmd"}, 2, "unknown command: unknown_cmd"},
-		{"version command", []string{"jula", "version"}, 0, "jula dev"},
-		{"run fail nonexistent config", []string{"jula", "run", "--config", "nonexistent"}, 1, "run failed"},
-		{"serve fail invalid port", []string{"jula", "serve"}, 1, "serve failed"},
+		{"no args", []string{"collect"}, 2, "Usage: collect <command>"},
+		{"unknown command", []string{"collect", "unknown_cmd"}, 2, "unknown command: unknown_cmd"},
+		{"version command", []string{"collect", "version"}, 0, "collect dev"},
+		{"run fail nonexistent config", []string{"collect", "run", "--config", "nonexistent"}, 1, "run failed"},
+		{"serve fail invalid port", []string{"collect", "serve"}, 1, "serve failed"},
 	}
 
 	for _, tt := range tests {
