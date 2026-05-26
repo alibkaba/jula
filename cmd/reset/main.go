@@ -49,7 +49,7 @@ active_providers:
 		log.Fatalf("Failed: %v", err)
 	}
 
-	fmt.Print("Purging core rules and normalizers... ")
+	fmt.Print("Purging core rules and translators... ")
 
 	// Purge core_*.rego and core_*.rego_test
 	rulesFiles, _ := filepath.Glob("../../policies/rules/core_*.rego")
@@ -68,9 +68,9 @@ active_providers:
 		}
 	}
 
-	// Purge normalizers
-	normalizerFiles, _ := filepath.Glob("../../engine/normalizers/*")
-	for _, f := range normalizerFiles {
+	// Purge translators
+	translatorFiles, _ := filepath.Glob("../../engine/translators/*")
+	for _, f := range translatorFiles {
 		if info, err := os.Stat(f); err == nil && !info.IsDir() {
 			if err := os.Remove(f); err != nil {
 				log.Fatalf("Failed to remove %s: %v", f, err)

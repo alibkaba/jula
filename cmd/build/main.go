@@ -22,7 +22,7 @@ const (
 	workspaceFile    = "../../workspace.yaml"
 	requirementsFile = "../../requirements.csv"
 	promptFile       = "../../engine/prompts/06_generate_policy.md"
-	normalizersDir   = "../../engine/normalizers/"
+	translatorsDir   = "../../engine/translators/"
 	policiesDir      = "../../policies/rules/"
 )
 
@@ -256,11 +256,11 @@ func sanitizeFilename(controlID string) string {
 	return name
 }
 
-func loadNormalizers(provider string) string {
+func loadTranslators(provider string) string {
 	var builder strings.Builder
 	provider = strings.ToLower(provider)
 
-	err := filepath.Walk(normalizersDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(translatorsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
@@ -277,12 +277,12 @@ func loadNormalizers(provider string) string {
 	})
 
 	if err != nil {
-		return "No normalizers loaded."
+		return "No translators loaded."
 	}
 
 	res := builder.String()
 	if res == "" {
-		return "No normalizers loaded."
+		return "No translators loaded."
 	}
 	return res
 }
@@ -381,10 +381,10 @@ func main() {
 		reqSummary := fmt.Sprintf("Provider: %s\nField: %s\nOperator: %s\nExpected Value: %s", provider, field, operator, expected)
 		hydratedPrompt := strings.ReplaceAll(promptTemplate, "{{REQUIREMENT_DEFINITION}}", reqSummary)
 
-		normalizers := loadNormalizers(provider)
-		hydratedPrompt = strings.ReplaceAll(hydratedPrompt, "{{AVAILABLE_NORMALIZER_FIELDS}}", normalizers)
+		translators := loadTranslators(provider)
+		hydratedPrompt = strings.ReplaceAll(hydratedPrompt, "{{AVAILABLE_TRANSLATOR_FIELDS}}", translators)
 
-		fmt.Printf("Loaded %s normalizers... ", provider)
+		fmt.Printf("Loaded %s translators... ", provider)
 
 		// Invoke AI
 		regoCode, tierUsed, err := processWithRetriesAndFailover(primaryConfig, fallbackConfig, maxRetries, hydratedPrompt)

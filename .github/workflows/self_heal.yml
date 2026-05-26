@@ -1,0 +1,65 @@
+name: Jula Autopilot Self-Healing Loop
+
+on:
+  repository_dispatch:
+    types: [schema_drift_detected]
+
+jobs:
+  heal_translation_map:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code Base
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Initialize Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Write Temporary Breaking Cloud Payload
+        run: |
+          echo '${{ toJson(github.event.client_payload.breaking_payload) }}' > drift_payload.json
+
+      - name: Execute Self-Healing Patch Script via AI Tier
+        env:
+          JULA_PRIMARY_ENDPOINT: ${{ secrets.JULA_PRIMARY_ENDPOINT }}
+          JULA_PRIMARY_KEY: ${{ secrets.JULA_PRIMARY_KEY }}
+          JULA_PRIMARY_MODEL: ${{ secrets.JULA_PRIMARY_MODEL }}
+          JULA_MAX_RETRIES_PER_TIER: 2
+        run: |
+          # Swap out templates and generate the fresh translation maps using cmd/translate
+          cd cmd/translate
+          go run main.go \
+            --provider "${{ github.event.client_payload.provider }}" \
+            --service "${{ github.event.client_payload.service }}" \
+            --sample-path "../../drift_payload.json"
+
+      - name: Execute Policy Reconstruction Test Run
+        run: |
+          # Verify that the new maps successfully pass internal syntax builds
+          cd cmd/build
+          go run main.go
+
+      - name: Generate Automated Engineering Git Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: autopilot/patch-${{ github.event.client_payload.provider }}-${{ github.event.client_payload.service }}
+          title: "🤖 Jula Autopilot: Remediation Patch for ${{ github.event.client_payload.provider }}_${{ github.event.client_payload.service }} Drift"
+          commit-message: "remediation: auto-remapping broken multi-cloud schema definitions"
+          labels: |
+            autopilot
+            schema-drift
+          body: |
+            ### 🤖 Automated Schema Drift Remediation Report
+            
+            **System Alert:** A live production infrastructure scan pass flagged an unmapped structural variance introduced by a cloud provider API update.
+            
+            * **Target System:** `${{ github.event.client_payload.provider }}`
+            * **Service Layer:** `${{ github.event.client_payload.service }}`
+            
+            Jula has automatically generated a corrected data translator mapping file using `engine/prompts/02_heal_translator.md` and successfully verified compilation checks. 
+            
+            Please review the side-by-side code diff below and merge to restore active security auditing.

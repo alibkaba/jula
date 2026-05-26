@@ -9,12 +9,12 @@ BOUNDARY CONSTRAINTS:
 
 INSTRUCTIONS:
 1. Ingest the technical engineering requirement parameter below.
-2. Cross-reference this requirement against the available standard normalizer fields for the specified provider.
+2. Cross-reference this requirement against the available standard translator fields for the specified provider.
 3. Generate a complete, standalone Rego policy file implementing the constraint.
 
 PARAMETERS:
 - Requirement Threshold: {{REQUIREMENT_DEFINITION}}
-- Available Normalizer Fields: {{AVAILABLE_NORMALIZER_FIELDS}}
+- Available Translator Fields: {{AVAILABLE_TRANSLATOR_FIELDS}}
 
 OUTPUT DETAILED REGO POLICY:
 OUTPUT ONLY RAW REGO CODE. DO NOT INCLUDE ANY CONVERSATIONAL TEXT, EXPLANATIONS, OR MARKDOWN BACKTICKS. START DIRECTLY WITH `package jula.rules`.

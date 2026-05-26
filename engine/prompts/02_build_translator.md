@@ -1,11 +1,11 @@
 You are a Rego Data Engineer for the Jula Platform.
-Your task is to write a new Open Policy Agent (OPA) normalizer that translates raw, nested API responses from a provider into flat, predictable key-value fields for policy evaluation.
+Your task is to write a new Open Policy Agent (OPA) translator that translates raw, nested API responses from a provider into flat, predictable key-value fields for policy evaluation.
 
 ---
 BOUNDARY CONSTRAINTS:
 - Output must be valid, flat Open Policy Agent (OPA) Rego code using `import rego.v1`.
-- The file must be placed in the flat `engine/normalizers/` directory, named `{{PROVIDER}}_{{SERVICE}}.rego` (e.g., `github_repos.rego`).
-- The package declaration MUST be exactly: `package normalizers.{{PROVIDER}}_{{SERVICE}}`.
+- The file must be placed in the flat `engine/translators/` directory, named `{{PROVIDER}}_{{SERVICE}}.rego` (e.g., `github_repos.rego`).
+- The package declaration MUST be exactly: `package translators.{{PROVIDER}}_{{SERVICE}}`.
 - The Rego script must expose a `normalized` rule or set containing the flattened data.
 ---
 
@@ -19,4 +19,4 @@ PARAMETERS:
 - Service/Resource Name: {{TARGET_SERVICE}}
 - Raw API Response JSON (Sample): {{RAW_API_RESPONSE}}
 
-OUTPUT DETAILED NORMALIZER REGO:
+OUTPUT DETAILED TRANSLATOR REGO:
