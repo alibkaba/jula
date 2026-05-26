@@ -26,7 +26,7 @@ set -euo pipefail
 #   exit 1
 # fi
 
-# POLICY_REPO_DIR="jula-compliance-as-code"
+# POLICY_REPO_DIR="jula-policy"
 
 echo "🤖 Autonomous Healer Pipeline Activated (Scaffold Mode)"
 

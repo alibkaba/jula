@@ -210,7 +210,7 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		}
 
 		if header.Typeflag == tar.TypeReg {
-			// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-compliance-as-code-12345/engine/integrations/...').
+			// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-policy-12345/engine/integrations/...').
 			// We strip the prefix to normalize the keys to bare filenames (e.g., 'gcp.yaml').
 			parts := strings.SplitN(header.Name, "/", 2)
 			if len(parts) != 2 {
