@@ -44,13 +44,12 @@ jobs:
           fi
 
   # ==========================================
-  # 2. PR BUILD CHECK (Runs ONLY on PRs)
+  # 2. BUILD CHECK (Runs on PRs and Main)
   # ==========================================
-  pr-build-check:
+  build-check:
     name: Verify Docker Build
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Dry Run Docker Build
@@ -167,15 +166,15 @@ jobs:
 
       - name: Build macOS Binary (ARM64)
         if: ${{ steps.release.outputs.release_created }}
-        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-evaluator-darwin-arm64 ./cmd/jula
+        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-evaluator-darwin-arm64 ./cmd/evaluate
 
       - name: Build Linux Binary (AMD64)
         if: ${{ steps.release.outputs.release_created }}
-        run: GOOS=linux GOARCH=amd64 go build -o build/jula-evaluator-linux-amd64 ./cmd/jula
+        run: GOOS=linux GOARCH=amd64 go build -o build/jula-evaluator-linux-amd64 ./cmd/evaluate
 
       - name: Build Windows Binary (AMD64)
         if: ${{ steps.release.outputs.release_created }}
-        run: GOOS=windows GOARCH=amd64 go build -o build/jula-evaluator-windows-amd64.exe ./cmd/jula
+        run: GOOS=windows GOARCH=amd64 go build -o build/jula-evaluator-windows-amd64.exe ./cmd/evaluate
 
       - name: Upload Release Artifacts
         if: ${{ steps.release.outputs.release_created }}

@@ -197,11 +197,15 @@ func TestRunApp_FullIntegration(t *testing.T) {
 
 import rego.v1
 
-control_id := "BCD-11.4"
-default compliant = false
-customer_control_id := "CC-1"
+evaluation := {
+	"control_id": "BCD-11.4",
+	"customer_control_id": "CC-1",
+	"compliant": is_compliant
+}
 
-compliant if {
+default is_compliant = false
+
+is_compliant if {
 	db_checks := input.findings["EVID-BCM-16"]
 	every _, check in db_checks {
 		check.raw_data[0].resource.data.settings.ipConfiguration.requireSsl == true

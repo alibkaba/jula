@@ -23,8 +23,10 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 	regoContent := `
 		package compliance.controls.bcd_11_4
 		import rego.v1
-		default compliant = false
-		control_id := "BCD-11.4"
+		evaluation := {
+			"control_id": "BCD-11.4",
+			"compliant": true
+		}
 	`
 	regoFile := filepath.Join(tmpDir, "db_encryption.rego")
 	if err := os.WriteFile(regoFile, []byte(regoContent), 0644); err != nil {
@@ -69,11 +71,15 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 		package compliance.controls.bcd_11_4
 		import rego.v1
 
-		default compliant = false
-		control_id := "BCD-11.4"
-		customer_control_id := "CC-1"
+		evaluation := {
+			"control_id": "BCD-11.4",
+			"customer_control_id": "CC-1",
+			"compliant": is_compliant
+		}
 
-		compliant if {
+		default is_compliant = false
+
+		is_compliant if {
 			db_checks := input.findings["EVID-BCM-16"]
 			every check in db_checks {
 				count(check.raw_data) > 0
@@ -133,8 +139,10 @@ func TestOPAEvaluator_EvaluateControl_UnmappedPolicy(t *testing.T) {
 	mockRego := `
 		package compliance.controls.bcd_11_4
 		import rego.v1
-		default compliant = false
-		control_id := "BCD-11.4"
+		evaluation := {
+			"control_id": "BCD-11.4",
+			"compliant": false
+		}
 	`
 	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
 

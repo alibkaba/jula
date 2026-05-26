@@ -97,8 +97,8 @@ func (e *OPAEvaluator) Compile(ctx context.Context) error {
 		regoOptions = append(regoOptions, rego.Module(filename, content))
 	}
 
-	// Query Control IDs
-	controlQueryOptions := append(regoOptions, rego.Query("data.compliance.controls[rule].control_id"))
+	// Query Control IDs from the nested evaluation map
+	controlQueryOptions := append(regoOptions, rego.Query("data.compliance.controls[rule].evaluation.control_id"))
 	rControl := rego.New(controlQueryOptions...)
 	pqControl, err := rControl.PrepareForEval(ctx)
 	if err != nil {
