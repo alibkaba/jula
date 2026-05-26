@@ -66,3 +66,11 @@ The active, machine-readable gating tier evaluated by the Jula runtime engine.
 5. **Review Requirements:** An intermediate spreadsheet workspace (`requirements.csv`) displays the AI's extracted parameters, allowing human operators to confirm, adjust, or skip constraints via the status column.
 6. **Generate Policies:** Leveraging centralized prompt contexts (`engine/prompts/06_generate_policy.md`), an automated generation script reads approved rows from the spreadsheet and writes immutable, standalone `.rego` rule blocks directly into the flat `policies/rules/` directory.
 7. **Run Evaluation:** The single centralized Jula Evaluator Engine ingests the rules directory, executes the policies against live infrastructure payloads, filters outputs based on global `policies/scoping/` criteria, and logs the continuous audit trail straight to the Standardized Findings Ledger.
+
+---
+
+## 🤖 The GitOps Self-Healing Loop
+
+The Governor repository acts as the central hub for the Jula automated self-healing loop. 
+
+If the downstream `jula-evaluator` daemon detects a native API schema drift during runtime, it dispatches a webhook directly to `.github/workflows/self_heal.yml`. This pipeline extracts the breaking payload, executes `cmd/translate` to dynamically re-map the Rego translator logic, and generates a Pull Request with the fix.
