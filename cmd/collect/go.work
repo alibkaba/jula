@@ -1,0 +1,8 @@
+go 1.25.10
+
+use (
+	./jula-core
+	./jula-collector
+	./jula-evaluator
+	./jula-policy
+)

@@ -31,7 +31,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Printf("jula %s\n", version)
+		fmt.Printf("collect %s\n", version)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		printUsage()
@@ -61,7 +61,7 @@ func initLogger() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, `Usage: jula <command> [flags]
+	fmt.Fprintln(os.Stderr, `Usage: collect <command> [flags]
 
 Commands:
   run         Full pipeline: extract -> hash -> deliver (single-pass, in-memory)
