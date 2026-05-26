@@ -21,6 +21,7 @@ import (
 	"github.com/alibkaba/jula-evaluator/internal/evaluation"
 	"github.com/alibkaba/jula-evaluator/internal/ingestion"
 	pkgCrypto "github.com/alibkaba/jula-core/pkg/crypto"
+	"github.com/alibkaba/jula-core/pkg/safehttp"
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
@@ -363,7 +364,12 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	var data []byte
 	var err error
 	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
-		resp, err := http.Get(pathOrURL)
+		req, err := http.NewRequest(http.MethodGet, pathOrURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("creating metadata request: %w", err)
+		}
+		client := safehttp.NewClient(15 * time.Second)
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("fetching metadata URL: %w", err)
 		}
