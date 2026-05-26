@@ -3,7 +3,7 @@ module github.com/alibkaba/jula-evaluator
 go 1.25.10
 
 require (
-	github.com/alibkaba/jula-core v0.0.0-20260524230312-1841bfb65d9d
+	github.com/alibkaba/jula-core v0.0.0-20260526055744-c5d5e01ca780
 	github.com/open-policy-agent/opa v1.16.2
 )
 
