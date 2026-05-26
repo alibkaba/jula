@@ -1,4 +1,4 @@
-# Jula Compliance-as-Code Workspace Spec
+# Jula Governor Workspace Spec
 
 This repository houses the configuration components, data adapters, and executable rule criteria for the Jula Continuous Assurance Platform. It isolates high-level compliance checklists from raw execution code, delivering an automated, auditable security posture.
 
@@ -7,7 +7,7 @@ This repository houses the configuration components, data adapters, and executab
 ## 🛠️ Repository Architecture Blueprint
 
 ```text
-jula-policy/
+jula-governor/
 ├── workspace.yaml           # Active provider scopes and targets
 ├── catalog.csv              # Raw multi-framework corporate controls list
 ├── requirements.csv         # Intermediate engineering threshold triage sheet
