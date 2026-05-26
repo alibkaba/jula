@@ -244,7 +244,7 @@ resource "google_cloud_run_v2_service" "jula" {
       }
       env {
         name  = "JULA_INTEGRATION_URL"
-        value = "https://api.github.com/repos/${var.github_org}/jula-policy/tarball/main"
+        value = "https://api.github.com/repos/${var.github_org}/jula-governor/tarball/main"
       }
       env {
         name = "GITHUB_TOKEN"
