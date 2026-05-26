@@ -1,5 +1,6 @@
 vendor_name: "tencent"
-provider: "tencent"              # Primary routing discriminator key
+provider: "tencent"                    # Core routing discriminator token
 auth_flow:
-  type: "ali_tencent_hmac"       # High-compliance parameter percent-encoding
-endpoints: {}
+  type: "tencent_native_auth"        # Evaluates environment credential chains at runtime
+  token_env: "TENCENT_ACCESS_TOKEN"  # Local fallback environment override token
+endpoints: {}                      # To be populated during platform onboarding modeling

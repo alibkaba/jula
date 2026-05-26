@@ -1,0 +1,53 @@
+# Mac OS
+.DS_Store
+
+# User-specific documentation and scripts
+docs/
+scripts/
+
+# Security & Secrets
+*.log
+*.pem
+*.key
+*.p12
+secrets/
+keys/
+
+# Environment Variables
+.env
+*.env
+
+# Go build outputs
+/jula
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go Test files
+coverage.out
+c.out
+
+# Local Evidence Ledger Folder
+evidence-ledger/
+evidence-ledger-*
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Vendor directory
+vendor/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfplan
+terraform.tfvars
+!terraform.tfvars.example

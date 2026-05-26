@@ -1,5 +1,6 @@
 vendor_name: "azure"
-provider: "azure"                # Primary routing discriminator key
+provider: "azure"                    # Core routing discriminator token
 auth_flow:
-  type: "azure_identity"         # Mutex-locked token caching
-endpoints: {}
+  type: "azure_native_auth"        # Evaluates environment credential chains at runtime
+  token_env: "AZURE_ACCESS_TOKEN"  # Local fallback environment override token
+endpoints: {}                      # To be populated during platform onboarding modeling

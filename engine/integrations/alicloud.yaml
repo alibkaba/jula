@@ -1,5 +1,6 @@
 vendor_name: "alicloud"
-provider: "alicloud"             # Primary routing discriminator key
+provider: "alicloud"                    # Core routing discriminator token
 auth_flow:
-  type: "ali_tencent_hmac"       # High-compliance parameter percent-encoding
-endpoints: {}
+  type: "alicloud_native_auth"        # Evaluates environment credential chains at runtime
+  token_env: "ALICLOUD_ACCESS_TOKEN"  # Local fallback environment override token
+endpoints: {}                      # To be populated during platform onboarding modeling

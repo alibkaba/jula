@@ -1,5 +1,6 @@
 vendor_name: "aws"
-provider: "aws"                  # Primary routing discriminator key
+provider: "aws"                    # Core routing discriminator token
 auth_flow:
-  type: "aws_sigv4"              # Pure-Go alpha-sorted parameter canonicalization and HMAC hashing
-endpoints: {}
+  type: "aws_native_auth"        # Evaluates environment credential chains at runtime
+  token_env: "AWS_ACCESS_TOKEN"  # Local fallback environment override token
+endpoints: {}                      # To be populated during platform onboarding modeling
