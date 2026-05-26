@@ -22,15 +22,17 @@ const (
 	VerdictCompliant    ComplianceVerdict = "COMPLIANT"
 	VerdictNonCompliant ComplianceVerdict = "NON_COMPLIANT"
 	VerdictFailed       ComplianceVerdict = "FAILED" // Failed due to missing evidence or evaluation errors
+	VerdictDrifted      ComplianceVerdict = "SCHEMA_DRIFT"
 )
 
-// ControlFinding represents a standardized compliance record generated post-evaluation.
 type ControlFinding struct {
 	ControlID         string            `json:"control_id"`
 	CustomerControlID string            `json:"customer_control_id,omitempty"`
 	Verdict           ComplianceVerdict `json:"verdict"`
 	Details           string            `json:"details"`
 	EvaluatedAt       time.Time         `json:"evaluated_at"`
+	TargetService     string            `json:"-"`
+	RawBreakingData   interface{}       `json:"-"`
 }
 
 // OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
@@ -232,25 +234,36 @@ func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, ev
 
 		isCompliant := false
 		custControlID := ""
-
 		dynamicDetails := ""
+		targetService := ""
+		driftDetected := false
 
 		if len(results) > 0 && len(results[0].Expressions) > 0 {
-			if resMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok {
-				if comp, okComp := resMap["compliant"].(bool); okComp {
-					isCompliant = comp
-				}
-				if custID, okCust := resMap["customer_control_id"].(string); okCust {
-					custControlID = custID
-				}
-				if det, okDet := resMap["details"].(string); okDet {
-					dynamicDetails = det
+			if packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok {
+				if evalMap, okEval := packageRootMap["evaluation"].(map[string]interface{}); okEval {
+					if comp, okComp := evalMap["compliant"].(bool); okComp {
+						isCompliant = comp
+					}
+					if custID, okCust := evalMap["customer_control_id"].(string); okCust {
+						custControlID = custID
+					}
+					if det, okDet := evalMap["details"].(string); okDet {
+						dynamicDetails = det
+					}
+					if drift, okDrift := evalMap["drift_detected"].(bool); okDrift {
+						driftDetected = drift
+					}
+					if service, okServ := evalMap["service"].(string); okServ {
+						targetService = service
+					}
 				}
 			}
 		}
 
 		verdict := VerdictNonCompliant
-		if isCompliant {
+		if driftDetected {
+			verdict = VerdictDrifted
+		} else if isCompliant {
 			verdict = VerdictCompliant
 		}
 
@@ -261,6 +274,18 @@ func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, ev
 			details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
 		}
 
+		var rawBreakingData interface{}
+		if driftDetected {
+			for _, ev := range evidences {
+				var raw interface{}
+				if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
+					raw = string(ev.Finding.RawData)
+				}
+				rawBreakingData = raw
+				break // Grab the first one for the alert payload
+			}
+		}
+
 		slog.Info("evaluation: evaluated control policy", "control_id", controlID, "verdict", verdict, "package", pkgPath)
 		findings = append(findings, ControlFinding{
 			ControlID:         controlID,
@@ -268,6 +293,8 @@ func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, ev
 			Verdict:           verdict,
 			Details:           details,
 			EvaluatedAt:       now,
+			TargetService:     targetService,
+			RawBreakingData:   rawBreakingData,
 		})
 	}
 

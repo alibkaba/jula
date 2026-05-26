@@ -62,7 +62,7 @@ flowchart TB
         Cat["📄 catalog.csv <br> (GRC Controls Catalog)"] -->|AI Extract| Req["📄 requirements.csv <br> (Engineering Requirements Triage)"]
         Req -->|Human Approval & Gen| PR_Pol["📂 policies/rules/ <br> (Generated Core Rego Policies)"]
         PR_Int["📂 engine/integrations/ <br> (YAML Data Collectors)"]
-        PR_Norm["📂 engine/normalizers/ <br> (Rego Payload Adapters)"]
+        PR_Norm["📂 engine/translators/ <br> (Rego Payload Adapters)"]
         Meta["📄 workspace.yaml <br> (Active Scopes & Targets)"]
     end
 
@@ -132,7 +132,7 @@ flowchart TB
     %% Governor injections
     PR_Int -->|Remote Streaming| JIE
     Meta -->|--metadata-url Ingestion| EE
-    PR_Norm -->|Stream Normalizers| OPA
+    PR_Norm -->|Stream Translators| OPA
     PR_Pol -->|Stream Core Policies| OPA
 
     %% Execution flow
@@ -221,7 +221,7 @@ endpoints:
 
 ## Pipeline Validation & Self-Healing Automation
 
-We maintain an automated continuous assurance loop that validates pipeline integrity. If a scheduled canary run fails due to schema variations, our integrated autonomous agent triggers to patch Rego normalizer mapping libraries on the fly.
+We maintain an automated continuous assurance loop that validates pipeline integrity. If a scheduled canary run fails due to schema variations, our integrated autonomous agent triggers to patch Rego translator mapping libraries on the fly.
 
 To trigger an air-gapped E2E validation tracer test locally:
 ```bash

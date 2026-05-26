@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -59,6 +60,53 @@ Commands:
   run         Run evaluation pipeline (single-pass, in-memory)
   serve       Start HTTP server for Cloud Run deployment
   version     Print binary version and build metadata`)
+}
+
+type DispatchPayload struct {
+	EventType     string                 `json:"event_type"`
+	ClientPayload map[string]interface{} `json:"client_payload"`
+}
+
+func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
+	governorRepo := os.Getenv("JULA_GOVERNOR_REPO")   // e.g., "alibkaba/jula-governor"
+	dispatchToken := os.Getenv("JULA_DISPATCH_TOKEN") // Fine-grained personal access token
+	
+	if governorRepo == "" || dispatchToken == "" {
+		slog.Warn("gitops: automated telemetry alert skipped; environmental variables are unconfigured")
+		return
+	}
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/dispatches", governorRepo)
+	
+	payload := DispatchPayload{
+		EventType: "schema_drift_detected",
+		ClientPayload: map[string]interface{}{
+			"provider":         provider,
+			"service":          service,
+			"breaking_payload": rawPayload,
+		},
+	}
+
+	bodyBytes, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		slog.Error("gitops: failed to build dispatch request schema", "error", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+dispatchToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Error("gitops: failed to route webhook dispatch packet to remote origin", "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	slog.Info("gitops: schema drift alert successfully broadcasted to governor endpoint", "status", resp.Status)
 }
 
 func handleRun(args []string) error {
@@ -248,6 +296,23 @@ func handleRun(args []string) error {
 		findings, err := evaluator.EvaluateControl(ctx, controlID, allEvidences, metadata)
 		if err != nil {
 			return fmt.Errorf("evaluator: policy evaluation error for control %s: %w", controlID, err)
+		}
+
+		for _, finding := range findings {
+			if finding.Verdict == "SCHEMA_DRIFT" {
+				slog.Warn("CRITICAL: Architectural schema drift detected! Halting loop to route correction patch...")
+				
+				// Extract provider prefix dynamically from control string layout (e.g. "CIS-GCP-STORAGE-1")
+				idParts := strings.Split(finding.ControlID, "-")
+				provider := "gcp"
+				if len(idParts) > 1 {
+					provider = strings.ToLower(idParts[1])
+				}
+
+				// Trigger dynamic alert with zero hardcoding!
+				dispatchDriftAlert(provider, finding.TargetService, finding.RawBreakingData)
+				os.Exit(0)
+			}
 		}
 
 		allFindings = append(allFindings, findings...)

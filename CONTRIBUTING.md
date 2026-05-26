@@ -30,7 +30,7 @@ git commit -s -m "feat: adding new integration logic"
 
 ### 3. Code Style
 - We follow standard Go conventions. 
-- Keep the design decoupled. Remember the architecture philosophy: *The Integration Layer stays messy, the Normalizer Layer stays agnostic.*
+- Keep the design decoupled. Remember the architecture philosophy: *The Integration Layer stays messy, the Translator Layer stays agnostic.*
 
 ### 4. Expectations
 Please be patient! Jula Controls is actively maintained, but pull request and issue reviews may take some time. We appreciate your contributions and will get to them as soon as possible.
