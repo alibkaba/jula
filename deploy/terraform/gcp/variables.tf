@@ -47,7 +47,7 @@ variable "github_token_secret_id" {
 variable "policy_repo_url" {
   description = "URL of the compliance policies repository (GitHub tarball endpoint)."
   type        = string
-  default     = "https://api.github.com/repos/alibkaba/jula-compliance-as-code/tarball/main"
+  default     = "https://api.github.com/repos/alibkaba/jula-policy/tarball/main"
 }
 
 variable "scheduler_cron" {

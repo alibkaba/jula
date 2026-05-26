@@ -64,7 +64,7 @@ Commands:
 func handleRun(args []string) error {
 	fs := flag.NewFlagSet("jula", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
-	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-compliance-as-code/)")
+	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-policy/)")
 	metadataURLFlag := fs.String("metadata-url", "", "The client metadata file URL or path (e.g. ./client_metadata.json)")
 
 	if err := fs.Parse(args); err != nil {
