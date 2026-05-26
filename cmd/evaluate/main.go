@@ -44,7 +44,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Printf("jula %s\n", version)
+		fmt.Printf("evaluate %s\n", version)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		printUsage()
@@ -53,7 +53,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, `Usage: jula <command> [flags]
+	fmt.Fprintln(os.Stderr, `Usage: evaluate <command> [flags]
 
 Commands:
   run         Run evaluation pipeline (single-pass, in-memory)
@@ -62,7 +62,7 @@ Commands:
 }
 
 func handleRun(args []string) error {
-	fs := flag.NewFlagSet("jula", flag.ContinueOnError)
+	fs := flag.NewFlagSet("evaluate", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-policy/)")
 	metadataURLFlag := fs.String("metadata-url", "", "The client metadata file URL or path (e.g. ./client_metadata.json)")
