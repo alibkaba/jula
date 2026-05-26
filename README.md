@@ -7,7 +7,7 @@ This repository houses the configuration components, data adapters, and executab
 ## 🛠️ Repository Architecture Blueprint
 
 ```text
-jula-compliance-as-code/
+jula-policy/
 ├── workspace.yaml           # Active provider scopes and targets
 ├── catalog.csv              # Raw multi-framework corporate controls list
 ├── requirements.csv         # Intermediate engineering threshold triage sheet
