@@ -17,6 +17,7 @@ import (
 
 	"github.com/alibkaba/jula-collector/internal/engine"
 	"github.com/alibkaba/jula-collector/internal/reporter"
+	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
 
 func handleRun(args []string) error {
@@ -180,7 +181,7 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := safehttp.NewClient(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http get: %w", err)
