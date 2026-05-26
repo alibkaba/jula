@@ -4,5 +4,5 @@ use (
 	./jula-core
 	./jula-collector
 	./jula-evaluator
-	./jula-policy
+	./jula-governor
 )

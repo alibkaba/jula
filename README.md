@@ -7,7 +7,7 @@
 | **[Jula Core](https://github.com/alibkaba/jula-core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-core/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-core/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-core?color=blue&logo=github)](https://github.com/alibkaba/jula-core/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-core?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-core)](https://goreportcard.com/report/github.com/alibkaba/jula-core) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Collector](https://github.com/alibkaba/jula-collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-collector/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-collector?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-collector) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Evaluator](https://github.com/alibkaba/jula-evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evaluator?color=blue&logo=github)](https://github.com/alibkaba/jula-evaluator/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evaluator?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evaluator)](https://goreportcard.com/report/github.com/alibkaba/jula-evaluator) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
-| **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-policy)** | N/A | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
+| **[Jula Governor](https://github.com/alibkaba/jula-governor)** | N/A | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 
 ## The Jula Controls Ecosystem
 
@@ -16,7 +16,7 @@ Jula Controls is designed as a decoupled, multi-repository architecture where sp
 * The **[Jula Core](https://github.com/alibkaba/jula-core) defines shared models and cryptographic validation** utilities used by all modules, ensuring consistent data schemas across the pipeline.
 * The **[Jula Collector](https://github.com/alibkaba/jula-collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
 * The **[Jula Evaluator](https://github.com/alibkaba/jula-evaluator) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
-* The **[Jula Compliance-as-Code](https://github.com/alibkaba/jula-policy) stores Rego policies** in a version-controlled repository that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
+* The **[Jula Governor](https://github.com/alibkaba/jula-governor) stores Rego policies** in a version-controlled repository that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
 
 Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
 
@@ -43,7 +43,7 @@ By pairing this containerized evidence suite with your existing tooling, you eli
 
 ## Decoupled Architecture: The Attestation & Assurance Paradigm
 
-Jula Controls operates as a decoupled pipeline, cleanly separating raw evidence attestation, compliance-as-code evaluation, and executive posture visualization.
+Jula Controls operates as a decoupled pipeline, cleanly separating raw evidence attestation, governor evaluation, and executive posture visualization.
 
 ```mermaid
 flowchart TB
@@ -57,7 +57,7 @@ flowchart TB
     classDef insights fill:#0f172a,stroke:#ec4899,stroke-width:2px,color:#e2e8f0;
     classDef core fill:#0f172a,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
 
-    subgraph Phase1 ["1. Compliance-as-Code Registry (jula-policy)"]
+    subgraph Phase1 ["1. Governor Registry (jula-governor)"]
         direction LR
         Cat["📄 catalog.csv <br> (GRC Controls Catalog)"] -->|AI Extract| Req["📄 requirements.csv <br> (Engineering Requirements Triage)"]
         Req -->|Human Approval & Gen| PR_Pol["📂 policies/rules/ <br> (Generated Core Rego Policies)"]
@@ -129,7 +129,7 @@ flowchart TB
     JC -.->|Shared Schema & Crypto| EE
     JC -.->|Shared Schema| DB
 
-    %% Compliance-as-Code injections
+    %% Governor injections
     PR_Int -->|Remote Streaming| JIE
     Meta -->|--metadata-url Ingestion| EE
     PR_Norm -->|Stream Normalizers| OPA
@@ -151,9 +151,9 @@ flowchart TB
     class JC core;
 ```
 
-### 1. [Jula Compliance-as-Code](https://github.com/alibkaba/jula-policy) (The Compliance-as-Code Registry)
+### 1. [Jula Governor](https://github.com/alibkaba/jula-governor) (The Governor Registry)
 
-The Compliance-as-Code Registry houses version-controlled compliance libraries written in Open Policy Agent (OPA) Rego language. This serves as the single source of truth for both structural data normalization (mapping cloud-specific parameters to agnostic target schemas on the fly) and scoping/applicability rule validation.
+The Governor Registry houses version-controlled compliance libraries written in Open Policy Agent (OPA) Rego language. This serves as the single source of truth for both structural data normalization (mapping cloud-specific parameters to agnostic target schemas on the fly) and scoping/applicability rule validation.
 
 ### 2. [Jula Collector](https://github.com/alibkaba/jula-collector) (The Attestation & Extraction Engine)
 
