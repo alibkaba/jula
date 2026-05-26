@@ -7,7 +7,7 @@
 | **[Jula Core](https://github.com/alibkaba/jula-core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-core/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-core/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-core?color=blue&logo=github)](https://github.com/alibkaba/jula-core/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-core?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-core)](https://goreportcard.com/report/github.com/alibkaba/jula-core) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Collector](https://github.com/alibkaba/jula-collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-collector/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-collector?color=blue&logo=github)](https://github.com/alibkaba/jula-collector/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-collector?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-collector)](https://goreportcard.com/report/github.com/alibkaba/jula-collector) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 | **[Jula Evaluator](https://github.com/alibkaba/jula-evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-evaluator/actions/workflows/main.yml) <br> [![GitHub Release](https://img.shields.io/github/v/release/alibkaba/jula-evaluator?color=blue&logo=github)](https://github.com/alibkaba/jula-evaluator/releases) | [![Go Version](https://img.shields.io/github/go-mod/go-version/alibkaba/jula-evaluator?logo=go)](https://go.dev/) <br> [![Go Report Card](https://goreportcard.com/badge/github.com/alibkaba/jula-evaluator)](https://goreportcard.com/report/github.com/alibkaba/jula-evaluator) | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
-| **[Jula Governor](https://github.com/alibkaba/jula-governor)** | N/A | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
+| **[Jula Governor](https://github.com/alibkaba/jula-governor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula-governor/actions/workflows/main.yml/badge.svg)](https://github.com/alibkaba/jula-governor/actions/workflows/main.yml) | [Open Policy Agent (OPA)](https://www.openpolicyagent.org/) <br> Versioned Rego Rules | [![License](https://img.shields.io/badge/License-BSL_1.1-orange.svg)](LICENSE) |
 
 ## The Jula Controls Ecosystem
 
@@ -219,14 +219,11 @@ endpoints:
 
 ---
 
-## Pipeline Validation & Self-Healing Automation
+## GitOps Schema Drift Self-Healing
 
-We maintain an automated continuous assurance loop that validates pipeline integrity. If a scheduled canary run fails due to schema variations, our integrated autonomous agent triggers to patch Rego translator mapping libraries on the fly.
+We maintain a fully automated continuous assurance loop that validates pipeline integrity. If the `jula-evaluator` detects `SCHEMA_DRIFT` during a compliance run (e.g., a cloud provider dynamically changes their API JSON structure), the evaluator automatically fires a secure `repository_dispatch` webhook directly to `jula-governor`.
 
-To trigger an air-gapped E2E validation tracer test locally:
-```bash
-./automation/pipeline_healer.sh
-```
+This triggers the `.github/workflows/self_heal.yml` pipeline, which isolates the exact breaking JSON payload, feeds it to the AI prompt engine (`cmd/translate`), dynamically generates a corrected Rego translator mapping, and opens a Pull Request with the compiled fix.
 
 ---
 
