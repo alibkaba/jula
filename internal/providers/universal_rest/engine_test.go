@@ -494,3 +494,74 @@ func TestJWSFinancial_DetachedSignature(t *testing.T) {
 		t.Errorf("expected header to contain kid, got %s", string(headerBytes))
 	}
 }
+
+func TestEngine_Execute_RateLimitAndRetries(t *testing.T) {
+	t.Setenv("TEST_TOKEN", "dummy")
+	defer os.Unsetenv("TEST_TOKEN")
+
+	var requestsReceived int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestsReceived++
+
+		// Attempt 1: 503 Service Unavailable
+		if requestsReceived == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		// Attempt 2: 429 Too Many Requests with Retry-After header
+		if requestsReceived == 2 {
+			w.Header().Set("Retry-After", "1") // 1 second backoff
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+
+		// Attempt 3: 200 OK
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"success":true}`))
+	}))
+	defer server.Close()
+
+	bp := &RESTIntegration{
+		VendorName: "generic",
+		BaseURL:    server.URL,
+		AuthFlow: AuthFlowConfig{
+			Type:     "bearer",
+			TokenEnv: "TEST_TOKEN",
+		},
+	}
+
+	ep := RESTEndpointConfig{
+		EvidenceID:  "EVID-RETRY-01",
+		Description: "Retry test endpoint",
+	}
+
+	// We create an engine that uses the test server's client
+	engine := NewEngine(server.Client())
+	
+	// Execute the request
+	start := time.Now()
+	findings, err := engine.Execute(context.Background(), bp, "/retry-test", ep, "run-1")
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("expected no error after retries, got: %v", err)
+	}
+
+	if requestsReceived != 3 {
+		t.Errorf("expected 3 requests to be made, got %d", requestsReceived)
+	}
+
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+
+	if string(findings[0].RawData) != `{"success":true}` {
+		t.Errorf("expected raw payload '{\"success\":true}', got %q", string(findings[0].RawData))
+	}
+	
+	// Assert that backoff caused a delay (at least 1 second from the Retry-After, plus the base backoff logic)
+	if elapsed < 1*time.Second {
+		t.Errorf("expected execution time > 1s due to retries, got %s", elapsed)
+	}
+}

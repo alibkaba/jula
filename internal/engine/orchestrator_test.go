@@ -327,3 +327,55 @@ func TestBuildJobs_Error(t *testing.T) {
 		t.Fatal("expected error for nonexistent integrations path, got nil")
 	}
 }
+
+// TestExecuteJobs_TimeoutPartialFailure verifies that a hanging job is correctly cancelled
+// by context timeout without crashing the orchestrator or losing findings from successful jobs.
+func TestExecuteJobs_TimeoutPartialFailure(t *testing.T) {
+	// Set a very short timeout so the test runs quickly
+	o := New(RunConfig{
+		Concurrency: 2,
+		Timeout:     100 * time.Millisecond,
+		RunID:       "timeout-test",
+	})
+
+	jobA := extractionJob{
+		evidenceID:  "EVID-AWS-01",
+		description: "AWS Fast Job",
+		execute: func(ctx context.Context) ([]types.Finding, error) {
+			return []types.Finding{{
+				EvidenceID: "EVID-AWS-01",
+				Provider:   "aws",
+				RawData:    []byte(`{"status":"success"}`),
+			}}, nil
+		},
+	}
+
+	jobB := extractionJob{
+		evidenceID:  "EVID-AZURE-01",
+		description: "Azure Hanging Job",
+		execute: func(ctx context.Context) ([]types.Finding, error) {
+			// Hang indefinitely until context cancels
+			select {
+			case <-time.After(10 * time.Second):
+				return nil, fmt.Errorf("this should not return before context cancels")
+			case <-ctx.Done():
+				return nil, ctx.Err() // Return the cancellation error
+			}
+		},
+	}
+
+	jobs := []extractionJob{jobA, jobB}
+
+	findings, err := o.executeJobs(context.Background(), jobs)
+	if err != nil {
+		t.Fatalf("partial timeout failure should not return a fatal error, got: %v", err)
+	}
+
+	if len(findings) != 1 {
+		t.Fatalf("expected exactly 1 finding from Job A, got %d", len(findings))
+	}
+
+	if findings[0].EvidenceID != "EVID-AWS-01" {
+		t.Errorf("expected finding from EVID-AWS-01, got %s", findings[0].EvidenceID)
+	}
+}

@@ -292,16 +292,18 @@ func (e *Engine) fetchSingle(ctx context.Context, targetURL string, headers map[
 			continue
 		}
 
-		// Handle HTTP 429 rate limit
-		if resp.StatusCode == http.StatusTooManyRequests {
-			retryAfter := resp.Header.Get("Retry-After")
-			if retryAfter != "" {
-				if secs, parseErr := strconv.Atoi(retryAfter); parseErr == nil {
-					currentBackoff = time.Duration(secs) * time.Second
+		// Handle HTTP 429 rate limit and 50x transient server errors
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := resp.Header.Get("Retry-After")
+				if retryAfter != "" {
+					if secs, parseErr := strconv.Atoi(retryAfter); parseErr == nil {
+						currentBackoff = time.Duration(secs) * time.Second
+					}
 				}
 			}
 			resp.Body.Close()
-			lastErr = fmt.Errorf("HTTP 429 Too Many Requests")
+			lastErr = fmt.Errorf("HTTP %d error", resp.StatusCode)
 			continue
 		}
 
