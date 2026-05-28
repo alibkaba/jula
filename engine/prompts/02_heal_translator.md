@@ -12,11 +12,11 @@ BOUNDARY CONSTRAINTS:
 INSTRUCTIONS:
 1. Compare the live JSON infrastructure payload drift layout against the fields expected by your static definitions.
 2. Identify the breaking field path mutations or nested array changes introduced by the provider's update.
-3. Rewrite the target data translator script inside `engine/translators/` to flatten the new payload variation back into the uniform target schema structure without breaking legacy field mappings.
+3. Rewrite the target data translator script inside `engine/translators/` to flatten the new payload variation back into the uniform target schema structure without breaking legacy field mappings. Ensure you iterate over the payload at `input.findings["EVID-{{PROVIDER}}-{{SERVICE}}"]["{{PROVIDER}}"].raw_data`.
 
 DRIFT ANCHOR PARAMETERS:
-- Provider: {{TARGET_PROVIDER}}
-- Mutated Field Path: {{MUTATED_FIELD_PATH}}
-- Raw Drift Spec Payload: {{RAW_DRIFT_PAYLOAD}}
+- Provider Name: {{TARGET_PROVIDER}}
+- Service/Resource Name: {{TARGET_SERVICE}}
+- Raw API Response JSON (Sample): {{RAW_API_RESPONSE}}
 
 OUTPUT DETAILED PATCH REGO:

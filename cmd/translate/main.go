@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	promptFile     = "../../engine/prompts/02_build_translator.md"
-	translatorsDir = "../../engine/translators/"
+	buildPromptFile = "../../engine/prompts/02_build_translator.md"
+	healPromptFile  = "../../engine/prompts/02_heal_translator.md"
+	translatorsDir  = "../../engine/translators/"
 )
 
 type ChatRequest struct {
@@ -199,6 +200,7 @@ func main() {
 	providerFlag := flag.String("provider", "", "The cloud platform key (e.g., \"gcp\", \"aws\")")
 	serviceFlag := flag.String("service", "", "The resource service namespace (e.g., \"storage\", \"kms\")")
 	samplePathFlag := flag.String("sample-path", "", "The relative path to a raw JSON sample response file")
+	healFlag := flag.Bool("heal", false, "Use the heal prompt instead of the build prompt")
 
 	flag.Parse()
 
@@ -234,10 +236,17 @@ func main() {
 		log.Fatalf("[FATAL] Failed to read sample file at %s: %v", *samplePathFlag, err)
 	}
 
-	fmt.Printf("[TRANSLATE] Hydrating 02_build_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
-	promptBytes, err := os.ReadFile(promptFile)
+	targetPromptFile := buildPromptFile
+	if *healFlag {
+		targetPromptFile = healPromptFile
+		fmt.Printf("[TRANSLATE] Hydrating 02_heal_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
+	} else {
+		fmt.Printf("[TRANSLATE] Hydrating 02_build_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
+	}
+
+	promptBytes, err := os.ReadFile(targetPromptFile)
 	if err != nil {
-		log.Fatalf("[FATAL] Prompt template not found at %s: %v", promptFile, err)
+		log.Fatalf("[FATAL] Prompt template not found at %s: %v", targetPromptFile, err)
 	}
 
 	providerLower := strings.ToLower(*providerFlag)
