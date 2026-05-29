@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/alibkaba/jula/compare/collector-v1.5.0...collector-v1.5.1) (2026-05-29)
+
+
+### Bug Fixes
+
+* update Dockerfiles and test script for monorepo context ([b55a2f8](https://github.com/alibkaba/jula/commit/b55a2f87c910fadf901532e5a5e894ae005f9987))
+
 ## [1.5.0](https://github.com/alibkaba/jula-collector/compare/v1.4.0...v1.5.0) (2026-05-20)
 
 
