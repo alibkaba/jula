@@ -1,5 +1,5 @@
 {
-  "collector": "1.5.0",
+  "collector": "1.0.0",
   "evaluator": "1.0.0",
   "governor": "1.0.0",
   "core": "1.0.0"

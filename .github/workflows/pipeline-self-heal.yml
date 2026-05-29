@@ -34,6 +34,11 @@ jobs:
             --sample-path "../../../drift_payload.json" \
             --heal
 
+      - name: Validate AI-Generated Policy Compilation
+        run: |
+          cd governor/cmd/validate
+          go run main.go
+
       - name: Commit and Push AI Changes
         run: |
           git config --global user.name "jula-ai-bot"
