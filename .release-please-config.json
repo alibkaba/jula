@@ -1,0 +1,20 @@
+{
+  "packages": {
+    "collector": {
+      "release-type": "go",
+      "component": "collector"
+    },
+    "evaluator": {
+      "release-type": "go",
+      "component": "evaluator"
+    },
+    "governor": {
+      "release-type": "go",
+      "component": "governor"
+    },
+    "core": {
+      "release-type": "go",
+      "component": "core"
+    }
+  }
+}

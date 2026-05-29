@@ -1,0 +1,133 @@
+name: "CI/CD: Monorepo Release"
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
+  IMAGE_NAME: jula
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      paths_released: ${{ steps.release.outputs.paths_released }}
+      collector_released: ${{ steps.release.outputs.collector--release_created }}
+      collector_tag: ${{ steps.release.outputs.collector--tag_name }}
+      evaluator_released: ${{ steps.release.outputs.evaluator--release_created }}
+      evaluator_tag: ${{ steps.release.outputs.evaluator--tag_name }}
+      governor_released: ${{ steps.release.outputs.governor--release_created }}
+      governor_tag: ${{ steps.release.outputs.governor--tag_name }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Release Please (Monorepo)
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # ==============================================================
+  # COLLECTOR ARTIFACTS
+  # ==============================================================
+  release-collector:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.collector_released == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Tag Docker image with SemVer (GCP)
+        run: |
+          gcloud artifacts docker tags add \
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-collector/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-collector/${{ env.IMAGE_NAME }}:${{ needs.release-please.outputs.collector_tag }} \
+            --quiet
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "collector/go.mod"
+          cache: false
+
+      - name: Build macOS Binary (ARM64)
+        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-collector-darwin-arm64 ./collector/cmd/collect
+
+      - name: Build Linux Binary (AMD64)
+        run: GOOS=linux GOARCH=amd64 go build -o build/jula-collector-linux-amd64 ./collector/cmd/collect
+
+      - name: Build Windows Binary (AMD64)
+        run: GOOS=windows GOARCH=amd64 go build -o build/jula-collector-windows-amd64.exe ./collector/cmd/collect
+
+      - name: Upload Release Artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.release-please.outputs.collector_tag }} \
+            build/jula-collector-darwin-arm64 \
+            build/jula-collector-linux-amd64 \
+            build/jula-collector-windows-amd64.exe
+
+  # ==============================================================
+  # EVALUATOR ARTIFACTS
+  # ==============================================================
+  release-evaluator:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.evaluator_released == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Tag Docker image with SemVer (GCP)
+        run: |
+          gcloud artifacts docker tags add \
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-evaluator/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-evaluator/${{ env.IMAGE_NAME }}:${{ needs.release-please.outputs.evaluator_tag }} \
+            --quiet
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "evaluator/go.mod"
+          cache: false
+
+      - name: Build macOS Binary (ARM64)
+        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-evaluator-darwin-arm64 ./evaluator/cmd/evaluate
+
+      - name: Build Linux Binary (AMD64)
+        run: GOOS=linux GOARCH=amd64 go build -o build/jula-evaluator-linux-amd64 ./evaluator/cmd/evaluate
+
+      - name: Build Windows Binary (AMD64)
+        run: GOOS=windows GOARCH=amd64 go build -o build/jula-evaluator-windows-amd64.exe ./evaluator/cmd/evaluate
+
+      - name: Upload Release Artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.release-please.outputs.evaluator_tag }} \
+            build/jula-evaluator-darwin-arm64 \
+            build/jula-evaluator-linux-amd64 \
+            build/jula-evaluator-windows-amd64.exe
