@@ -1,9 +1,5 @@
 github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KOX7eoM=
 github.com/agnivade/levenshtein v1.2.1/go.mod h1:QVVI16kDrtSuwcpd0p1+xMC6Z/VfhtCyDIjcwga4/DU=
-github.com/alibkaba/jula-core v0.0.0-20260522210055-bf803e4fe1d0 h1:Qynk9XosEFjoqGM7i92AuszgtRvwdwrLXk1ecuB93Q4=
-github.com/alibkaba/jula-core v0.0.0-20260522210055-bf803e4fe1d0/go.mod h1:BxktZiWWdcrOyHDbHnaigU6Omlf7tHV+GefoezsTsaI=
-github.com/alibkaba/jula-core v0.0.0-20260524230312-1841bfb65d9d h1:USqxojbyQaS4PvHG/UlZ5HPgfnFQHOLAKB/YgUcVWLY=
-github.com/alibkaba/jula-core v0.0.0-20260524230312-1841bfb65d9d/go.mod h1:BxktZiWWdcrOyHDbHnaigU6Omlf7tHV+GefoezsTsaI=
 github.com/alibkaba/jula-core v0.0.0-20260526055744-c5d5e01ca780 h1:5raGKOueZ3pzEz81GOl8n0D6v/sKpC3N2n66b34QfdM=
 github.com/alibkaba/jula-core v0.0.0-20260526055744-c5d5e01ca780/go.mod h1:BxktZiWWdcrOyHDbHnaigU6Omlf7tHV+GefoezsTsaI=
 github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 h1:bvNMNQO63//z+xNgfBlViaCIJKLlCJ6/fmUseuG0wVQ=

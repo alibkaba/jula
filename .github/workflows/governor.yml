@@ -1,14 +1,18 @@
-name: CI/CD Pipeline
+name: "CI/CD: Governor"
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'governor/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'governor/**'
 
 jobs:
   # ==========================================
-  # 1. BUILD CHECK (Runs on PRs and Main)
+  # 1. BUILD CHECK (Verify CLI Compilation)
   # ==========================================
   build-check:
     name: Verify CLI Compilation
@@ -20,6 +24,6 @@ jobs:
           go-version: '1.25'
           cache: false
       - name: Verify build generator
-        run: cd cmd/build && go build -o /dev/null main.go
+        run: cd governor/cmd/build && go build -o /dev/null main.go
       - name: Verify translate generator
-        run: cd cmd/translate && go build -o /dev/null main.go
+        run: cd governor/cmd/translate && go build -o /dev/null main.go

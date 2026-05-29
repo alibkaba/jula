@@ -1,10 +1,14 @@
-name: CI/CD Pipeline
+name: "CI/CD: Core Library"
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'core/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'core/**'
 
 jobs:
   # ==========================================
@@ -19,12 +23,12 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version-file: "go.mod"
+          go-version-file: "core/go.mod"
           cache: false
       - name: Run vet
-        run: go vet ./...
+        run: go vet ./core/...
       - name: Run tests with race detector
-        run: go test -race -coverprofile=coverage.out ./...
+        run: go test -race -coverprofile=coverage.out ./core/...
       - name: Check coverage
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
@@ -35,7 +39,7 @@ jobs:
           fi
 
   # ==========================================
-  # 2. BUILD CHECK (Runs on PRs and Main)
+  # 2. BUILD CHECK (Verify Compilation)
   # ==========================================
   build-check:
     name: Verify Go Build
@@ -45,10 +49,10 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version-file: "go.mod"
+          go-version-file: "core/go.mod"
           cache: false
       - name: Verify Compilation
-        run: go build ./...
+        run: go build ./core/...
 
   # ==========================================
   # 3. RELEASE (Semantic Tagging)
