@@ -1,4 +1,0 @@
-- A specific test execution bug in tests asserting errors ( followed by ) needs a return or an explicit check for  in the second block to prevent  pointer dereference panics when  is nil but expected.
-- No `time.Sleep` is allowed in tests, even within mocks, to avoid test flakiness and to ensure strict adherence to prompt instructions.
-- A specific test execution bug in tests asserting errors (`if (err != nil) != tt.wantErr { t.Errorf(...) }` followed by `if tt.wantErr && !strings.Contains(err.Error(), ...) { t.Errorf(...) }`) needs a return or an explicit check for `err != nil` in the second block to prevent `nil` pointer dereference panics when `err` is nil but expected.
-- No `time.Sleep` is allowed in tests, even within mocks, to avoid test flakiness and to ensure strict adherence to prompt instructions.
