@@ -6,9 +6,36 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "security"
-      include: "scope"
+      prefix: "chore(deps): "
     groups:
       github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: "gomod"
+    directory: "/core"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps): "
+
+  - package-ecosystem: "gomod"
+    directory: "/collector"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps): "
+
+  - package-ecosystem: "gomod"
+    directory: "/evaluator"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps): "
+
+  - package-ecosystem: "gomod"
+    directory: "/governor"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps): "
