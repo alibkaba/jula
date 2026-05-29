@@ -1,6 +1,9 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -8,6 +11,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -278,6 +283,110 @@ func TestDownloadPolicies_LocalPath(t *testing.T) {
 	}
 	if path != "local/path/to/policies" {
 		t.Errorf("expected path to be returned unmodified")
+	}
+}
+
+func TestDispatchDriftAlert_Success(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"success"}`))
+	}))
+	defer ts.Close()
+
+	t.Setenv("JULA_GOVERNOR_REPO", "test/governor")
+	t.Setenv("JULA_DISPATCH_TOKEN", "test-token")
+
+	oldClient := dispatchClient
+	defer func() { dispatchClient = oldClient }()
+	dispatchClient = ts.Client()
+
+	dispatchDriftAlert("gcp", "storage", "raw-payload")
+}
+
+func TestDispatchDriftAlert_Unconfigured(t *testing.T) {
+	t.Setenv("JULA_GOVERNOR_REPO", "")
+	t.Setenv("JULA_DISPATCH_TOKEN", "")
+
+	dispatchDriftAlert("gcp", "storage", "raw-payload")
+}
+
+func TestLoadMetadata_URLSuccess(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"key":"value-url"}`))
+	}))
+	defer ts.Close()
+
+	oldNewSafeHTTPClient := newSafeHTTPClient
+	defer func() { newSafeHTTPClient = oldNewSafeHTTPClient }()
+	newSafeHTTPClient = func(timeout time.Duration) *http.Client {
+		return ts.Client()
+	}
+
+	meta, err := loadMetadata(ts.URL)
+	if err != nil {
+		t.Fatalf("loadMetadata failed: %v", err)
+	}
+	if meta["key"] != "value-url" {
+		t.Errorf("expected key to be value-url, got %v", meta["key"])
+	}
+}
+
+func TestDownloadPolicies_URLSuccess(t *testing.T) {
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	policyContent := `package compliance.controls.test_policy
+evaluation := {"control_id": "TEST-1", "compliant": true}`
+
+	hdr := &tar.Header{
+		Name: "test_policy.rego",
+		Mode: 0644,
+		Size: int64(len(policyContent)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatalf("failed to write tar header: %v", err)
+	}
+	if _, err := tw.Write([]byte(policyContent)); err != nil {
+		t.Fatalf("failed to write tar body: %v", err)
+	}
+
+	tw.Close()
+	gzw.Close()
+
+	tarGzBytes := buf.Bytes()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/gzip")
+		w.WriteHeader(http.StatusOK)
+		w.Write(tarGzBytes)
+	}))
+	defer ts.Close()
+
+	oldDefaultHTTPClient := defaultHTTPClient
+	defer func() { defaultHTTPClient = oldDefaultHTTPClient }()
+	defaultHTTPClient = ts.Client()
+
+	ctx := context.Background()
+	policiesDir, err := downloadPolicies(ctx, ts.URL)
+	if err != nil {
+		t.Fatalf("downloadPolicies failed: %v", err)
+	}
+	defer os.RemoveAll(policiesDir)
+
+	extractedFile := filepath.Join(policiesDir, "test_policy.rego")
+	content, err := os.ReadFile(extractedFile)
+	if err != nil {
+		t.Fatalf("failed to read extracted file: %v", err)
+	}
+	if string(content) != policyContent {
+		t.Errorf("extracted content mismatch. Expected %q, got %q", policyContent, string(content))
 	}
 }
 

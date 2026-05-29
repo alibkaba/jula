@@ -1,6 +1,9 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -244,5 +247,77 @@ endpoints:
 	manifestPath := filepath.Join(outDir, runDate, "manifest.json")
 	if _, err := os.Stat(manifestPath); os.IsNotExist(err) {
 		t.Errorf("expected manifest.json to be created at %s", manifestPath)
+	}
+}
+
+func TestFetchIntegrationsMap(t *testing.T) {
+	// 1. Create a dummy tar.gz archive
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	files := map[string]string{
+		"repo-name-123/engine/integrations/gcp.yaml":  "gcp config content",
+		"repo-name-123/engine/integrations/aws.yaml":  "aws config content",
+		"repo-name-123/other-folder/not-integration": "ignored file",
+	}
+
+	for path, content := range files {
+		hdr := &tar.Header{
+			Name: path,
+			Mode: 0600,
+			Size: int64(len(content)),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatalf("failed to write header: %v", err)
+		}
+		if _, err := tw.Write([]byte(content)); err != nil {
+			t.Fatalf("failed to write body: %v", err)
+		}
+	}
+	tw.Close()
+	gzw.Close()
+
+	tarGzBytes := buf.Bytes()
+
+	// 2. Setup mock server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-github-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/gzip")
+		w.WriteHeader(http.StatusOK)
+		w.Write(tarGzBytes)
+	}))
+	defer ts.Close()
+
+	// 3. Temporarily swap newSafeClient to return a client that permits loopback
+	oldNewSafeClient := newSafeClient
+	defer func() { newSafeClient = oldNewSafeClient }()
+	newSafeClient = func(timeout time.Duration) *http.Client {
+		return ts.Client()
+	}
+
+	t.Setenv("GITHUB_TOKEN", "test-github-token")
+
+	// 4. Call fetchIntegrationsMap
+	res, err := fetchIntegrationsMap(ts.URL)
+	if err != nil {
+		t.Fatalf("fetchIntegrationsMap failed: %v", err)
+	}
+
+	// 5. Verify the map output
+	if len(res) != 2 {
+		t.Errorf("expected 2 files in map, got %d", len(res))
+	}
+	if string(res["gcp.yaml"]) != "gcp config content" {
+		t.Errorf("expected gcp config content, got %q", string(res["gcp.yaml"]))
+	}
+	if string(res["aws.yaml"]) != "aws config content" {
+		t.Errorf("expected aws config content, got %q", string(res["aws.yaml"]))
+	}
+	if _, ok := res["not-integration"]; ok {
+		t.Errorf("expected other-folder files to be ignored, but found in map")
 	}
 }

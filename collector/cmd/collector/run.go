@@ -20,6 +20,8 @@ import (
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
 
+var newSafeClient = safehttp.NewClient
+
 func handleRun(args []string) error {
 	runCmd := flag.NewFlagSet("run", flag.ContinueOnError)
 
@@ -181,7 +183,7 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := safehttp.NewClient(30 * time.Second)
+	client := newSafeClient(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http get: %w", err)

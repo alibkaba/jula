@@ -28,6 +28,12 @@ import (
 // version is set at build time via -ldflags.
 var version = "dev"
 
+var (
+	dispatchClient    = &http.Client{Timeout: 10 * time.Second}
+	newSafeHTTPClient = safehttp.NewClient
+	defaultHTTPClient = http.DefaultClient
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -99,7 +105,7 @@ func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := dispatchClient
 	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("gitops: failed to route webhook dispatch packet to remote origin", "error", err)
@@ -368,7 +374,7 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("creating metadata request: %w", err)
 		}
-		client := safehttp.NewClient(15 * time.Second)
+		client := newSafeHTTPClient(15 * time.Second)
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("fetching metadata URL: %w", err)
@@ -409,7 +415,7 @@ func downloadPolicies(ctx context.Context, url string) (string, error) {
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := defaultHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("fetching policies: %w", err)
 	}

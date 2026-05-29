@@ -192,3 +192,31 @@ func TestOPAEvaluator_EvaluateControl_EmptyEvaluator(t *testing.T) {
 		t.Errorf("expected FAILED verdict, got: %s", findings[0].Verdict)
 	}
 }
+
+func TestOPAEvaluator_GetRegisteredControlIDs(t *testing.T) {
+	ctx := context.Background()
+
+	evaluator := NewOPAEvaluator()
+	mockRego := `
+		package compliance.controls.bcd_11_4
+		import rego.v1
+		evaluation := {
+			"control_id": "BCD-11.4",
+			"compliant": true
+		}
+	`
+	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
+
+	if err := evaluator.Compile(ctx); err != nil {
+		t.Fatalf("failed to compile policies: %v", err)
+	}
+
+	ids := evaluator.GetRegisteredControlIDs()
+	if len(ids) != 1 {
+		t.Fatalf("expected 1 registered control ID, got %d", len(ids))
+	}
+	if ids[0] != "BCD-11.4" {
+		t.Errorf("expected BCD-11.4, got %s", ids[0])
+	}
+}
+

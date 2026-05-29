@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -377,5 +379,62 @@ func TestExecuteJobs_TimeoutPartialFailure(t *testing.T) {
 
 	if findings[0].EvidenceID != "EVID-AWS-01" {
 		t.Errorf("expected finding from EVID-AWS-01, got %s", findings[0].EvidenceID)
+	}
+}
+
+func TestOrchestrator_Extract_Success(t *testing.T) {
+	// 1. Setup mock server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok","data":"some-evidence"}`))
+	}))
+	defer ts.Close()
+
+	// 2. Setup in-memory integrations config map
+	integrationMap := map[string][]byte{
+		"saas_mock.yaml": []byte(`
+vendor_name: "saas_mock"
+base_url: "` + ts.URL + `"
+auth_flow:
+  type: "bearer"
+  token_env: "TEST_TOKEN"
+endpoints:
+  "/":
+    evidence_id: "EVID-MOCK-01"
+    description: "Mock REST Evidence"
+`),
+	}
+
+	t.Setenv("TEST_TOKEN", "dummy")
+
+	// 3. Create Orchestrator with the integration map
+	o := New(RunConfig{
+		Target:         "local",
+		Path:           t.TempDir(),
+		Concurrency:    2,
+		Timeout:        5 * time.Second,
+		RunID:          "test-run-extract",
+		IntegrationMap: integrationMap,
+	})
+
+	// 4. Run Extract
+	evidence, err := o.Extract(context.Background())
+	if err != nil {
+		t.Fatalf("Extract failed: %v", err)
+	}
+
+	// 5. Verify the evidence generated
+	if len(evidence) != 1 {
+		t.Fatalf("expected 1 evidence, got %d", len(evidence))
+	}
+	e := evidence[0]
+	if e.EvidenceID != "EVID-MOCK-01" {
+		t.Errorf("expected EVID-MOCK-01, got %s", e.EvidenceID)
+	}
+	if e.SourceID != "default" {
+		t.Errorf("expected SourceID 'default', got %s", e.SourceID)
+	}
+	if string(e.Finding.RawData) != `{"status":"ok","data":"some-evidence"}` {
+		t.Errorf("unexpected raw data: %s", string(e.Finding.RawData))
 	}
 }
