@@ -383,6 +383,13 @@ func TestExecuteJobs_TimeoutPartialFailure(t *testing.T) {
 }
 
 func TestOrchestrator_Extract_Success(t *testing.T) {
+	t.Setenv("GCP_PROJECT_ID", "")
+	t.Setenv("AWS_ACCOUNT_ID", "")
+	t.Setenv("AWS_REGION", "")
+	t.Setenv("GITHUB_ORGANIZATION", "")
+	t.Setenv("GITHUB_ORG", "")
+	t.Setenv("AIK_CLIENT_ID", "")
+
 	// 1. Setup mock server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
