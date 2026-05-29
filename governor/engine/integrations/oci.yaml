@@ -1,0 +1,6 @@
+vendor_name: "oci"
+provider: "oci"                    # Core routing discriminator token
+auth_flow:
+  type: "oci_native_auth"        # Evaluates environment credential chains at runtime
+  token_env: "OCI_ACCESS_TOKEN"  # Local fallback environment override token
+endpoints: {}                      # To be populated during platform onboarding modeling
