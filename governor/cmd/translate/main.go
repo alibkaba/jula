@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	buildPromptFile = "../../engine/prompts/02_build_translator.md"
-	healPromptFile  = "../../engine/prompts/02_heal_translator.md"
+	buildPromptFile = "../../engine/prompts/setup_02_build_translator.md"
+	healPromptFile  = "../../engine/prompts/remediate_01_heal_translator.md"
 	translatorsDir  = "../../engine/translators/"
 )
 
@@ -239,9 +239,9 @@ func main() {
 	targetPromptFile := buildPromptFile
 	if *healFlag {
 		targetPromptFile = healPromptFile
-		fmt.Printf("[TRANSLATE] Hydrating 02_heal_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
+		fmt.Printf("[TRANSLATE] Hydrating remediate_01_heal_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
 	} else {
-		fmt.Printf("[TRANSLATE] Hydrating 02_build_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
+		fmt.Printf("[TRANSLATE] Hydrating setup_02_build_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
 	}
 
 	promptBytes, err := os.ReadFile(targetPromptFile)

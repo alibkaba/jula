@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w -X main.version=$(git describe --tags --always 2>/dev/null || echo dev)" \
     -o /collect \
-    ./collector/cmd/collect/
+    ./collector/cmd/collector/
 
 # Production stage: empty scratch container.
 # No shell, no OS, no attack surface.

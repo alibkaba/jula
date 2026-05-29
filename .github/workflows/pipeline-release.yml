@@ -69,13 +69,13 @@ jobs:
           cache: false
 
       - name: Build macOS Binary (ARM64)
-        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-collector-darwin-arm64 ./collector/cmd/collect
+        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-collector-darwin-arm64 ./collector/cmd/collector
 
       - name: Build Linux Binary (AMD64)
-        run: GOOS=linux GOARCH=amd64 go build -o build/jula-collector-linux-amd64 ./collector/cmd/collect
+        run: GOOS=linux GOARCH=amd64 go build -o build/jula-collector-linux-amd64 ./collector/cmd/collector
 
       - name: Build Windows Binary (AMD64)
-        run: GOOS=windows GOARCH=amd64 go build -o build/jula-collector-windows-amd64.exe ./collector/cmd/collect
+        run: GOOS=windows GOARCH=amd64 go build -o build/jula-collector-windows-amd64.exe ./collector/cmd/collector
 
       - name: Upload Release Artifacts
         env:
@@ -115,13 +115,13 @@ jobs:
           cache: false
 
       - name: Build macOS Binary (ARM64)
-        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-evaluator-darwin-arm64 ./evaluator/cmd/evaluate
+        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-evaluator-darwin-arm64 ./evaluator/cmd/evaluator
 
       - name: Build Linux Binary (AMD64)
-        run: GOOS=linux GOARCH=amd64 go build -o build/jula-evaluator-linux-amd64 ./evaluator/cmd/evaluate
+        run: GOOS=linux GOARCH=amd64 go build -o build/jula-evaluator-linux-amd64 ./evaluator/cmd/evaluator
 
       - name: Build Windows Binary (AMD64)
-        run: GOOS=windows GOARCH=amd64 go build -o build/jula-evaluator-windows-amd64.exe ./evaluator/cmd/evaluate
+        run: GOOS=windows GOARCH=amd64 go build -o build/jula-evaluator-windows-amd64.exe ./evaluator/cmd/evaluator
 
       - name: Upload Release Artifacts
         env:

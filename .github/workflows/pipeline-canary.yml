@@ -26,11 +26,11 @@ jobs:
         with:
           version: latest
 
-      - name: Build Jula Collector
-        run: go build -o jula-collector ./collector/cmd/collect
+      - name: Build Collector
+        run: go build -o jula-collector ./collector/cmd/collector
 
-      - name: Build Jula Evaluator
-        run: go build -o jula-evaluator ./evaluator/cmd/evaluate
+      - name: Build Evaluator
+        run: go build -o jula-evaluator ./evaluator/cmd/evaluator
 
       - name: Execute Collector Canary Scan
         id: collector
