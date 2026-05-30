@@ -4,10 +4,10 @@
 
 | Component | Build & Release | Description |
 | :--- | :--- | :--- |
-| **[Jula Core](./core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/core.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/core.yml) | Shared models and cryptographic utilities |
-| **[Jula Collector](./collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/collector.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/collector.yml) | Stateless Go extraction engine |
-| **[Jula Evaluator](./evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/evaluator.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/evaluator.yml) | Policy evaluation and manifest verification |
-| **[Jula Governor](./governor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/governor.yml) | AI Translation & Policy Generation CLI |
+| **[Jula Core](./core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-core.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-core.yml) | Shared models and cryptographic utilities |
+| **[Jula Collector](./collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-collector.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-collector.yml) | Stateless Go extraction engine |
+| **[Jula Evaluator](./evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-evaluator.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-evaluator.yml) | Policy evaluation and manifest verification |
+| **[Jula Governor](./governor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml) | AI Translation & Policy Generation CLI |
 
 ## The Jula Controls Ecosystem
 
