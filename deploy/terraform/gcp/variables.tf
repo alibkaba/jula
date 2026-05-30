@@ -24,3 +24,8 @@ variable "collector_image_tag" {
   description = "The container image tag (typically a Git commit SHA) deployed by GitHub Actions"
   type        = string
 }
+
+variable "evaluator_image_tag" {
+  description = "The container image tag for the evaluator"
+  type        = string
+}

@@ -18,3 +18,7 @@ data "google_secret_manager_secret" "aikido_client_id" {
 data "google_secret_manager_secret" "aikido_secret_key" {
   secret_id = "jula-aikido-secret-key"
 }
+
+data "google_secret_manager_secret" "dispatch_token" {
+  secret_id = "jula-dispatch-token"
+}

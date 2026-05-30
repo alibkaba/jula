@@ -72,11 +72,79 @@ resource "google_cloud_run_v2_service" "jula_collector" {
   }
 }
 
+resource "google_cloud_run_v2_service" "jula_evaluator" {
+  name     = "jula-evaluator"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+
+  template {
+    service_account = google_service_account.jula_runner.email
+
+    containers {
+      image = "us-central1-docker.pkg.dev/${var.project_id}/jula-evaluator/jula:${var.evaluator_image_tag}"
+
+      env {
+        name  = "JULA_BUCKET_URL"
+        value = "gs://${google_storage_bucket.evidence.name}"
+      }
+
+      env {
+        name  = "JULA_POLICY_URL"
+        value = "https://api.github.com/repos/alibkaba/jula/tarball/main"
+      }
+
+      env {
+        name  = "JULA_GOVERNOR_REPO"
+        value = "alibkaba/jula"
+      }
+
+
+      env {
+        name = "JULA_PUBLIC_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = data.google_secret_manager_secret.public_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GITHUB_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = data.google_secret_manager_secret.github_token.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "JULA_DISPATCH_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = data.google_secret_manager_secret.dispatch_token.secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+  }
+}
+
 # Allow public unauthenticated invocation (for webhook triggers)
 resource "google_cloud_run_service_iam_binding" "public_access" {
   location = google_cloud_run_v2_service.jula_collector.location
   project  = google_cloud_run_v2_service.jula_collector.project
   service  = google_cloud_run_v2_service.jula_collector.name
+  role     = "roles/run.invoker"
+  members  = ["allUsers"]
+}
+
+resource "google_cloud_run_service_iam_binding" "evaluator_public_access" {
+  location = google_cloud_run_v2_service.jula_evaluator.location
+  project  = google_cloud_run_v2_service.jula_evaluator.project
+  service  = google_cloud_run_v2_service.jula_evaluator.name
   role     = "roles/run.invoker"
   members  = ["allUsers"]
 }
