@@ -11,6 +11,9 @@ endpoints:
     headers:
       Accept: "application/vnd.github+json"
       X-GitHub-Api-Version: "2022-11-28"
+    pagination:
+      next_url_field: "header.Link"
+      max_pages: 5
   "https://api.github.com/repos/${GITHUB_ORG}/jula/branches":
     method: "GET"
     evidence_id: "EVID-GH-BRANCHES"
@@ -18,6 +21,9 @@ endpoints:
     headers:
       Accept: "application/vnd.github+json"
       X-GitHub-Api-Version: "2022-11-28"
+    pagination:
+      next_url_field: "header.Link"
+      max_pages: 5
   "https://api.github.com/orgs/${GITHUB_ORG}/members":
     method: "GET"
     evidence_id: "EVID-GH-MEMBERS"
@@ -25,3 +31,4 @@ endpoints:
     headers:
       Accept: "application/vnd.github+json"
       X-GitHub-Api-Version: "2022-11-28"
+    allow_404: true
