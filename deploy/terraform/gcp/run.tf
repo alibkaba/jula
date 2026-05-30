@@ -60,6 +60,11 @@ resource "google_cloud_run_v2_service" "jula_collector" {
       }
 
       env {
+        name  = "GITHUB_ORG"
+        value = "alibkaba"
+      }
+
+      env {
         name  = "JULA_INTEGRATION_URL"
         value = "https://api.github.com/repos/alibkaba/jula/tarball/main"
       }

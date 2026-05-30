@@ -1,0 +1,22 @@
+vendor_name: "aikido"
+provider: "aikido"
+auth_flow:
+  type: "oauth2"
+  token_url: "https://app.aikido.dev/api/oauth/token"
+  client_id_env: "AIK_CLIENT_ID"
+  client_secret_env: "AIK_SECRET_KEY"
+endpoints:
+  "https://app.aikido.dev/api/public/v1/issues/export":
+    method: "POST"
+    evidence_id: "EVID-AIK-ISSUES"
+    description: "Export all Aikido security issues"
+    body:
+      filters: {}
+  "https://app.aikido.dev/api/public/v1/repositories/code":
+    method: "GET"
+    evidence_id: "EVID-AIK-REPOS"
+    description: "List monitored code repositories and scan status"
+  "https://app.aikido.dev/api/public/v1/compliance/soc2":
+    method: "GET"
+    evidence_id: "EVID-AIK-SOC2"
+    description: "SOC2 compliance overview from Aikido"
