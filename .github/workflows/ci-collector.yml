@@ -19,6 +19,8 @@ env:
   REPOSITORY: jula-collector
   IMAGE_NAME: jula
 
+permissions: {}
+
 jobs:
   # ==========================================
   # 1. TEST (Runs on PRs and Main)
@@ -55,6 +57,8 @@ jobs:
     needs: test
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Dry Run Docker Build
