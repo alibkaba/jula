@@ -63,6 +63,11 @@ resource "google_cloud_run_v2_service" "jula_collector" {
         name  = "JULA_INTEGRATION_URL"
         value = "https://api.github.com/repos/alibkaba/jula/tarball/main"
       }
+      
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
     }
   }
 }
