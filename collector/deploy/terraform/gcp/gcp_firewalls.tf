@@ -1,4 +1,4 @@
-# firewall_hardening.tf – Environment-specific: jula-494603
+# firewall_hardening.tf – Environment-specific
 # This file is .gitignored and should NOT be committed to the public repository.
 # Generic template: remediation/firewall_hardening.tf
 

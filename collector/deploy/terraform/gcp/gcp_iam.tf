@@ -1,4 +1,4 @@
-# least_privilege_iam.tf – Environment-specific: jula-494603
+# least_privilege_iam.tf – Environment-specific
 # This file is .gitignored and should NOT be committed to the public repository.
 # Generic template: remediation/least_privilege_iam.tf
 

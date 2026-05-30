@@ -1,4 +1,4 @@
-# audit_logging.tf – Environment-specific: jula-494603
+# audit_logging.tf – Environment-specific
 # This file is .gitignored and should NOT be committed to the public repository.
 # Generic template: remediation/audit_logging.tf
 

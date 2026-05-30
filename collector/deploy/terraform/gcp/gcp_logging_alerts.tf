@@ -1,4 +1,4 @@
-# cis_log_alerts.tf – Environment-specific: jula-494603
+# cis_log_alerts.tf – Environment-specific
 # This file is .gitignored and should NOT be committed to the public repository.
 # Generic template: remediation/cis_log_alerts.tf
 
@@ -10,7 +10,7 @@ resource "google_monitoring_notification_channel" "security_alerts" {
   project      = var.project_id
 
   labels = {
-    email_address = "alibkaba@gmail.com"
+    email_address = var.alert_email
   }
 }
 

@@ -221,12 +221,12 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 			}
 			tail := parts[1]
 
-			// Accept files under engine/integrations/ (flat layout).
-			if !strings.HasPrefix(tail, "engine/integrations/") {
+			// Accept files under governor/engine/integrations/ (flat layout).
+			if !strings.HasPrefix(tail, "governor/engine/integrations/") {
 				continue
 			}
 
-			normalizedName := strings.TrimPrefix(tail, "engine/integrations/")
+			normalizedName := strings.TrimPrefix(tail, "governor/engine/integrations/")
 
 			data, err := io.ReadAll(tr)
 			if err != nil {
