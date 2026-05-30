@@ -37,14 +37,14 @@ type ControlFinding struct {
 
 // OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
 type OPAEvaluator struct {
-	policyModules map[string]string
+	policyModules     map[string]string
 	controlPackageMap map[string][]string // Control ID -> List of OPA Package paths
 }
 
 // NewOPAEvaluator creates a new OPAEvaluator.
 func NewOPAEvaluator() *OPAEvaluator {
 	return &OPAEvaluator{
-		policyModules: make(map[string]string),
+		policyModules:     make(map[string]string),
 		controlPackageMap: make(map[string][]string),
 	}
 }
@@ -163,10 +163,10 @@ func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, ev
 		}
 
 		entry := map[string]interface{}{
-			"raw_data":  raw,
-			"evidence_id":    ev.EvidenceID,
-			"provider":  ev.Finding.Provider,
-			"timestamp": ev.Finding.Timestamp,
+			"raw_data":    raw,
+			"evidence_id": ev.EvidenceID,
+			"provider":    ev.Finding.Provider,
+			"timestamp":   ev.Finding.Timestamp,
 		}
 
 		// Group under findingsMap[evidenceID][sourceID]
