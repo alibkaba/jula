@@ -29,14 +29,14 @@ evaluation = {
     "service": "Aikido Security SOC2"
 }
 
-details = sprintf("SOC2 compliance is at %d%% (%d of %d rules complying).", [
-    (raw_data.total_complying_rule_count * 100) / raw_data.total_rule_count,
+details = sprintf("SOC2 compliance is at %v%% (%d of %d rules complying).", [
+    round((raw_data.total_complying_rule_count * 100) / raw_data.total_rule_count),
     raw_data.total_complying_rule_count,
     raw_data.total_rule_count
 ]) {
     is_compliant
-} else = sprintf("SOC2 compliance is below 90%%: at %d%% (%d of %d rules complying).", [
-    (raw_data.total_complying_rule_count * 100) / raw_data.total_rule_count,
+} else = sprintf("SOC2 compliance is below 90%%: at %v%% (%d of %d rules complying).", [
+    round((raw_data.total_complying_rule_count * 100) / raw_data.total_rule_count),
     raw_data.total_complying_rule_count,
     raw_data.total_rule_count
 ])
