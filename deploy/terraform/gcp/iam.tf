@@ -16,3 +16,23 @@ resource "google_project_iam_member" "secret_accessor" {
   role    = "roles/secretmanager.secretAccessor"
   member  = "serviceAccount:${google_service_account.jula_runner.email}"
 }
+
+locals {
+  collector_roles = [
+    "roles/cloudasset.viewer",
+    "roles/cloudkms.viewer",
+    "roles/cloudsql.viewer",
+    "roles/compute.viewer",
+    "roles/iam.securityReviewer",
+    "roles/iam.serviceAccountViewer",
+    "roles/storage.objectViewer",
+    "roles/run.viewer"
+  ]
+}
+
+resource "google_project_iam_member" "collector_roles" {
+  for_each = toset(local.collector_roles)
+  project  = var.project_id
+  role     = each.value
+  member   = "serviceAccount:${google_service_account.jula_runner.email}"
+}
