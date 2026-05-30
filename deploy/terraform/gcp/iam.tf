@@ -4,10 +4,10 @@ resource "google_service_account" "jula_runner" {
 }
 
 # Grant the service account permissions to write to its own bucket
-resource "google_project_iam_member" "storage_admin" {
-  project = var.project_id
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${google_service_account.jula_runner.email}"
+resource "google_storage_bucket_iam_member" "storage_admin" {
+  bucket = google_storage_bucket.evidence.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.jula_runner.email}"
 }
 
 # Grant the service account permission to access secrets
