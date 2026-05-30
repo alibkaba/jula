@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -370,6 +372,23 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	var data []byte
 	var err error
 	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
+		u, err := url.Parse(pathOrURL)
+		if err != nil {
+			return nil, fmt.Errorf("parsing metadata URL: %w", err)
+		}
+		if u.Scheme != "https" {
+			return nil, fmt.Errorf("metadata URL must use HTTPS scheme")
+		}
+		host := u.Hostname()
+		if host == "" {
+			return nil, fmt.Errorf("metadata URL has empty host")
+		}
+		if ip := net.ParseIP(host); ip != nil && os.Getenv("JULA_TEST_ENV") != "true" {
+			if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+				return nil, fmt.Errorf("metadata URL host is an invalid IP address")
+			}
+		}
+
 		req, err := http.NewRequest(http.MethodGet, pathOrURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("creating metadata request: %w", err)

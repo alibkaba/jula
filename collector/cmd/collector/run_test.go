@@ -300,6 +300,7 @@ func TestFetchIntegrationsMap(t *testing.T) {
 	}
 
 	t.Setenv("GITHUB_TOKEN", "test-github-token")
+	t.Setenv("JULA_TEST_ENV", "true")
 
 	// 4. Call fetchIntegrationsMap
 	res, err := fetchIntegrationsMap(ts.URL)

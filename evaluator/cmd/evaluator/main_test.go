@@ -315,7 +315,8 @@ func TestDispatchDriftAlert_Unconfigured(t *testing.T) {
 }
 
 func TestLoadMetadata_URLSuccess(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	t.Setenv("JULA_TEST_ENV", "true")
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"key":"value-url"}`))

@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -174,6 +175,20 @@ func resolveConfigPath(envKey, defaultPath string) string {
 }
 
 func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid integrations URL: %w", err)
+	}
+	if os.Getenv("JULA_TEST_ENV") != "true" {
+		if u.Scheme != "https" {
+			return nil, fmt.Errorf("integrations URL must use HTTPS scheme")
+		}
+		host := strings.ToLower(u.Hostname())
+		if host != "api.github.com" && host != "github.com" {
+			return nil, fmt.Errorf("integrations URL host must be api.github.com or github.com")
+		}
+	}
+
 	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
