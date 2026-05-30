@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -125,15 +126,62 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 		return nil, err
 	}
 
-	evidenceSlice := make([]types.Evidence, 0, len(findings))
-	for _, f := range findings {
-		hash := sha256.Sum256(f.RawData)
+	type groupKey struct {
+		evidenceID string
+		sourceID   string
+	}
+	grouped := make(map[groupKey][]types.Finding)
+	var keysOrdered []groupKey
+	keySeen := make(map[groupKey]bool)
 
+	for _, f := range findings {
+		k := groupKey{f.EvidenceID, f.SourceID}
+		if !keySeen[k] {
+			keySeen[k] = true
+			keysOrdered = append(keysOrdered, k)
+		}
+		grouped[k] = append(grouped[k], f)
+	}
+
+	evidenceSlice := make([]types.Evidence, 0, len(keysOrdered))
+	for _, k := range keysOrdered {
+		group := grouped[k]
+		var finalFinding types.Finding
+
+		if len(group) == 1 {
+			finalFinding = group[0]
+		} else {
+			var mergedData []any
+			isAllJSONArrays := true
+
+			for _, f := range group {
+				var items []any
+				if err := json.Unmarshal(f.RawData, &items); err == nil {
+					mergedData = append(mergedData, items...)
+				} else {
+					isAllJSONArrays = false
+					break
+				}
+			}
+
+			if isAllJSONArrays {
+				mergedRaw, err := json.Marshal(mergedData)
+				if err != nil {
+					return nil, fmt.Errorf("merging paginated findings: %w", err)
+				}
+				finalFinding = group[0]
+				finalFinding.RawData = mergedRaw
+			} else {
+				finalFinding = group[len(group)-1]
+			}
+		}
+
+		hash := sha256.Sum256(finalFinding.RawData)
 		evidenceSlice = append(evidenceSlice, types.Evidence{
-			EvidenceID:       f.EvidenceID,
-			ControlID:   f.ControlID,
-			SourceID:    f.SourceID,
-			Finding:     f,
+			EvidenceID:  finalFinding.EvidenceID,
+			ControlID:   finalFinding.ControlID,
+			SourceID:    finalFinding.SourceID,
+			Finding:     finalFinding,
 			PayloadHash: hex.EncodeToString(hash[:]),
 		})
 	}
