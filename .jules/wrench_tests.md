@@ -1,0 +1,1 @@
+- **evaluator/internal/evaluation**: `PrepareForEval` errors in `EvaluateControl` can be simulated by mutating the `OPAEvaluator.policyModules` map with invalid Rego syntax *after* calling `Compile()`.
