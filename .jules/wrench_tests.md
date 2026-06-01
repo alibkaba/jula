@@ -1,0 +1,1 @@
+Critical test learnings for the Jula project. In the evaluator module, OPA PrepareForEval compilation errors can be simulated in tests by mutating the OPAEvaluator.policyModules map with invalid Rego syntax after calling Compile().
