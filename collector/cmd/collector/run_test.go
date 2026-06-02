@@ -257,9 +257,9 @@ func TestFetchIntegrationsMap(t *testing.T) {
 	tw := tar.NewWriter(gzw)
 
 	files := map[string]string{
-		"repo-name-123/governor/engine/integrations/gcp.yaml":  "gcp config content",
-		"repo-name-123/governor/engine/integrations/aws.yaml":  "aws config content",
-		"repo-name-123/other-folder/not-integration": "ignored file",
+		"repo-name-123/governor/engine/integrations/gcp.yaml": "gcp config content",
+		"repo-name-123/governor/engine/integrations/aws.yaml": "aws config content",
+		"repo-name-123/other-folder/not-integration":          "ignored file",
 	}
 
 	for path, content := range files {

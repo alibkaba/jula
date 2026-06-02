@@ -121,11 +121,11 @@ func (e *Engine) Execute(ctx context.Context, integration *RESTIntegration, erlP
 	}
 
 	finding := types.Finding{
-		EvidenceID:     epCfg.EvidenceID,
-		Provider:  integration.VendorName,
-		RawData:   body,
-		Timestamp: time.Now().UTC(),
-		RunID:     runID,
+		EvidenceID: epCfg.EvidenceID,
+		Provider:   integration.VendorName,
+		RawData:    body,
+		Timestamp:  time.Now().UTC(),
+		RunID:      runID,
 	}
 
 	return []types.Finding{finding}, nil
@@ -345,11 +345,11 @@ func (e *Engine) fetchPaginated(ctx context.Context, targetURL string, headers m
 		}
 
 		findings = append(findings, types.Finding{
-			EvidenceID:     epCfg.EvidenceID,
-			Provider:  integration.VendorName,
-			RawData:   body,
-			Timestamp: time.Now().UTC(),
-			RunID:     runID,
+			EvidenceID: epCfg.EvidenceID,
+			Provider:   integration.VendorName,
+			RawData:    body,
+			Timestamp:  time.Now().UTC(),
+			RunID:      runID,
 		})
 
 		// Extract pagination token in a read-only manner

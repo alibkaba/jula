@@ -19,12 +19,12 @@ import (
 	"strings"
 	"time"
 
-	intCrypto "github.com/alibkaba/jula-evaluator/internal/crypto"
-	"github.com/alibkaba/jula-evaluator/internal/evaluation"
-	"github.com/alibkaba/jula-evaluator/internal/ingestion"
 	pkgCrypto "github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 	"github.com/alibkaba/jula-core/pkg/types"
+	intCrypto "github.com/alibkaba/jula-evaluator/internal/crypto"
+	"github.com/alibkaba/jula-evaluator/internal/evaluation"
+	"github.com/alibkaba/jula-evaluator/internal/ingestion"
 )
 
 // version is set at build time via -ldflags.
@@ -79,14 +79,14 @@ type DispatchPayload struct {
 func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
 	governorRepo := os.Getenv("JULA_GOVERNOR_REPO")   // e.g., "alibkaba/jula-governor"
 	dispatchToken := os.Getenv("JULA_DISPATCH_TOKEN") // Fine-grained personal access token
-	
+
 	if governorRepo == "" || dispatchToken == "" {
 		slog.Warn("gitops: automated telemetry alert skipped; environmental variables are unconfigured")
 		return
 	}
 
 	url := fmt.Sprintf("https://api.github.com/repos/%s/dispatches", governorRepo)
-	
+
 	payload := DispatchPayload{
 		EventType: "schema_drift_detected",
 		ClientPayload: map[string]interface{}{
@@ -310,7 +310,7 @@ func handleRun(args []string) error {
 		for _, finding := range findings {
 			if finding.Verdict == "SCHEMA_DRIFT" {
 				slog.Warn("CRITICAL: Architectural schema drift detected! Halting loop to route correction patch...")
-				
+
 				// Extract provider prefix dynamically from control string layout (e.g. "CIS-GCP-STORAGE-1")
 				idParts := strings.Split(finding.ControlID, "-")
 				provider := "gcp"
@@ -347,7 +347,7 @@ func handleRun(args []string) error {
 	fmt.Println("\n================ JULA ASSURANCE FINDINGS LEDGER ================")
 	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
-	
+
 	if err := reader.WriteFile(ctx, bucketURL, "evaluator_ledger.json", findingsJSON); err != nil {
 		slog.Error("evaluator: failed to export evaluator ledger to file", "error", err)
 	}

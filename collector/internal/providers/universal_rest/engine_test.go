@@ -96,7 +96,7 @@ func TestEngine_Execute_BearerSuccess(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		EvidenceID:       "EVID-CHG-01",
+		EvidenceID:  "EVID-CHG-01",
 		Description: "GitHub Repository Metadata",
 	}
 
@@ -179,7 +179,7 @@ func TestEngine_Execute_OAuth2Success(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		EvidenceID:       "EVID-MNT-03",
+		EvidenceID:  "EVID-MNT-03",
 		Description: "Aikido Issues",
 	}
 
@@ -240,7 +240,7 @@ func TestEngine_Execute_LinkHeaderPagination(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		EvidenceID:       "EVID-CHG-03",
+		EvidenceID:  "EVID-CHG-03",
 		Description: "GitHub Paginated Issues",
 		Pagination: &PaginationConfig{
 			NextURLField: "header.Link",
@@ -309,7 +309,7 @@ func TestEngine_Execute_JSONPathPagination(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		EvidenceID:       "EVID-VPM-01",
+		EvidenceID:  "EVID-VPM-01",
 		Description: "JSON Path Paginated Endpoint",
 		Pagination: &PaginationConfig{
 			NextURLField: "pagination.next",
@@ -362,7 +362,7 @@ func TestEngine_Execute_404Allowed(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		EvidenceID:       "EVID-CHG-04",
+		EvidenceID:  "EVID-CHG-04",
 		Description: "CODEOWNERS file (optional)",
 		Allow404:    true,
 	}
@@ -403,7 +403,7 @@ func TestEngine_Execute_StrictPaginationEnforcement(t *testing.T) {
 	}
 
 	ep := RESTEndpointConfig{
-		EvidenceID:       "EVID-TEST-STRICT",
+		EvidenceID:  "EVID-TEST-STRICT",
 		Description: "No pagination instructions",
 	}
 
@@ -538,7 +538,7 @@ func TestEngine_Execute_RateLimitAndRetries(t *testing.T) {
 
 	// We create an engine that uses the test server's client
 	engine := NewEngine(server.Client())
-	
+
 	// Execute the request
 	start := time.Now()
 	findings, err := engine.Execute(context.Background(), bp, "/retry-test", ep, "run-1")
@@ -559,7 +559,7 @@ func TestEngine_Execute_RateLimitAndRetries(t *testing.T) {
 	if string(findings[0].RawData) != `{"success":true}` {
 		t.Errorf("expected raw payload '{\"success\":true}', got %q", string(findings[0].RawData))
 	}
-	
+
 	// Assert that backoff caused a delay (at least 1 second from the Retry-After, plus the base backoff logic)
 	if elapsed < 1*time.Second {
 		t.Errorf("expected execution time > 1s due to retries, got %s", elapsed)

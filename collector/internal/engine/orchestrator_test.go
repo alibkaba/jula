@@ -16,15 +16,15 @@ import (
 // makeSuccessJob creates an extractionJob that returns a valid Finding.
 func makeSuccessJob(evidenceID string) extractionJob {
 	return extractionJob{
-		evidenceID:       evidenceID,
+		evidenceID:  evidenceID,
 		description: "test-" + evidenceID,
 		execute: func(ctx context.Context) ([]types.Finding, error) {
 			return []types.Finding{{
-				EvidenceID:     evidenceID,
-				Provider:  "test",
-				RawData:   []byte(`{"status":"ok"}`),
-				Timestamp: time.Now().UTC(),
-				RunID:     "test-run",
+				EvidenceID: evidenceID,
+				Provider:   "test",
+				RawData:    []byte(`{"status":"ok"}`),
+				Timestamp:  time.Now().UTC(),
+				RunID:      "test-run",
 			}}, nil
 		},
 	}
@@ -33,7 +33,7 @@ func makeSuccessJob(evidenceID string) extractionJob {
 // makeFailJob creates an extractionJob that returns an error.
 func makeFailJob(evidenceID string) extractionJob {
 	return extractionJob{
-		evidenceID:       evidenceID,
+		evidenceID:  evidenceID,
 		description: "test-" + evidenceID,
 		execute: func(ctx context.Context) ([]types.Finding, error) {
 			return nil, fmt.Errorf("simulated failure for %s", evidenceID)
@@ -142,7 +142,7 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		evidenceID := fmt.Sprintf("EVID-CONC-%02d", i+1)
 		jobs = append(jobs, extractionJob{
-			evidenceID:       evidenceID,
+			evidenceID:  evidenceID,
 			description: "concurrency-test",
 			execute: func(ctx context.Context) ([]types.Finding, error) {
 				running := currentRunning.Add(1)
@@ -162,10 +162,10 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 				currentRunning.Add(-1)
 
 				return []types.Finding{{
-					EvidenceID:    evidenceID,
-					Provider: "test",
-					RawData:  []byte(`{}`),
-					RunID:    "test-run",
+					EvidenceID: evidenceID,
+					Provider:   "test",
+					RawData:    []byte(`{}`),
+					RunID:      "test-run",
 				}}, nil
 			},
 		})

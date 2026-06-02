@@ -54,7 +54,7 @@ func (a AuthFlowConfig) Redacted() AuthFlowConfig {
 
 // RESTEndpointConfig defines specific GET/POST routing details and Evidence mappings.
 type RESTEndpointConfig struct {
-	EvidenceID       string            `yaml:"evidence_id" json:"evidence_id"`
+	EvidenceID  string            `yaml:"evidence_id" json:"evidence_id"`
 	Description string            `yaml:"description" json:"description"`
 	Method      string            `yaml:"method,omitempty" json:"method,omitempty"`
 	Body        map[string]any    `yaml:"body,omitempty" json:"body,omitempty"`

@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>evaluation: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+
+				<option value="file0">github.com/alibkaba/jula-evaluator/internal/evaluation/opa.go (75.2%)</option>
+
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+
+			</div>
+		</div>
+		<div id="content">
+
+		<pre class="file" id="file0" style="display: none">package evaluation
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "io/fs"
+        "log/slog"
+        "os"
+        "path/filepath"
+        "strings"
+        "time"
+
+        "github.com/alibkaba/jula-core/pkg/types"
+        "github.com/open-policy-agent/opa/rego"
+)
+
+// ComplianceVerdict represents the final evaluation status of an Dataset rule.
+type ComplianceVerdict string
+
+const (
+        VerdictCompliant    ComplianceVerdict = "COMPLIANT"
+        VerdictNonCompliant ComplianceVerdict = "NON_COMPLIANT"
+        VerdictFailed       ComplianceVerdict = "FAILED" // Failed due to missing evidence or evaluation errors
+        VerdictDrifted      ComplianceVerdict = "SCHEMA_DRIFT"
+)
+
+type ControlFinding struct {
+        ControlID         string            `json:"control_id"`
+        CustomerControlID string            `json:"customer_control_id,omitempty"`
+        Verdict           ComplianceVerdict `json:"verdict"`
+        Details           string            `json:"details"`
+        EvaluatedAt       time.Time         `json:"evaluated_at"`
+        TargetService     string            `json:"-"`
+        RawBreakingData   interface{}       `json:"-"`
+}
+
+// OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
+type OPAEvaluator struct {
+        policyModules map[string]string
+        controlPackageMap map[string][]string // Control ID -&gt; List of OPA Package paths
+}
+
+// NewOPAEvaluator creates a new OPAEvaluator.
+func NewOPAEvaluator() *OPAEvaluator <span class="cov8" title="1">{
+        return &amp;OPAEvaluator{
+                policyModules: make(map[string]string),
+                controlPackageMap: make(map[string][]string),
+        }
+}</span>
+
+// LoadPolicies walks a local directory and loads all .rego policy files.
+func (e *OPAEvaluator) LoadPolicies(policiesDir string) error <span class="cov8" title="1">{
+        slog.Info("evaluation: loading OPA policies from directory", "path", policiesDir)
+
+        err := filepath.WalkDir(policiesDir, func(path string, d fs.DirEntry, err error) error </span><span class="cov8" title="1">{
+                if err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+                <span class="cov8" title="1">if !d.IsDir() &amp;&amp; strings.HasSuffix(d.Name(), ".rego") &amp;&amp; !strings.HasSuffix(d.Name(), "_test.rego") </span><span class="cov8" title="1">{
+                        content, err := os.ReadFile(path)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return fmt.Errorf("reading policy file %s: %w", path, err)
+                        }</span>
+
+                        // Use relative path as the module identifier
+                        <span class="cov8" title="1">relPath, err := filepath.Rel(policiesDir, path)
+                        if err != nil </span><span class="cov0" title="0">{
+                                relPath = path
+                        }</span>
+
+                        <span class="cov8" title="1">e.policyModules[relPath] = string(content)
+                        slog.Debug("evaluation: loaded policy module", "module", relPath)</span>
+                }
+                <span class="cov8" title="1">return nil</span>
+        })
+
+        <span class="cov8" title="1">if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("walking policies directory: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">slog.Info("evaluation: policies loaded successfully", "modules_count", len(e.policyModules))
+        return nil</span>
+}
+
+// Compile compiles all loaded policies and dynamically maps declared Control IDs to their respective Rego packages.
+func (e *OPAEvaluator) Compile(ctx context.Context) error <span class="cov8" title="1">{
+        if len(e.policyModules) == 0 </span><span class="cov0" title="0">{
+                slog.Warn("evaluation: no policy modules loaded to compile")
+                return nil
+        }</span>
+
+        <span class="cov8" title="1">slog.Info("evaluation: compiling loaded Rego policies and resolving control maps")
+
+        var regoOptions []func(*rego.Rego)
+        for filename, content := range e.policyModules </span><span class="cov8" title="1">{
+                regoOptions = append(regoOptions, rego.Module(filename, content))
+        }</span>
+
+        // Query Control IDs from the nested evaluation map
+        <span class="cov8" title="1">controlQueryOptions := append(regoOptions, rego.Query("data.compliance.controls[rule].evaluation.control_id"))
+        rControl := rego.New(controlQueryOptions...)
+        pqControl, err := rControl.PrepareForEval(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("evaluation: failed to prepare OPA compiler for control rules", "error", err.Error())
+                return fmt.Errorf("prepare control compiler: %w", err)
+        }</span>
+        <span class="cov8" title="1">results, err := pqControl.Eval(ctx)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error("evaluation: failed to evaluate control mapping query", "error", err.Error())
+                return fmt.Errorf("evaluate control mapping: %w", err)
+        }</span>
+        <span class="cov8" title="1">e.controlPackageMap = make(map[string][]string)
+        for _, result := range results </span><span class="cov8" title="1">{
+                if controlIDVal, ok := result.Expressions[0].Value.(string); ok </span><span class="cov8" title="1">{
+                        if rule, ok2 := result.Bindings["rule"].(string); ok2 </span><span class="cov8" title="1">{
+                                pkgPath := fmt.Sprintf("data.compliance.controls.%s", rule)
+                                e.controlPackageMap[controlIDVal] = append(e.controlPackageMap[controlIDVal], pkgPath)
+                                slog.Info("evaluation: registered control policy map", "control_id", controlIDVal, "package", pkgPath)
+                        }</span>
+                }
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// GetRegisteredControlIDs returns a list of all Control IDs dynamically mapped from the loaded OPA policies.
+func (e *OPAEvaluator) GetRegisteredControlIDs() []string <span class="cov8" title="1">{
+        var ids []string
+        for id := range e.controlPackageMap </span><span class="cov8" title="1">{
+                ids = append(ids, id)
+        }</span>
+        <span class="cov8" title="1">return ids</span>
+}
+
+// EvaluateControl evaluates compliance for a specific control ID using a slice of evidence.
+func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) <span class="cov8" title="1">{
+        var findings []ControlFinding
+        now := time.Now().UTC()
+
+        pkgPaths, exists := e.controlPackageMap[controlID]
+        if !exists || len(pkgPaths) == 0 </span><span class="cov8" title="1">{
+                slog.Warn("evaluation: no Rego policy is mapped for control ID", "control_id", controlID)
+                return []ControlFinding{{
+                        ControlID:   controlID,
+                        Verdict:     VerdictFailed,
+                        Details:     fmt.Sprintf("No Rego policy is currently mapped for control %q", controlID),
+                        EvaluatedAt: now,
+                }}, nil
+        }</span>
+
+        // Prepare rego options
+        <span class="cov8" title="1">var regoOptions []func(*rego.Rego)
+        for filename, content := range e.policyModules </span><span class="cov8" title="1">{
+                regoOptions = append(regoOptions, rego.Module(filename, content))
+        }</span>
+
+        <span class="cov8" title="1">findingsMap := make(map[string]interface{})
+        for _, ev := range evidences </span><span class="cov8" title="1">{
+                var raw interface{}
+                if err := json.Unmarshal(ev.Finding.RawData, &amp;raw); err != nil </span><span class="cov0" title="0">{
+                        raw = string(ev.Finding.RawData)
+                }</span>
+
+                <span class="cov8" title="1">entry := map[string]interface{}{
+                        "raw_data":  raw,
+                        "evidence_id":    ev.EvidenceID,
+                        "provider":  ev.Finding.Provider,
+                        "timestamp": ev.Finding.Timestamp,
+                }
+
+                // Group under findingsMap[evidenceID][sourceID]
+                var sourceMap map[string]interface{}
+                if existing, ok := findingsMap[ev.EvidenceID]; ok </span><span class="cov0" title="0">{
+                        sourceMap = existing.(map[string]interface{})
+                }</span> else<span class="cov8" title="1"> {
+                        sourceMap = make(map[string]interface{})
+                        findingsMap[ev.EvidenceID] = sourceMap
+                }</span>
+                <span class="cov8" title="1">sourceMap[ev.SourceID] = entry</span>
+        }
+
+        <span class="cov8" title="1">if metadata == nil </span><span class="cov8" title="1">{
+                metadata = make(map[string]interface{})
+        }</span>
+
+        <span class="cov8" title="1">regoInput := map[string]interface{}{
+                "findings": findingsMap,
+                "metadata": metadata,
+        }
+
+        for _, pkgPath := range pkgPaths </span><span class="cov8" title="1">{
+                queryStr := pkgPath
+                queryOptions := append(regoOptions,
+                        rego.Query(queryStr),
+                        rego.Input(regoInput),
+                )
+
+                r := rego.New(queryOptions...)
+                pq, err := r.PrepareForEval(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        slog.Error("evaluation: OPA compilation error", "control_id", controlID, "error", err.Error())
+                        findings = append(findings, ControlFinding{
+                                ControlID:   controlID,
+                                Verdict:     VerdictFailed,
+                                Details:     fmt.Sprintf("OPA compilation error for package %q: %v", pkgPath, err),
+                                EvaluatedAt: now,
+                        })
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">results, err := pq.Eval(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        slog.Error("evaluation: OPA evaluation execution error", "control_id", controlID, "error", err.Error())
+                        findings = append(findings, ControlFinding{
+                                ControlID:   controlID,
+                                Verdict:     VerdictFailed,
+                                Details:     fmt.Sprintf("OPA execution error for package %q: %v", pkgPath, err),
+                                EvaluatedAt: now,
+                        })
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">if len(results) == 0 </span><span class="cov0" title="0">{
+                        slog.Error("evaluation: OPA returned empty results for target query", "control_id", controlID, "query", queryStr)
+                        findings = append(findings, ControlFinding{
+                                ControlID:   controlID,
+                                Verdict:     VerdictFailed,
+                                Details:     fmt.Sprintf("OPA returned empty evaluation result for query %q", queryStr),
+                                EvaluatedAt: now,
+                        })
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">isCompliant := false
+                custControlID := ""
+                dynamicDetails := ""
+                targetService := ""
+                driftDetected := false
+
+                if len(results) &gt; 0 &amp;&amp; len(results[0].Expressions) &gt; 0 </span><span class="cov8" title="1">{
+                        if packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok </span><span class="cov8" title="1">{
+                                if evalMap, okEval := packageRootMap["evaluation"].(map[string]interface{}); okEval </span><span class="cov8" title="1">{
+                                        if comp, okComp := evalMap["compliant"].(bool); okComp </span><span class="cov8" title="1">{
+                                                isCompliant = comp
+                                        }</span>
+                                        <span class="cov8" title="1">if custID, okCust := evalMap["customer_control_id"].(string); okCust </span><span class="cov8" title="1">{
+                                                custControlID = custID
+                                        }</span>
+                                        <span class="cov8" title="1">if det, okDet := evalMap["details"].(string); okDet </span><span class="cov0" title="0">{
+                                                dynamicDetails = det
+                                        }</span>
+                                        <span class="cov8" title="1">if drift, okDrift := evalMap["drift_detected"].(bool); okDrift </span><span class="cov0" title="0">{
+                                                driftDetected = drift
+                                        }</span>
+                                        <span class="cov8" title="1">if service, okServ := evalMap["service"].(string); okServ </span><span class="cov0" title="0">{
+                                                targetService = service
+                                        }</span>
+                                }
+                        }
+                }
+
+                <span class="cov8" title="1">verdict := VerdictNonCompliant
+                if driftDetected </span><span class="cov0" title="0">{
+                        verdict = VerdictDrifted
+                }</span> else<span class="cov8" title="1"> if isCompliant </span><span class="cov8" title="1">{
+                        verdict = VerdictCompliant
+                }</span>
+
+                <span class="cov8" title="1">details := fmt.Sprintf("Evaluation failed under policy package %q", pkgPath)
+                if dynamicDetails != "" </span><span class="cov0" title="0">{
+                        details = dynamicDetails
+                }</span> else<span class="cov8" title="1"> if isCompliant </span><span class="cov8" title="1">{
+                        details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
+                }</span>
+
+                <span class="cov8" title="1">var rawBreakingData interface{}
+                if driftDetected </span><span class="cov0" title="0">{
+                        for _, ev := range evidences </span><span class="cov0" title="0">{
+                                var raw interface{}
+                                if err := json.Unmarshal(ev.Finding.RawData, &amp;raw); err != nil </span><span class="cov0" title="0">{
+                                        raw = string(ev.Finding.RawData)
+                                }</span>
+                                <span class="cov0" title="0">rawBreakingData = raw
+                                break</span> // Grab the first one for the alert payload
+                        }
+                }
+
+                <span class="cov8" title="1">slog.Info("evaluation: evaluated control policy", "control_id", controlID, "verdict", verdict, "package", pkgPath)
+                findings = append(findings, ControlFinding{
+                        ControlID:         controlID,
+                        CustomerControlID: custControlID,
+                        Verdict:           verdict,
+                        Details:           details,
+                        EvaluatedAt:       now,
+                        TargetService:     targetService,
+                        RawBreakingData:   rawBreakingData,
+                })</span>
+        }
+
+        <span class="cov8" title="1">return findings, nil</span>
+}
+</pre>
+
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

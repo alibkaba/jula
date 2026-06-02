@@ -27,10 +27,10 @@ func BenchmarkLocalReporter_Deliver(b *testing.B) {
 		evidence[i] = types.Evidence{
 			PayloadHash: fmt.Sprintf("hash-%d", i),
 			Finding: types.Finding{
-				EvidenceID:     fmt.Sprintf("EVID-TEST-%d", i),
-				Provider:  "gcp",
-				Timestamp: time.Now().UTC(),
-				RawData:   []byte(`{"status":"ok"}`),
+				EvidenceID: fmt.Sprintf("EVID-TEST-%d", i),
+				Provider:   "gcp",
+				Timestamp:  time.Now().UTC(),
+				RawData:    []byte(`{"status":"ok"}`),
 			},
 		}
 	}
