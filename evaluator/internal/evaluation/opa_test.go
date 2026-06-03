@@ -11,6 +11,267 @@ import (
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
+func TestOPAEvaluator_EvaluateControl(t *testing.T) {
+	ctx := context.Background()
+
+	baseRego := `
+		package compliance.controls.bcd_11_4
+		import rego.v1
+
+		evaluation := {
+			"control_id": "BCD-11.4",
+			"customer_control_id": "CC-1",
+			"compliant": is_compliant,
+			"drift_detected": drift_detected,
+			"details": details,
+			"service": "database"
+		}
+
+		default is_compliant = false
+		default drift_detected = false
+		default details = ""
+
+		drift_detected if {
+			db_checks := input.findings["EVID-BCM-16"]["src-1"]
+			db_checks.raw_data[0].schema == "invalid"
+		}
+
+		is_compliant if {
+			db_checks := input.findings["EVID-BCM-16"]["src-1"]
+			db_checks.raw_data[0].encrypted == true
+		}
+
+		details := "Drift found" if drift_detected
+		details := "All encrypted" if {
+			is_compliant
+			not drift_detected
+		}
+	`
+
+	tests := []struct {
+		name        string
+		controlID   string
+		evidences   []types.Evidence
+		metadata    map[string]interface{}
+		setupState  func(*OPAEvaluator)
+		setupCtx    func() (context.Context, context.CancelFunc)
+		wantVerdict ComplianceVerdict
+		wantDetails string
+		wantErr     bool
+	}{
+		{
+			name:      "compliant",
+			controlID: "BCD-11.4",
+			evidences: []types.Evidence{
+				{
+					EvidenceID: "EVID-BCM-16",
+					ControlID:  "BCD-11.4",
+					SourceID:   "src-1",
+					Finding: types.Finding{
+						Provider:  "gcp_cai",
+						Timestamp: time.Now(),
+						RawData:   []byte(`[{"name": "db-1", "encrypted": true}]`),
+					},
+				},
+			},
+			setupState: func(e *OPAEvaluator) {
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = baseRego
+			},
+			wantVerdict: VerdictCompliant,
+			wantDetails: "All encrypted",
+		},
+		{
+			name:      "non-compliant",
+			controlID: "BCD-11.4",
+			evidences: []types.Evidence{
+				{
+					EvidenceID: "EVID-BCM-16",
+					ControlID:  "BCD-11.4",
+					SourceID:   "src-1",
+					Finding: types.Finding{
+						Provider:  "gcp_cai",
+						Timestamp: time.Now(),
+						RawData:   []byte(`[{"name": "db-1", "encrypted": false}]`),
+					},
+				},
+			},
+			setupState: func(e *OPAEvaluator) {
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = baseRego
+			},
+			wantVerdict: VerdictNonCompliant,
+			wantDetails: `Evaluation failed under policy package "data.compliance.controls.bcd_11_4"`,
+		},
+		{
+			name:      "schema drift",
+			controlID: "BCD-11.4",
+			evidences: []types.Evidence{
+				{
+					EvidenceID: "EVID-BCM-16",
+					ControlID:  "BCD-11.4",
+					SourceID:   "src-1",
+					Finding: types.Finding{
+						Provider:  "gcp_cai",
+						Timestamp: time.Now(),
+						RawData:   []byte(`[{"name": "db-1", "encrypted": true, "schema": "invalid"}]`),
+					},
+				},
+			},
+			setupState: func(e *OPAEvaluator) {
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = baseRego
+			},
+			wantVerdict: VerdictDrifted,
+			wantDetails: "Drift found",
+		},
+		{
+			name:      "schema drift with raw data as unmarshalable json",
+			controlID: "BCD-11.4",
+			evidences: []types.Evidence{
+				{
+					EvidenceID: "EVID-BCM-16",
+					ControlID:  "BCD-11.4",
+					SourceID:   "src-1",
+					Finding: types.Finding{
+						Provider:  "gcp_cai",
+						Timestamp: time.Now(),
+						RawData:   []byte(`this is not json but we simulate drift from policy`),
+					},
+				},
+			},
+			setupState: func(e *OPAEvaluator) {
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = `
+				package compliance.controls.bcd_11_4
+				import rego.v1
+				evaluation := {
+					"control_id": "BCD-11.4",
+					"compliant": false,
+					"drift_detected": true,
+					"details": "forced drift",
+					"service": "database"
+				}
+				`
+			},
+			wantVerdict: VerdictDrifted,
+			wantDetails: "forced drift",
+		},
+		{
+			name:      "unmapped control",
+			controlID: "VPM-01",
+			evidences: []types.Evidence{},
+			setupState: func(e *OPAEvaluator) {
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = baseRego
+			},
+			wantVerdict: VerdictFailed,
+			wantDetails: `No Rego policy is currently mapped for control "VPM-01"`,
+		},
+		{
+			name:      "empty results",
+			controlID: "BCD-11.4",
+			setupState: func(e *OPAEvaluator) {
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = `
+				package compliance.controls.bcd_11_4
+				`
+			},
+			wantVerdict: VerdictFailed,
+			wantDetails: "OPA returned empty evaluation result",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			evaluator := NewOPAEvaluator()
+			if tt.setupState != nil {
+				tt.setupState(evaluator)
+			}
+
+			if err := evaluator.Compile(ctx); err != nil {
+				t.Fatalf("failed to compile policies: %v", err)
+			}
+
+			// For "empty results", we need to override the package map manually because Compile removes unmapped controls
+			if tt.name == "empty results" {
+				evaluator.controlPackageMap["BCD-11.4"] = []string{"data.non_existent"}
+			}
+
+			testCtx := ctx
+			if tt.setupCtx != nil {
+				var cancel context.CancelFunc
+				testCtx, cancel = tt.setupCtx()
+				defer cancel()
+			}
+
+			findings, err := evaluator.EvaluateControl(testCtx, tt.controlID, tt.evidences, tt.metadata)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("EvaluateControl() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if len(findings) != 1 {
+				t.Fatalf("expected 1 finding, got %d", len(findings))
+			}
+
+			if findings[0].Verdict != tt.wantVerdict {
+				t.Errorf("expected verdict %s, got %s", tt.wantVerdict, findings[0].Verdict)
+			}
+
+			if !strings.Contains(findings[0].Details, tt.wantDetails) {
+				t.Errorf("expected details to contain %q, got %q", tt.wantDetails, findings[0].Details)
+			}
+		})
+	}
+
+	t.Run("OPA execution compilation error by mutating post-compile", func(t *testing.T) {
+		evaluator := NewOPAEvaluator()
+		evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = baseRego
+		if err := evaluator.Compile(ctx); err != nil {
+			t.Fatalf("failed to compile policies: %v", err)
+		}
+
+		// Mutate state after compile
+		evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = "package compliance.controls.bcd_11_4\ninvalid syntax {"
+
+		findings, err := evaluator.EvaluateControl(ctx, "BCD-11.4", nil, nil)
+		if err != nil {
+			t.Errorf("EvaluateControl() error = %v, wantErr false", err)
+		}
+		if len(findings) != 1 {
+			t.Fatalf("expected 1 finding, got %d", len(findings))
+		}
+		if findings[0].Verdict != VerdictFailed {
+			t.Errorf("expected verdict %s, got %s", VerdictFailed, findings[0].Verdict)
+		}
+		if !strings.Contains(findings[0].Details, "OPA compilation error") {
+			t.Errorf("expected details to contain OPA compilation error, got %q", findings[0].Details)
+		}
+	})
+}
+
+func TestOPAEvaluator_GetRegisteredControlIDs(t *testing.T) {
+	ctx := context.Background()
+
+	evaluator := NewOPAEvaluator()
+	mockRego := `
+		package compliance.controls.bcd_11_4
+		import rego.v1
+		evaluation := {
+			"control_id": "BCD-11.4",
+			"compliant": true
+		}
+	`
+	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
+
+	if err := evaluator.Compile(ctx); err != nil {
+		t.Fatalf("failed to compile policies: %v", err)
+	}
+
+	ids := evaluator.GetRegisteredControlIDs()
+	if len(ids) != 1 {
+		t.Fatalf("expected 1 registered control ID, got %d", len(ids))
+	}
+	if ids[0] != "BCD-11.4" {
+		t.Errorf("expected BCD-11.4, got %s", ids[0])
+	}
+}
+
 func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 	// Create a temporary policies directory
 	tmpDir, err := os.MkdirTemp("", "jula-evaluator-policies-*")
@@ -48,175 +309,117 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 		t.Fatalf("Failed to write txt file: %v", err)
 	}
 
-	evaluator := NewOPAEvaluator()
-	if err := evaluator.LoadPolicies(tmpDir); err != nil {
-		t.Fatalf("LoadPolicies failed: %v", err)
-	}
-
-	// Verify only the non-test rego file is loaded
-	if len(evaluator.policyModules) != 1 {
-		t.Errorf("Expected exactly 1 loaded policy module, got %d", len(evaluator.policyModules))
-	}
-
-	if _, ok := evaluator.policyModules["db_encryption.rego"]; !ok {
-		t.Errorf("Expected db_encryption.rego to be loaded, policyModules: %v", evaluator.policyModules)
-	}
-}
-
-func TestOPAEvaluator_EvaluateControl(t *testing.T) {
-	ctx := context.Background()
-
-	evaluator := NewOPAEvaluator()
-	mockRego := `
-		package compliance.controls.bcd_11_4
-		import rego.v1
-
-		evaluation := {
-			"control_id": "BCD-11.4",
-			"customer_control_id": "CC-1",
-			"compliant": is_compliant
-		}
-
-		default is_compliant = false
-
-		is_compliant if {
-			db_checks := input.findings["EVID-BCM-16"]
-			every check in db_checks {
-				count(check.raw_data) > 0
-				check.raw_data[0].encrypted == true
-			}
-		}
-	`
-	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
-
-	if err := evaluator.Compile(ctx); err != nil {
-		t.Fatalf("failed to compile policies: %v", err)
-	}
-
-	evidenceList := []types.Evidence{
+	tests := []struct {
+		name        string
+		dir         string
+		setup       func(dir string)
+		wantCount   int
+		wantModules []string
+		wantErr     bool
+	}{
 		{
-			EvidenceID:    "EVID-BCM-16",
-			ControlID: "BCD-11.4",
-			SourceID: "src-1",
-			Finding: types.Finding{
-				Provider:  "gcp_cai",
-				Timestamp: time.Now(),
-				RawData:   []byte(`[{"name": "db-1", "encrypted": true}]`),
+			name:      "success loads only non-test rego",
+			dir:       tmpDir,
+			wantCount: 1,
+			wantModules: []string{
+				"db_encryption.rego",
 			},
+			wantErr: false,
+		},
+		{
+			name:      "invalid directory",
+			dir:       filepath.Join(tmpDir, "does-not-exist"),
+			wantCount: 0,
+			wantErr:   true,
 		},
 	}
 
-	// Test passing nil metadata
-	findings, err := evaluator.EvaluateControl(ctx, "BCD-11.4", evidenceList, nil)
-	if err != nil {
-		t.Fatalf("EvaluateControl failed: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluator := NewOPAEvaluator()
+			if tt.setup != nil {
+				tt.setup(tt.dir)
+			}
 
-	if len(findings) != 1 {
-		t.Fatalf("expected 1 finding, got %d", len(findings))
-	}
+			err := evaluator.LoadPolicies(tt.dir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadPolicies() error = %v, wantErr %v", err, tt.wantErr)
+			}
 
-	if findings[0].Verdict != VerdictCompliant {
-		t.Errorf("expected COMPLIANT verdict, got: %s", findings[0].Verdict)
-	}
+			if len(evaluator.policyModules) != tt.wantCount {
+				t.Errorf("Expected exactly %d loaded policy module, got %d", tt.wantCount, len(evaluator.policyModules))
+			}
 
-	if findings[0].ControlID != "BCD-11.4" {
-		t.Errorf("expected control_id to be BCD-11.4, got: %s", findings[0].ControlID)
-	}
-
-	if findings[0].CustomerControlID != "CC-1" {
-		t.Errorf("expected customer_control_id to be CC-1, got: %s", findings[0].CustomerControlID)
+			for _, mod := range tt.wantModules {
+				if _, ok := evaluator.policyModules[mod]; !ok {
+					t.Errorf("Expected %s to be loaded, policyModules: %v", mod, evaluator.policyModules)
+				}
+			}
+		})
 	}
 }
 
-func TestOPAEvaluator_EvaluateControl_UnmappedPolicy(t *testing.T) {
+func TestOPAEvaluator_Compile(t *testing.T) {
 	ctx := context.Background()
 
-	evaluator := NewOPAEvaluator()
-	evidenceList := []types.Evidence{}
-
-	// Load a policy that maps to "BCD-11.4" only
-	mockRego := `
-		package compliance.controls.bcd_11_4
-		import rego.v1
-		evaluation := {
-			"control_id": "BCD-11.4",
-			"compliant": false
-		}
-	`
-	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
-
-	if err := evaluator.Compile(ctx); err != nil {
-		t.Fatalf("failed to compile policies: %v", err)
+	tests := []struct {
+		name       string
+		setupEval  func() *OPAEvaluator
+		wantErr    bool
+		errMessage string
+	}{
+		{
+			name: "success empty evaluator",
+			setupEval: func() *OPAEvaluator {
+				return NewOPAEvaluator()
+			},
+			wantErr: false,
+		},
+		{
+			name: "success standard compile",
+			setupEval: func() *OPAEvaluator {
+				e := NewOPAEvaluator()
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = `
+					package compliance.controls.bcd_11_4
+					import rego.v1
+					evaluation := {
+						"control_id": "BCD-11.4",
+						"compliant": true
+					}
+				`
+				return e
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid compiler syntax error",
+			setupEval: func() *OPAEvaluator {
+				e := NewOPAEvaluator()
+				e.policyModules["compliance/controls/bcd_11_4.rego"] = `
+					package compliance.controls.bcd_11_4
+					invalid syntax {
+				`
+				return e
+			},
+			wantErr: true,
+			errMessage: "prepare control compiler",
+		},
 	}
 
-	// Evaluate a completely different SCF ID that has no mapped policy
-	findings, err := evaluator.EvaluateControl(ctx, "VPM-01", evidenceList, nil)
-	if err != nil {
-		t.Fatalf("EvaluateControl returned unexpected error: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evaluator := tt.setupEval()
 
-	if len(findings) != 1 {
-		t.Fatalf("expected 1 finding for unmapped policy, got %d", len(findings))
-	}
+			testCtx := ctx
 
-	if findings[0].Verdict != VerdictFailed {
-		t.Errorf("expected FAILED verdict for unmapped policy, got: %s", findings[0].Verdict)
-	}
+			err := evaluator.Compile(testCtx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Compile() error = %v, wantErr %v", err, tt.wantErr)
+			}
 
-	if findings[0].ControlID != "VPM-01" {
-		t.Errorf("expected control_id to be VPM-01, got: %s", findings[0].ControlID)
-	}
-
-	if !strings.Contains(findings[0].Details, "No Rego policy") {
-		t.Errorf("expected details to mention missing policy, got: %s", findings[0].Details)
-	}
-}
-
-func TestOPAEvaluator_EvaluateControl_EmptyEvaluator(t *testing.T) {
-	ctx := context.Background()
-
-	// Freshly created evaluator with no policies loaded at all
-	evaluator := NewOPAEvaluator()
-
-	findings, err := evaluator.EvaluateControl(ctx, "ANY-01", nil, nil)
-	if err != nil {
-		t.Fatalf("EvaluateControl returned unexpected error: %v", err)
-	}
-
-	if len(findings) != 1 {
-		t.Fatalf("expected 1 finding, got %d", len(findings))
-	}
-
-	if findings[0].Verdict != VerdictFailed {
-		t.Errorf("expected FAILED verdict, got: %s", findings[0].Verdict)
-	}
-}
-
-func TestOPAEvaluator_GetRegisteredControlIDs(t *testing.T) {
-	ctx := context.Background()
-
-	evaluator := NewOPAEvaluator()
-	mockRego := `
-		package compliance.controls.bcd_11_4
-		import rego.v1
-		evaluation := {
-			"control_id": "BCD-11.4",
-			"compliant": true
-		}
-	`
-	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
-
-	if err := evaluator.Compile(ctx); err != nil {
-		t.Fatalf("failed to compile policies: %v", err)
-	}
-
-	ids := evaluator.GetRegisteredControlIDs()
-	if len(ids) != 1 {
-		t.Fatalf("expected 1 registered control ID, got %d", len(ids))
-	}
-	if ids[0] != "BCD-11.4" {
-		t.Errorf("expected BCD-11.4, got %s", ids[0])
+			if tt.wantErr && err != nil && !strings.Contains(err.Error(), tt.errMessage) {
+				t.Errorf("expected error to contain %q, got %q", tt.errMessage, err.Error())
+			}
+		})
 	}
 }
-

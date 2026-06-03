@@ -1,0 +1,4 @@
+- **OPA Evaluator Tests (`evaluator/internal/evaluation/opa.go`)**:
+  - `OPAEvaluator` uses a 2-step process (`PrepareForEval` -> `Eval`).
+  - To test `PrepareForEval` compilation errors dynamically, mutate `OPAEvaluator.policyModules` with invalid Rego syntax before calling `Compile()`. To test error handling if compilation somehow fails *during* `EvaluateControl` (e.g. dynamically injected errors), you can mutate `policyModules` with invalid syntax *after* `Compile()`, causing `PrepareForEval` inside `EvaluateControl` to fail.
+  - To test `Eval` execution errors within `EvaluateControl`, the cleanest way is to pass a canceled context (e.g., `ctx, cancel := context.WithCancel(ctx); cancel()`) to force a runtime timeout/cancel error during `Eval`.
