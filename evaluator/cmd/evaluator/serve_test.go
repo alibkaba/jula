@@ -53,7 +53,7 @@ func TestHandleServe(t *testing.T) {
 	go func() {
 		errCh <- handleServe([]string{})
 	}()
-	
+
 	time.Sleep(100 * time.Millisecond) // Give the server a moment to start
 }
 
@@ -95,17 +95,17 @@ func TestServeMux_Run_Success(t *testing.T) {
 
 	rawHash := pkgCrypto.HashFile(rawFindingData)
 	evidenceObj := &types.Evidence{
-		ControlID:    "BCD-11.4",
-		EvidenceID:    "EVID-BCM-16",
-		SourceID: "src-1",
+		ControlID:  "BCD-11.4",
+		EvidenceID: "EVID-BCM-16",
+		SourceID:   "src-1",
 		Finding: types.Finding{
-			ControlID:     "BCD-11.4",
-			EvidenceID:     "EVID-BCM-16",
-			SourceID:  "src-1",
-			Provider:  "gcp_cai",
-			RawData:   rawFindingData,
-			Timestamp: time.Now().UTC(),
-			RunID:     "test-run-1",
+			ControlID:  "BCD-11.4",
+			EvidenceID: "EVID-BCM-16",
+			SourceID:   "src-1",
+			Provider:   "gcp_cai",
+			RawData:    rawFindingData,
+			Timestamp:  time.Now().UTC(),
+			RunID:      "test-run-1",
 		},
 		PayloadHash: rawHash,
 	}
@@ -123,7 +123,7 @@ func TestServeMux_Run_Success(t *testing.T) {
 
 	// 4. Create signed provenance sidecar.
 	prov := &pkgCrypto.Provenance{
-		EvidenceID:       "EVID-BCM-16",
+		EvidenceID:  "EVID-BCM-16",
 		Provider:    "gcp_cai",
 		SourceID:    "src-1",
 		PayloadHash: rawHash,

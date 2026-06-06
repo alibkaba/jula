@@ -95,9 +95,9 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 
 	evidenceList := []types.Evidence{
 		{
-			EvidenceID:    "EVID-BCM-16",
-			ControlID: "BCD-11.4",
-			SourceID: "src-1",
+			EvidenceID: "EVID-BCM-16",
+			ControlID:  "BCD-11.4",
+			SourceID:   "src-1",
 			Finding: types.Finding{
 				Provider:  "gcp_cai",
 				Timestamp: time.Now(),
@@ -219,4 +219,3 @@ func TestOPAEvaluator_GetRegisteredControlIDs(t *testing.T) {
 		t.Errorf("expected BCD-11.4, got %s", ids[0])
 	}
 }
-
