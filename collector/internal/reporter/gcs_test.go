@@ -113,7 +113,7 @@ func TestGCSReporter_Validate_Forbidden(t *testing.T) {
 func TestGCSReporter_Validate_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"name": "test-bucket"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"name": "test-bucket"})
 	}))
 	defer server.Close()
 
@@ -139,7 +139,7 @@ func TestGCSReporter_Deliver(t *testing.T) {
 			uploadedPaths = append(uploadedPaths, r.URL.Query().Get("name"))
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -218,7 +218,7 @@ func TestGCSReporter_Deliver_UploadFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("internal error"))
+			_, _ = w.Write([]byte("internal error"))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -246,7 +246,7 @@ func TestGCSReporter_Deliver_AuthorizationHeader(t *testing.T) {
 			t.Errorf("expected Bearer my-secret-token, got %s", r.Header.Get("Authorization"))
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 

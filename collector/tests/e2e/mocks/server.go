@@ -38,7 +38,7 @@ func main() {
 		}
 	}
 }`
-		w.Write([]byte(payload))
+		_, _ = w.Write([]byte(payload))
 	})
 
 	fmt.Printf("Mock SaaS Server listening on :%s...\n", port)

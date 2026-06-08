@@ -7,7 +7,7 @@ resource "google_cloud_run_v2_service" "jula_collector" {
     service_account = google_service_account.jula_runner.email
 
     containers {
-      # Use the image that was deployed by GitHub Actions
+      # Use the image that was deployed by CI/CD
       image = "us-central1-docker.pkg.dev/${var.project_id}/${var.repository_name}/jula:${var.collector_image_tag}"
 
       env {
@@ -30,43 +30,33 @@ resource "google_cloud_run_v2_service" "jula_collector" {
       }
       
       env {
-        name = "GITHUB_TOKEN"
+        name = var.source_token_env_name
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.github_token.secret_id
-            version = "latest"
-          }
-        }
-      }
-      
-      env {
-        name = "AIK_CLIENT_ID"
-        value_source {
-          secret_key_ref {
-            secret  = data.google_secret_manager_secret.aikido_client_id.secret_id
+            secret  = data.google_secret_manager_secret.source_token.secret_id
             version = "latest"
           }
         }
       }
 
       env {
-        name = "AIK_SECRET_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = data.google_secret_manager_secret.aikido_secret_key.secret_id
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name  = "GITHUB_ORG"
-        value = "alibkaba"
+        name  = "JULA_SOURCE_ORG"
+        value = var.git_org
       }
 
       env {
         name  = "JULA_INTEGRATION_URL"
-        value = "https://api.github.com/repos/alibkaba/jula/tarball/main"
+        value = var.integration_url
+      }
+
+      env {
+        name  = "JULA_SOURCE_TOKEN_ENV"
+        value = var.source_token_env_name
+      }
+
+      env {
+        name  = "JULA_ALLOWED_HOSTS"
+        value = var.allowed_hosts
       }
       
       env {
@@ -95,14 +85,18 @@ resource "google_cloud_run_v2_service" "jula_evaluator" {
 
       env {
         name  = "JULA_POLICY_URL"
-        value = "https://api.github.com/repos/alibkaba/jula/tarball/main"
+        value = var.policy_url
       }
 
       env {
         name  = "JULA_GOVERNOR_REPO"
-        value = "alibkaba/jula"
+        value = var.governor_repo
       }
 
+      env {
+        name  = "JULA_SOURCE_TOKEN_ENV"
+        value = var.source_token_env_name
+      }
 
       env {
         name = "JULA_PUBLIC_KEY"
@@ -115,10 +109,10 @@ resource "google_cloud_run_v2_service" "jula_evaluator" {
       }
 
       env {
-        name = "GITHUB_TOKEN"
+        name = var.source_token_env_name
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.github_token.secret_id
+            secret  = data.google_secret_manager_secret.source_token.secret_id
             version = "latest"
           }
         }

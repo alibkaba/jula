@@ -295,9 +295,27 @@ func main() {
 
 	maxRetries := getEnvInt("JULA_MAX_RETRIES_PER_TIER", 2)
 
-	if len(os.Args) > 1 && os.Args[1] == "--reset" {
+	// Parse CLI arguments
+	defaultProvider := ""
+	resetMode := false
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if arg == "--reset" {
+			resetMode = true
+		} else if arg == "--provider" && i+1 < len(os.Args) {
+			i++
+			defaultProvider = strings.ToLower(strings.TrimSpace(os.Args[i]))
+		} else if strings.HasPrefix(arg, "--provider=") {
+			defaultProvider = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(arg, "--provider=")))
+		}
+	}
+
+	if resetMode {
 		fmt.Printf("[INIT] --reset flag detected. Wiping existing %s...\n", requirementsFile)
 		os.Remove(requirementsFile)
+	}
+	if defaultProvider != "" {
+		fmt.Printf("[INIT] Default provider set to: %s\n", defaultProvider)
 	}
 
 	if primaryConfig.Endpoint == "" && fallbackConfig.Endpoint == "" {
@@ -367,7 +385,7 @@ func main() {
 		log.Fatalf("[FATAL] Failed to read catalog header: %v", err)
 	}
 
-	idIdx, proseIdx := -1, -1
+	idIdx, proseIdx, providerIdx := -1, -1, -1
 	for i, col := range header {
 		colTrimmed := strings.ToLower(strings.TrimSpace(col))
 		if strings.Contains(colTrimmed, "control_id") {
@@ -376,10 +394,16 @@ func main() {
 		if strings.Contains(colTrimmed, "description") || strings.Contains(colTrimmed, "prose") || strings.Contains(colTrimmed, "statement") {
 			proseIdx = i
 		}
+		if colTrimmed == "provider" || colTrimmed == "target_provider" {
+			providerIdx = i
+		}
 	}
 
 	if idIdx == -1 || proseIdx == -1 {
 		log.Fatal("[FATAL] catalog.csv is missing required columns (Control_ID and a description column).")
+	}
+	if providerIdx != -1 {
+		fmt.Printf("[INIT] Detected provider column at index %d (%s).\n", providerIdx, header[providerIdx])
 	}
 
 	for {
@@ -403,21 +427,53 @@ func main() {
 			continue
 		}
 
-		// Parse Provider Prefix
-		idParts := strings.Split(controlID, "-")
-		if len(idParts) < 2 {
-			fmt.Printf("[WARNING] Invalid Control_ID format %s. Cannot parse provider.\n", controlID)
+		// Cascading Provider Resolution:
+		// 1. Explicit "Provider" column in the CSV row
+		// 2. JULA hyphen-split pattern from Control_ID (e.g., CIS-GCP-EASY-1 -> gcp)
+		// 3. Default --provider CLI flag
+		resolvedProvider := ""
+		resolutionMethod := ""
+
+		// Strategy 1: CSV column
+		if providerIdx != -1 && len(row) > providerIdx {
+			cellVal := strings.ToLower(strings.TrimSpace(row[providerIdx]))
+			if cellVal != "" {
+				resolvedProvider = cellVal
+				resolutionMethod = "csv_column"
+			}
+		}
+
+		// Strategy 2: JULA hyphen-split from Control_ID
+		if resolvedProvider == "" {
+			idParts := strings.Split(controlID, "-")
+			if len(idParts) >= 3 {
+				candidate := strings.ToLower(strings.TrimSpace(idParts[1]))
+				if _, knownProvider := workspace.ActiveProviders[candidate]; knownProvider {
+					resolvedProvider = candidate
+					resolutionMethod = "control_id_parse"
+				}
+			}
+		}
+
+		// Strategy 3: CLI default
+		if resolvedProvider == "" && defaultProvider != "" {
+			resolvedProvider = defaultProvider
+			resolutionMethod = "cli_default"
+		}
+
+		// No provider resolved: skip with warning
+		if resolvedProvider == "" {
+			fmt.Printf("[WARNING] Cannot resolve provider for %s. Use a 'Provider' CSV column or --provider flag. Skipping.\n", controlID)
 			continue
 		}
-		providerPrefix := strings.ToLower(strings.TrimSpace(idParts[1]))
 
-		providerConf, exists := workspace.ActiveProviders[providerPrefix]
+		providerConf, exists := workspace.ActiveProviders[resolvedProvider]
 		if !exists {
-			fmt.Printf("[IGNORE] Provider %s is not enabled in workspace.yaml. Skipping row %s.\n", providerPrefix, controlID)
+			fmt.Printf("[IGNORE] Provider '%s' (resolved via %s) is not enabled in workspace.yaml. Skipping row %s.\n", resolvedProvider, resolutionMethod, controlID)
 			continue
 		}
 
-		fmt.Printf("[INGEST] Triaging Control %s... \n", controlID)
+		fmt.Printf("[INGEST] Triaging Control %s (provider: %s, via: %s)...\n", controlID, resolvedProvider, resolutionMethod)
 
 		hydratedPrompt := strings.ReplaceAll(promptTemplate, "{{CATALOG_PROSE_LINE}}", prose)
 		hydratedPrompt = strings.ReplaceAll(hydratedPrompt, "{{DOC_ROOT}}", providerConf.DocRoot)
@@ -431,7 +487,7 @@ func main() {
 		// Override Gate
 		if extraction.Status != "MANUAL_AUDIT" && extraction.ParameterField != "N/A" {
 			// Force the provider to match workspace mapping to prevent LLM hallucination
-			extraction.TargetProvider = providerPrefix
+			extraction.TargetProvider = resolvedProvider
 		}
 
 		status := "PENDING"

@@ -275,8 +275,7 @@ func TestEngine_Execute_JSONPathPagination(t *testing.T) {
 	defer os.Unsetenv("TEST_TOKEN")
 
 	var requestsReceived int
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestsReceived++
 		w.Header().Set("Content-Type", "application/json")
 

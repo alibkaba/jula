@@ -64,6 +64,10 @@ func getAWSSourceID() string {
 }
 
 func getSaaSSourceID(provider string) string {
+	// Universal source org override: works for any Git provider.
+	if org := os.Getenv("JULA_SOURCE_ORG"); org != "" {
+		return org
+	}
 	if provider == "github" {
 		if org := os.Getenv("GITHUB_ORGANIZATION"); org != "" {
 			return org

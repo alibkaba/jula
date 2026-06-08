@@ -183,9 +183,10 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		if u.Scheme != "https" {
 			return nil, fmt.Errorf("integrations URL must use HTTPS scheme")
 		}
+		allowedHosts := getAllowedHosts()
 		host := strings.ToLower(u.Hostname())
-		if host != "api.github.com" && host != "github.com" {
-			return nil, fmt.Errorf("integrations URL host must be api.github.com or github.com")
+		if !isAllowedHost(host, allowedHosts) {
+			return nil, fmt.Errorf("integrations URL host %q is not in the allowed hosts list: %v", host, allowedHosts)
 		}
 	}
 
@@ -194,7 +195,11 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+	tokenEnvName := os.Getenv("JULA_SOURCE_TOKEN_ENV")
+	if tokenEnvName == "" {
+		tokenEnvName = "GITHUB_TOKEN"
+	}
+	if token := os.Getenv(tokenEnvName); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
@@ -252,4 +257,33 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 	}
 
 	return result, nil
+}
+
+// getAllowedHosts returns the list of allowed HTTPS hosts for fetching
+// integrations. It reads from the JULA_ALLOWED_HOSTS environment variable
+// (comma-separated). Falls back to GitHub defaults if unset.
+func getAllowedHosts() []string {
+	if hosts := os.Getenv("JULA_ALLOWED_HOSTS"); hosts != "" {
+		var result []string
+		for _, h := range strings.Split(hosts, ",") {
+			h = strings.TrimSpace(h)
+			if h != "" {
+				result = append(result, strings.ToLower(h))
+			}
+		}
+		if len(result) > 0 {
+			return result
+		}
+	}
+	return []string{"api.github.com", "github.com"}
+}
+
+// isAllowedHost checks whether a hostname is in the allowed hosts list.
+func isAllowedHost(host string, allowed []string) bool {
+	for _, h := range allowed {
+		if host == h {
+			return true
+		}
+	}
+	return false
 }

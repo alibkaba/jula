@@ -31,7 +31,9 @@ func TestSignGCPADC(t *testing.T) {
 }`
 	tmpDir := t.TempDir()
 	credPath := filepath.Join(tmpDir, "dummy.json")
-	os.WriteFile(credPath, []byte(dummyCreds), 0644)
+	if err := os.WriteFile(credPath, []byte(dummyCreds), 0644); err != nil {
+		t.Fatalf("failed to write dummy credentials: %v", err)
+	}
 	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credPath)
 
 	// Will fail exchanging credentials for token because the dummy key is invalid

@@ -322,3 +322,194 @@ func TestFetchIntegrationsMap(t *testing.T) {
 		t.Errorf("expected other-folder files to be ignored, but found in map")
 	}
 }
+
+// TestGetAllowedHosts verifies the allowed-hosts parsing logic,
+// including defaults, custom overrides, and edge cases.
+func TestGetAllowedHosts(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		expected []string
+	}{
+		{
+			name:     "default when unset",
+			envValue: "",
+			expected: []string{"api.github.com", "github.com"},
+		},
+		{
+			name:     "single custom host",
+			envValue: "gitlab.com",
+			expected: []string{"gitlab.com"},
+		},
+		{
+			name:     "multiple custom hosts",
+			envValue: "gitlab.com,api.gitlab.com,dev.azure.com",
+			expected: []string{"gitlab.com", "api.gitlab.com", "dev.azure.com"},
+		},
+		{
+			name:     "trims whitespace around entries",
+			envValue: "  gitlab.com , api.gitlab.com  ",
+			expected: []string{"gitlab.com", "api.gitlab.com"},
+		},
+		{
+			name:     "lowercases entries",
+			envValue: "API.GitHub.Com,GITHUB.COM",
+			expected: []string{"api.github.com", "github.com"},
+		},
+		{
+			name:     "ignores empty entries from trailing comma",
+			envValue: "gitlab.com,",
+			expected: []string{"gitlab.com"},
+		},
+		{
+			name:     "falls back to default for commas-only input",
+			envValue: ",,,",
+			expected: []string{"api.github.com", "github.com"},
+		},
+		{
+			name:     "falls back to default for whitespace-only input",
+			envValue: "   ",
+			expected: []string{"api.github.com", "github.com"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envValue != "" {
+				t.Setenv("JULA_ALLOWED_HOSTS", tc.envValue)
+			} else {
+				t.Setenv("JULA_ALLOWED_HOSTS", "")
+			}
+
+			result := getAllowedHosts()
+			if len(result) != len(tc.expected) {
+				t.Fatalf("expected %d hosts, got %d: %v", len(tc.expected), len(result), result)
+			}
+			for i, want := range tc.expected {
+				if result[i] != want {
+					t.Errorf("host[%d]: expected %q, got %q", i, want, result[i])
+				}
+			}
+		})
+	}
+}
+
+// TestIsAllowedHost verifies the hostname matching logic.
+func TestIsAllowedHost(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		allowed []string
+		want    bool
+	}{
+		{
+			name:    "exact match",
+			host:    "api.github.com",
+			allowed: []string{"api.github.com", "github.com"},
+			want:    true,
+		},
+		{
+			name:    "no match",
+			host:    "evil.com",
+			allowed: []string{"api.github.com", "github.com"},
+			want:    false,
+		},
+		{
+			name:    "partial hostname does not match",
+			host:    "github.com.evil.com",
+			allowed: []string{"github.com"},
+			want:    false,
+		},
+		{
+			name:    "subdomain does not match parent",
+			host:    "sub.github.com",
+			allowed: []string{"github.com"},
+			want:    false,
+		},
+		{
+			name:    "empty allowed list rejects all",
+			host:    "api.github.com",
+			allowed: []string{},
+			want:    false,
+		},
+		{
+			name:    "empty host is rejected",
+			host:    "",
+			allowed: []string{"api.github.com"},
+			want:    false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isAllowedHost(tc.host, tc.allowed)
+			if got != tc.want {
+				t.Errorf("isAllowedHost(%q, %v) = %v, want %v", tc.host, tc.allowed, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFetchIntegrationsMap_CustomTokenEnv verifies that the dynamic token
+// environment variable lookup (JULA_SOURCE_TOKEN_ENV) correctly resolves
+// to a custom env var name instead of the default GITHUB_TOKEN.
+func TestFetchIntegrationsMap_CustomTokenEnv(t *testing.T) {
+	// 1. Create a dummy tar.gz archive
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	content := "custom token test"
+	hdr := &tar.Header{
+		Name: "repo-123/governor/engine/integrations/custom.yaml",
+		Mode: 0600,
+		Size: int64(len(content)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatalf("failed to write header: %v", err)
+	}
+	if _, err := tw.Write([]byte(content)); err != nil {
+		t.Fatalf("failed to write body: %v", err)
+	}
+	tw.Close()
+	gzw.Close()
+	tarGzBytes := buf.Bytes()
+
+	// 2. Setup mock server that validates the custom token
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer my-gitlab-token-value" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/gzip")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(tarGzBytes)
+	}))
+	defer ts.Close()
+
+	// 3. Swap newSafeClient for test
+	oldNewSafeClient := newSafeClient
+	defer func() { newSafeClient = oldNewSafeClient }()
+	newSafeClient = func(timeout time.Duration) *http.Client {
+		return ts.Client()
+	}
+
+	// 4. Set the custom token env: JULA_SOURCE_TOKEN_ENV points to GITLAB_TOKEN
+	t.Setenv("JULA_SOURCE_TOKEN_ENV", "GITLAB_TOKEN")
+	t.Setenv("GITLAB_TOKEN", "my-gitlab-token-value")
+	t.Setenv("JULA_TEST_ENV", "true")
+
+	// 5. Call fetchIntegrationsMap
+	res, err := fetchIntegrationsMap(ts.URL)
+	if err != nil {
+		t.Fatalf("fetchIntegrationsMap failed: %v", err)
+	}
+
+	// 6. Verify
+	if len(res) != 1 {
+		t.Errorf("expected 1 file in map, got %d", len(res))
+	}
+	if string(res["custom.yaml"]) != content {
+		t.Errorf("expected %q, got %q", content, string(res["custom.yaml"]))
+	}
+}

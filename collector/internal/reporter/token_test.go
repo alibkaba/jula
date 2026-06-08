@@ -103,7 +103,7 @@ func TestMetadataTokenProvider_Negative(t *testing.T) {
 			name: "HTTP 500 Internal Server Error",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("server error"))
+				_, _ = w.Write([]byte("server error"))
 			},
 			expectedErrStr: "metadata server returned HTTP 500",
 		},

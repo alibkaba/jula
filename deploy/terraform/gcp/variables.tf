@@ -29,3 +29,43 @@ variable "evaluator_image_tag" {
   description = "The container image tag for the evaluator"
   type        = string
 }
+
+# Repository configuration
+variable "git_org" {
+  description = "The Git organization or group that owns the Jula repository (e.g. my-org)"
+  type        = string
+}
+
+variable "integration_url" {
+  description = "URL to fetch the integrations tarball (e.g. https://api.github.com/repos/my-org/jula/tarball/main)"
+  type        = string
+}
+
+variable "policy_url" {
+  description = "URL to fetch the policies tarball (e.g. https://api.github.com/repos/my-org/jula/tarball/main)"
+  type        = string
+}
+
+variable "governor_repo" {
+  description = "The Git repository path for the governor (e.g. my-org/jula)"
+  type        = string
+}
+
+# Secrets configuration
+variable "source_token_env_name" {
+  description = "The environment variable name containers use to read the source token (e.g. GITHUB_TOKEN, GITLAB_TOKEN)"
+  type        = string
+  default     = "GITHUB_TOKEN"
+}
+
+variable "source_token_secret_id" {
+  description = "The GCP Secret Manager secret ID that holds the source token"
+  type        = string
+  default     = "jula-source-token"
+}
+
+variable "allowed_hosts" {
+  description = "Comma-separated list of allowed HTTPS hosts for fetching integrations and policies"
+  type        = string
+  default     = "api.github.com,github.com"
+}

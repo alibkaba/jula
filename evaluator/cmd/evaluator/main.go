@@ -328,9 +328,7 @@ func handleRun(args []string) error {
 		runtime.GC()
 	}
 
-	// Free global payloads
-	payloads = nil
-	allEvidences = nil
+	// Free local evaluation data and hint GC.
 	runtime.GC()
 
 	// --- Output Results ---
@@ -429,7 +427,11 @@ func downloadPolicies(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("creating request: %w", err)
 	}
 
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+	tokenEnvName := os.Getenv("JULA_SOURCE_TOKEN_ENV")
+	if tokenEnvName == "" {
+		tokenEnvName = "GITHUB_TOKEN"
+	}
+	if token := os.Getenv(tokenEnvName); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
