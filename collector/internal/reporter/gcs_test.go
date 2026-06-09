@@ -23,18 +23,18 @@ func (s *staticToken) Token() (string, error) { return s.token, nil }
 func gcsTestEvidence() []types.Evidence {
 	return []types.Evidence{
 		{
-			EvidenceID:       "EVID-TEST-01",
+			EvidenceID:  "EVID-TEST-01",
 			ControlID:   "CTRL-1",
 			SourceID:    "src-1",
 			PayloadHash: "abc123hash",
 			Finding: types.Finding{
-				EvidenceID:     "EVID-TEST-01",
-				ControlID: "CTRL-1",
-				SourceID:  "src-1",
-				Provider:  "gcp",
-				RawData:   []byte(`{"status":"ok"}`),
-				Timestamp: time.Now().UTC(),
-				RunID:     "test-run",
+				EvidenceID: "EVID-TEST-01",
+				ControlID:  "CTRL-1",
+				SourceID:   "src-1",
+				Provider:   "gcp",
+				RawData:    []byte(`{"status":"ok"}`),
+				Timestamp:  time.Now().UTC(),
+				RunID:      "test-run",
 			},
 		},
 	}

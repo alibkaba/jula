@@ -16,15 +16,15 @@ import (
 // makeSuccessJob creates an extractionJob that returns a valid Finding.
 func makeSuccessJob(evidenceID string) extractionJob {
 	return extractionJob{
-		evidenceID:       evidenceID,
+		evidenceID:  evidenceID,
 		description: "test-" + evidenceID,
 		execute: func(ctx context.Context) ([]types.Finding, error) {
 			return []types.Finding{{
-				EvidenceID:     evidenceID,
-				Provider:  "test",
-				RawData:   []byte(`{"status":"ok"}`),
-				Timestamp: time.Now().UTC(),
-				RunID:     "test-run",
+				EvidenceID: evidenceID,
+				Provider:   "test",
+				RawData:    []byte(`{"status":"ok"}`),
+				Timestamp:  time.Now().UTC(),
+				RunID:      "test-run",
 			}}, nil
 		},
 	}
@@ -33,7 +33,7 @@ func makeSuccessJob(evidenceID string) extractionJob {
 // makeFailJob creates an extractionJob that returns an error.
 func makeFailJob(evidenceID string) extractionJob {
 	return extractionJob{
-		evidenceID:       evidenceID,
+		evidenceID:  evidenceID,
 		description: "test-" + evidenceID,
 		execute: func(ctx context.Context) ([]types.Finding, error) {
 			return nil, fmt.Errorf("simulated failure for %s", evidenceID)
@@ -142,7 +142,7 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		evidenceID := fmt.Sprintf("EVID-CONC-%02d", i+1)
 		jobs = append(jobs, extractionJob{
-			evidenceID:       evidenceID,
+			evidenceID:  evidenceID,
 			description: "concurrency-test",
 			execute: func(ctx context.Context) ([]types.Finding, error) {
 				running := currentRunning.Add(1)
@@ -162,10 +162,10 @@ func TestExecuteJobs_ConcurrencyBound(t *testing.T) {
 				currentRunning.Add(-1)
 
 				return []types.Finding{{
-					EvidenceID:    evidenceID,
-					Provider: "test",
-					RawData:  []byte(`{}`),
-					RunID:    "test-run",
+					EvidenceID: evidenceID,
+					Provider:   "test",
+					RawData:    []byte(`{}`),
+					RunID:      "test-run",
 				}}, nil
 			},
 		})
@@ -293,19 +293,82 @@ func TestSourceIDResolvers(t *testing.T) {
 		t.Errorf("expected default, got %s", got)
 	}
 
-	// Test getSaaSSourceID
-	t.Setenv("GITHUB_ORGANIZATION", "env-gh")
-	if got := getSaaSSourceID("github"); got != "env-gh" {
-		t.Errorf("expected env-gh, got %s", got)
+	// Test getSaaSSourceID using table-driven tests
+	saasTests := []struct {
+		name     string
+		provider string
+		envVars  map[string]string
+		want     string
+	}{
+		{
+			name:     "JULA_SOURCE_ORG overrides everything",
+			provider: "github",
+			envVars: map[string]string{
+				"JULA_SOURCE_ORG":     "override-org",
+				"GITHUB_ORGANIZATION": "other-org",
+			},
+			want: "override-org",
+		},
+		{
+			name:     "github with GITHUB_ORGANIZATION",
+			provider: "github",
+			envVars: map[string]string{
+				"GITHUB_ORGANIZATION": "env-gh",
+			},
+			want: "env-gh",
+		},
+		{
+			name:     "github with GITHUB_ORG fallback",
+			provider: "github",
+			envVars: map[string]string{
+				"GITHUB_ORG": "env-gh-org",
+			},
+			want: "env-gh-org",
+		},
+		{
+			name:     "aikido with short AIK_CLIENT_ID",
+			provider: "aikido",
+			envVars: map[string]string{
+				"AIK_CLIENT_ID": "short-id",
+			},
+			want: "short-id",
+		},
+		{
+			name:     "aikido with long AIK_CLIENT_ID",
+			provider: "aikido",
+			envVars: map[string]string{
+				"AIK_CLIENT_ID": "verylongclientidstring12345678",
+			},
+			want: "client-12345678", // last 8 chars of 'verylongclientidstring12345678'
+		},
+		{
+			name:     "default fallback",
+			provider: "github",
+			envVars:  map[string]string{},
+			want:     "default",
+		},
+		{
+			name:     "unknown provider default fallback",
+			provider: "unknown",
+			envVars:  map[string]string{},
+			want:     "default",
+		},
 	}
-	t.Setenv("GITHUB_ORGANIZATION", "")
-	t.Setenv("AIK_CLIENT_ID", "env-aik")
-	if got := getSaaSSourceID("aikido"); got != "env-aik" {
-		t.Errorf("expected env-aik, got %s", got)
-	}
-	t.Setenv("AIK_CLIENT_ID", "")
-	if got := getSaaSSourceID("github"); got != "default" {
-		t.Errorf("expected default, got %s", got)
+
+	for _, tt := range saasTests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear all potential env vars first
+			for _, key := range []string{"JULA_SOURCE_ORG", "GITHUB_ORGANIZATION", "GITHUB_ORG", "AIK_CLIENT_ID"} {
+				t.Setenv(key, "")
+			}
+			// Set the ones needed for this test
+			for k, v := range tt.envVars {
+				t.Setenv(k, v)
+			}
+			if got := getSaaSSourceID(tt.provider); got != tt.want {
+				t.Errorf("getSaaSSourceID(%q) = %q, want %q", tt.provider, got, tt.want)
+			}
+		})
 	}
 }
 

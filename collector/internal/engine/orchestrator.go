@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alibkaba/jula-core/pkg/types"
 	"github.com/alibkaba/jula-collector/internal/platform"
 	universalrest "github.com/alibkaba/jula-collector/internal/providers/universal_rest"
+	"github.com/alibkaba/jula-core/pkg/types"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -37,7 +37,7 @@ type RunConfig struct {
 // dispatch GCP, AWS, and SaaS extractions through a single concurrent loop.
 type extractionJob struct {
 	controlID   string
-	evidenceID       string
+	evidenceID  string
 	description string
 	execute     func(ctx context.Context) ([]types.Finding, error)
 }

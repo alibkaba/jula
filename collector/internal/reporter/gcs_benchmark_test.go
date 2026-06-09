@@ -38,8 +38,8 @@ func BenchmarkGCSReporterDeliver(b *testing.B) {
 		evidence = append(evidence, types.Evidence{
 			PayloadHash: fmt.Sprintf("hash-%d", i),
 			Finding: types.Finding{
-				EvidenceID:    fmt.Sprintf("EVID-TEST-%d", i),
-				Provider: "test",
+				EvidenceID: fmt.Sprintf("EVID-TEST-%d", i),
+				Provider:   "test",
 			},
 		})
 	}

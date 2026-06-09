@@ -14,9 +14,9 @@ import (
 	strings "strings"
 	time "time"
 
+	"github.com/alibkaba/jula-collector/pkg/logging"
 	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/types"
-	"github.com/alibkaba/jula-collector/pkg/logging"
 )
 
 // TokenProvider abstracts how the GCS reporter obtains an OAuth2 access token.
@@ -128,7 +128,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 		// Generate, sign, and upload provenance sidecar
 		prov := &crypto.Provenance{
-			EvidenceID:       ev.EvidenceID,
+			EvidenceID:  ev.EvidenceID,
 			Provider:    ev.Finding.Provider,
 			SourceID:    ev.SourceID,
 			PayloadHash: ev.PayloadHash,

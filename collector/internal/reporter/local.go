@@ -10,9 +10,9 @@ import (
 	filepath "path/filepath"
 	time "time"
 
+	"github.com/alibkaba/jula-collector/pkg/logging"
 	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/types"
-	"github.com/alibkaba/jula-collector/pkg/logging"
 )
 
 // LocalReporter writes evidence artifacts to the local filesystem.
@@ -86,7 +86,7 @@ func (r *LocalReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		provFilePath := filepath.Join(dirPath, provFileName)
 
 		prov := &crypto.Provenance{
-			EvidenceID:       ev.EvidenceID,
+			EvidenceID:  ev.EvidenceID,
 			Provider:    ev.Finding.Provider,
 			SourceID:    ev.SourceID,
 			PayloadHash: ev.PayloadHash,
