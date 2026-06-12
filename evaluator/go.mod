@@ -4,7 +4,7 @@ go 1.25.10
 
 require (
 	github.com/alibkaba/jula-core v0.0.0-20260526055744-c5d5e01ca780
-	github.com/open-policy-agent/opa v1.17.0
+	github.com/open-policy-agent/opa v1.17.1
 )
 
 require (
