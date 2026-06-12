@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -141,5 +142,72 @@ func TestSanitizeFilename(t *testing.T) {
 				t.Errorf("sanitizeFilename() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseWorkspace(t *testing.T) {
+	validWorkspace := `
+organization: "Test Org"
+active_providers:
+  aws:
+    doc_root: "docs/aws"
+  gcp:
+    doc_root: "docs/gcp"
+`
+
+	emptyProviders := `
+organization: "Test Org"
+active_providers:
+`
+
+	noProvidersSection := `
+organization: "Test Org"
+`
+
+	tests := []struct {
+		name        string
+		content     string
+		wantOrg     string
+		wantProviders int
+		wantErr     bool
+	}{
+		{"valid workspace", validWorkspace, "Test Org", 2, false},
+		{"empty providers", emptyProviders, "Test Org", 0, false},
+		{"no providers section", noProvidersSection, "Test Org", 0, false},
+		{"empty file", "", "", 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a temp file for the workspace
+			tmpDir := t.TempDir()
+			wsPath := filepath.Join(tmpDir, "workspace.yaml")
+
+			if err := os.WriteFile(wsPath, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("Failed to write temp workspace file: %v", err)
+			}
+
+			got, err := parseWorkspace(wsPath)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseWorkspace() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if got.Organization != tt.wantOrg {
+				t.Errorf("parseWorkspace() Organization = %v, want %v", got.Organization, tt.wantOrg)
+			}
+
+			if len(got.ActiveProviders) != tt.wantProviders {
+				t.Errorf("parseWorkspace() ActiveProviders count = %v, want %v", len(got.ActiveProviders), tt.wantProviders)
+			}
+		})
+	}
+}
+
+func TestParseWorkspace_MissingFile(t *testing.T) {
+	_, err := parseWorkspace("non_existent_file.yaml")
+	if err == nil {
+		t.Error("parseWorkspace() expected error for missing file, got nil")
 	}
 }
