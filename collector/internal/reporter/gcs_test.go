@@ -130,7 +130,35 @@ func TestGCSReporter_Validate_Success(t *testing.T) {
 	}
 }
 
+func TestGCSReporter_Deliver_MissingDeploymentID(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "")
+
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	r := &GCSReporter{
+		BucketName:    "test-bucket",
+		SigningKey:    privKey,
+		TokenProvider: &staticToken{"tok"},
+		HTTPClient:    server.Client(),
+		baseURL:       server.URL,
+	}
+
+	_, err := r.Deliver(context.Background(), gcsTestEvidence(), "test-run")
+	if err == nil {
+		t.Fatal("expected error for missing JULA_DEPLOYMENT_ID")
+	}
+	if !strings.Contains(err.Error(), "JULA_DEPLOYMENT_ID") {
+		t.Errorf("error should mention JULA_DEPLOYMENT_ID, got: %v", err)
+	}
+}
+
 func TestGCSReporter_Deliver(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test123")
+
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	var uploadedPaths []string
@@ -159,6 +187,13 @@ func TestGCSReporter_Deliver(t *testing.T) {
 	// 1 evidence file + 1 provenance file + 1 manifest file = 3 uploads total
 	if len(uploadedPaths) != 3 {
 		t.Errorf("expected 3 uploads, got %d: %v", len(uploadedPaths), uploadedPaths)
+	}
+
+	// Verify deployment isolation prefix is present in all paths.
+	for _, p := range uploadedPaths {
+		if !strings.HasPrefix(p, "deploy-test123/") {
+			t.Errorf("expected path to start with deploy-test123/, got: %s", p)
+		}
 	}
 
 	foundEvidence := false
@@ -191,6 +226,8 @@ func TestGCSReporter_Deliver(t *testing.T) {
 }
 
 func TestGCSReporter_Deliver_ContextCancellation(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test123")
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -215,6 +252,8 @@ func TestGCSReporter_Deliver_ContextCancellation(t *testing.T) {
 }
 
 func TestGCSReporter_Deliver_UploadFailure(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test123")
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -241,6 +280,8 @@ func TestGCSReporter_Deliver_UploadFailure(t *testing.T) {
 }
 
 func TestGCSReporter_Deliver_AuthorizationHeader(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test123")
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer my-secret-token" {
 			t.Errorf("expected Bearer my-secret-token, got %s", r.Header.Get("Authorization"))
