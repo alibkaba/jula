@@ -76,6 +76,10 @@ resource "aws_ecs_task_definition" "collector" {
         {
           name  = "AWS_DEFAULT_REGION"
           value = var.aws_region
+        },
+        {
+          name  = "JULA_DEPLOYMENT_ID"
+          value = random_string.deployment_id.result
         }
       ]
 
@@ -135,6 +139,10 @@ resource "aws_ecs_task_definition" "evaluator" {
         {
           name  = "JULA_SOURCE_TOKEN_ENV"
           value = var.source_token_env_name
+        },
+        {
+          name  = "JULA_DEPLOYMENT_ID"
+          value = random_string.deployment_id.result
         }
       ]
 

@@ -1,6 +1,6 @@
 resource "aws_s3_bucket" "evidence" {
   bucket        = var.evidence_bucket_name
-  force_destroy = true
+  force_destroy = false
 }
 
 resource "aws_s3_bucket_versioning" "evidence" {

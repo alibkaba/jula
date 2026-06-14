@@ -69,3 +69,18 @@ variable "allowed_hosts" {
   type        = string
   default     = "api.github.com,github.com"
 }
+
+variable "source_token" {
+  description = "API token for the Git provider (e.g. GitHub PAT, GitLab token, Bitbucket app password)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "dispatch_token" {
+  description = "Jula dispatch token for triggering downstream workflows"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+

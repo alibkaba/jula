@@ -23,7 +23,7 @@ resource "google_cloud_run_v2_service" "jula_collector" {
         name = "JULA_SIGNING_KEY"
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.signing_key.secret_id
+            secret  = google_secret_manager_secret.signing_key.secret_id
             version = "latest"
           }
         }
@@ -33,7 +33,7 @@ resource "google_cloud_run_v2_service" "jula_collector" {
         name = var.source_token_env_name
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.source_token.secret_id
+            secret  = google_secret_manager_secret.source_token.secret_id
             version = "latest"
           }
         }
@@ -62,6 +62,11 @@ resource "google_cloud_run_v2_service" "jula_collector" {
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
+      }
+
+      env {
+        name  = "JULA_DEPLOYMENT_ID"
+        value = random_string.deployment_id.result
       }
     }
   }
@@ -102,7 +107,7 @@ resource "google_cloud_run_v2_service" "jula_evaluator" {
         name = "JULA_PUBLIC_KEY"
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.public_key.secret_id
+            secret  = google_secret_manager_secret.public_key.secret_id
             version = "latest"
           }
         }
@@ -112,7 +117,7 @@ resource "google_cloud_run_v2_service" "jula_evaluator" {
         name = var.source_token_env_name
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.source_token.secret_id
+            secret  = google_secret_manager_secret.source_token.secret_id
             version = "latest"
           }
         }
@@ -122,10 +127,15 @@ resource "google_cloud_run_v2_service" "jula_evaluator" {
         name = "JULA_DISPATCH_TOKEN"
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.dispatch_token.secret_id
+            secret  = google_secret_manager_secret.dispatch_token.secret_id
             version = "latest"
           }
         }
+      }
+
+      env {
+        name  = "JULA_DEPLOYMENT_ID"
+        value = random_string.deployment_id.result
       }
     }
   }

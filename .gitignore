@@ -48,7 +48,7 @@ vendor/
 .terraform/
 .terraform.lock.hcl
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
 *.tfplan
 terraform.tfvars
 !terraform.tfvars.example

@@ -91,11 +91,20 @@ func (r *GCSReporter) Validate(ctx context.Context) error {
 }
 
 // Deliver formats, signs, and uploads evidence to the GCS bucket.
-// Object path structure: {runDate}/evidence/{evidence_id}/{hash}.json
+// Object path structure: {deploymentID}/{runDate}/evidence/{evidence_id}/{hash}.json
 //
 // This routing is purely Evidence-based. There are no framework or criteria paths.
 func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, runID string) (*types.Manifest, error) {
 	runDate := time.Now().UTC().Format("2006-01-02")
+
+	// Deployment isolation: prefix all paths with the deployment ID.
+	deployID := os.Getenv("JULA_DEPLOYMENT_ID")
+	if deployID == "" {
+		return nil, fmt.Errorf("JULA_DEPLOYMENT_ID environment variable is required")
+	}
+	pathPrefix := fmt.Sprintf("deploy-%s/%s", deployID, runDate)
+	slog.Info("gcs: deployment isolation active", "deployment_id", deployID, "path_prefix", pathPrefix)
+
 	manifest := &types.Manifest{
 		RunID:     runID,
 		Timestamp: time.Now().UTC(),
@@ -120,7 +129,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 
 		// Predictable namespace filename
 		fileName := fmt.Sprintf("%s_%s_%s.json", sanitizedEvidenceID, sanitizedProvider, sanitizedSourceID)
-		objectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedControlID, fileName)
+		objectName := fmt.Sprintf("%s/evidence/%s/%s", pathPrefix, sanitizedControlID, fileName)
 
 		if err := r.uploadObject(ctx, objectName, data, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading evidence %s: %w", objectName, err)
@@ -149,7 +158,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 
 		provFileName := fmt.Sprintf("%s_%s_%s.prov.json", sanitizedEvidenceID, sanitizedProvider, sanitizedSourceID)
-		provObjectName := fmt.Sprintf("%s/evidence/%s/%s", runDate, sanitizedControlID, provFileName)
+		provObjectName := fmt.Sprintf("%s/evidence/%s/%s", pathPrefix, sanitizedControlID, provFileName)
 
 		if err := r.uploadObject(ctx, provObjectName, provData, "application/json"); err != nil {
 			return nil, fmt.Errorf("uploading provenance %s: %w", provObjectName, err)
@@ -191,7 +200,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		}
 	}
 	if len(logData) > 0 {
-		logObject := fmt.Sprintf("%s/run.log.gz", runDate)
+		logObject := fmt.Sprintf("%s/run.log.gz", pathPrefix)
 		if err := r.uploadObject(ctx, logObject, logData, "application/gzip"); err != nil {
 			return nil, fmt.Errorf("uploading execution trace log %s: %w", logObject, err)
 		}
@@ -213,7 +222,7 @@ func (r *GCSReporter) Deliver(ctx context.Context, evidence []types.Evidence, ru
 		return nil, fmt.Errorf("marshalling manifest: %w", err)
 	}
 
-	manifestObject := fmt.Sprintf("%s/manifest.json", runDate)
+	manifestObject := fmt.Sprintf("%s/manifest.json", pathPrefix)
 	if err := r.uploadObject(ctx, manifestObject, manifestData, "application/json"); err != nil {
 		return nil, fmt.Errorf("uploading manifest: %w", err)
 	}

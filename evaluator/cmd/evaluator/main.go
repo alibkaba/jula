@@ -142,11 +142,16 @@ func handleRun(args []string) error {
 		return fmt.Errorf("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
-	// Append today's date if the bucketURL is just the root GCS bucket.
+	// Append deployment prefix and today's date if the bucketURL is just the root GCS bucket.
 	if strings.HasPrefix(bucketURL, "gs://") && !strings.Contains(bucketURL, "20") { // naive check for YYYY
 		if !strings.HasSuffix(bucketURL, "/") {
 			bucketURL += "/"
 		}
+		deployID := os.Getenv("JULA_DEPLOYMENT_ID")
+		if deployID == "" {
+			return fmt.Errorf("evaluator: JULA_DEPLOYMENT_ID environment variable is required")
+		}
+		bucketURL += fmt.Sprintf("deploy-%s/", deployID)
 		bucketURL += time.Now().UTC().Format("2006-01-02")
 	}
 
