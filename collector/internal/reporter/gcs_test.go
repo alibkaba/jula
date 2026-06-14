@@ -6,8 +6,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -67,6 +69,69 @@ func TestGCSReporter_Validate_MissingTokenProvider(t *testing.T) {
 	r := &GCSReporter{BucketName: "test-bucket", SigningKey: privKey}
 	if err := r.Validate(context.Background()); err == nil {
 		t.Error("expected error for missing token provider")
+	}
+}
+
+type errToken struct{}
+func (e *errToken) Token() (string, error) { return "", fmt.Errorf("token error") }
+
+func TestGCSReporter_Validate_Errors_TableDriven(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	tests := []struct {
+		name          string
+		bucketName    string
+		tokenProvider TokenProvider
+		httpClient    *http.Client
+		baseURL       string
+		wantErr       bool
+	}{
+		{
+			name:          "token error",
+			bucketName:    "test-bucket",
+			tokenProvider: &errToken{},
+			httpClient:    http.DefaultClient,
+			baseURL:       "http://localhost",
+			wantErr:       true,
+		},
+		{
+			name:          "request error",
+			bucketName:    "test-bucket",
+			tokenProvider: &staticToken{"tok"},
+			httpClient:    http.DefaultClient,
+			baseURL:       "http://\x7f\x7f",
+			wantErr:       true,
+		},
+		{
+			name:          "client error",
+			bucketName:    "test-bucket",
+			tokenProvider: &staticToken{"tok"},
+			httpClient: &http.Client{
+				Transport: &http.Transport{
+					Proxy: func(*http.Request) (*url.URL, error) {
+						return nil, fmt.Errorf("client error")
+					},
+				},
+			},
+			baseURL: "http://localhost",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &GCSReporter{
+				BucketName:    tt.bucketName,
+				SigningKey:    privKey,
+				TokenProvider: tt.tokenProvider,
+				HTTPClient:    tt.httpClient,
+				baseURL:       tt.baseURL,
+			}
+			err := r.Validate(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
@@ -131,6 +196,7 @@ func TestGCSReporter_Validate_Success(t *testing.T) {
 }
 
 func TestGCSReporter_Deliver(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test-deploy-id")
 	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	var uploadedPaths []string
@@ -191,6 +257,7 @@ func TestGCSReporter_Deliver(t *testing.T) {
 }
 
 func TestGCSReporter_Deliver_ContextCancellation(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test-deploy-id")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -215,6 +282,7 @@ func TestGCSReporter_Deliver_ContextCancellation(t *testing.T) {
 }
 
 func TestGCSReporter_Deliver_UploadFailure(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test-deploy-id")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -240,7 +308,89 @@ func TestGCSReporter_Deliver_UploadFailure(t *testing.T) {
 	}
 }
 
+func TestGCSReporter_uploadObject_Errors_TableDriven(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	tests := []struct {
+		name          string
+		bucketName    string
+		tokenProvider TokenProvider
+		httpClient    *http.Client
+		baseURL       string
+		wantErr       bool
+	}{
+		{
+			name:          "token error",
+			bucketName:    "test-bucket",
+			tokenProvider: &errToken{},
+			httpClient:    http.DefaultClient,
+			baseURL:       "http://localhost",
+			wantErr:       true,
+		},
+		{
+			name:          "request error",
+			bucketName:    "test-bucket",
+			tokenProvider: &staticToken{"tok"},
+			httpClient:    http.DefaultClient,
+			baseURL:       "http://\x7f\x7f",
+			wantErr:       true,
+		},
+		{
+			name:          "client error",
+			bucketName:    "test-bucket",
+			tokenProvider: &staticToken{"tok"},
+			httpClient: &http.Client{
+				Transport: &http.Transport{
+					Proxy: func(*http.Request) (*url.URL, error) {
+						return nil, fmt.Errorf("client error")
+					},
+				},
+			},
+			baseURL: "http://localhost",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &GCSReporter{
+				BucketName:    tt.bucketName,
+				SigningKey:    privKey,
+				TokenProvider: tt.tokenProvider,
+				HTTPClient:    tt.httpClient,
+				baseURL:       tt.baseURL,
+			}
+			err := r.uploadObject(context.Background(), "obj", []byte("data"), "application/json")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("uploadObject() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGCSReporter_Deliver_MissingDeploymentID(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "")
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	r := &GCSReporter{
+		BucketName:    "test-bucket",
+		SigningKey:    privKey,
+		TokenProvider: &staticToken{"tok"},
+	}
+
+	_, err := r.Deliver(context.Background(), gcsTestEvidence(), "test-run")
+	if err == nil {
+		t.Fatal("expected error for missing JULA_DEPLOYMENT_ID")
+	}
+
+	expectedErr := "JULA_DEPLOYMENT_ID environment variable is required"
+	if !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("expected error to contain %q, got %q", expectedErr, err.Error())
+	}
+}
+
 func TestGCSReporter_Deliver_AuthorizationHeader(t *testing.T) {
+	t.Setenv("JULA_DEPLOYMENT_ID", "test-deploy-id")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer my-secret-token" {
 			t.Errorf("expected Bearer my-secret-token, got %s", r.Header.Get("Authorization"))
