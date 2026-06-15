@@ -12,6 +12,26 @@ resource "aws_ecr_repository" "collector" {
   }
 }
 
+resource "aws_ecr_lifecycle_policy" "collector" {
+  repository = aws_ecr_repository.collector.name
+
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Expire untagged images after 7 days"
+      selection = {
+        tagStatus   = "untagged"
+        countType   = "sinceImagePushed"
+        countUnit   = "days"
+        countNumber = 7
+      }
+      action = {
+        type = "expire"
+      }
+    }]
+  })
+}
+
 resource "aws_ecr_repository" "evaluator" {
   name                 = "jula-evaluator"
   image_tag_mutability = "MUTABLE"
@@ -24,4 +44,24 @@ resource "aws_ecr_repository" "evaluator" {
   image_scanning_configuration {
     scan_on_push = true
   }
+}
+
+resource "aws_ecr_lifecycle_policy" "evaluator" {
+  repository = aws_ecr_repository.evaluator.name
+
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Expire untagged images after 7 days"
+      selection = {
+        tagStatus   = "untagged"
+        countType   = "sinceImagePushed"
+        countUnit   = "days"
+        countNumber = 7
+      }
+      action = {
+        type = "expire"
+      }
+    }]
+  })
 }
