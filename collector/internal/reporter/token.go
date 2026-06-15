@@ -59,7 +59,7 @@ func (p *metadataTokenProvider) Token() (string, error) {
 		return "", fmt.Errorf("metadata request blocked: host %q is not in the allowlist", parsedURL.Hostname())
 	}
 
-	req, err := http.NewRequest(http.MethodGet, targetURL, nil)
+	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil) //nolint:ssrf // URL validated above: allowlisted hosts only
 	if err != nil {
 		return "", fmt.Errorf("creating metadata request: %w", err)
 	}

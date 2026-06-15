@@ -190,7 +190,7 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 		}
 	}
 
-	req, err := http.NewRequest(http.MethodGet, urlStr, nil)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + allowlisted hosts
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}

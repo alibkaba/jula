@@ -392,7 +392,7 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 			}
 		}
 
-		req, err := http.NewRequest(http.MethodGet, pathOrURL, nil)
+		req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + IP blocking
 		if err != nil {
 			return nil, fmt.Errorf("creating metadata request: %w", err)
 		}

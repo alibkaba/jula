@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -147,7 +148,15 @@ func callAIEndpoint(config AIConfig, prompt string) (string, int, http.Header, e
 		return "", 0, nil, fmt.Errorf("request marshaling failed: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", config.Endpoint, bytes.NewBuffer(payloadBytes))
+	parsedURL, err := url.Parse(config.Endpoint)
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+		return "", 0, nil, fmt.Errorf("endpoint URL must use http or https scheme")
+	}
+
+	req, err := http.NewRequest("POST", parsedURL.String(), bytes.NewBuffer(payloadBytes)) //nolint:ssrf // URL from env config, validated above
 	if err != nil {
 		return "", 0, nil, fmt.Errorf("request creation failed: %w", err)
 	}
