@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/alibkaba/jula/compare/collector-v1.0.0...collector-v1.1.0) (2026-06-15)
+
+
+### Features
+
+* implement deployment-based storage isolation using random IDs and automate secret management in Terraform ([76505d9](https://github.com/alibkaba/jula/commit/76505d92c5f0bd11630599ba84f5fcbcb34c5bc6))
+* implement flexible provider resolution in governor, add AWS infrastructure support, and enhance source token configuration management ([c50ad37](https://github.com/alibkaba/jula/commit/c50ad37667dc524f96cd947c064efc502af6c428))
+
+
+### Bug Fixes
+
+* group and merge paginated REST findings in collector to prevent manifest mismatch and OPA overwrite ([f4919c6](https://github.com/alibkaba/jula/commit/f4919c60795fd0fad15938b08880c055f9c97bf1))
+* update Dockerfiles and test script for monorepo context ([b55a2f8](https://github.com/alibkaba/jula/commit/b55a2f87c910fadf901532e5a5e894ae005f9987))
+* update integration fetch path for monorepo and sanitize terraform ([a35cd8d](https://github.com/alibkaba/jula/commit/a35cd8d777de8c80e332b2e4eefdd1e1e956e3fb))
+
 ## [1.5.0](https://github.com/alibkaba/jula-collector/compare/v1.4.0...v1.5.0) (2026-05-20)
 
 
