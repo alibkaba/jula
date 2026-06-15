@@ -55,3 +55,10 @@ terraform.tfvars
 
 # Local evidence ledger output
 evidence_ledger/
+
+# Governor compiled binaries
+governor/import
+governor/build
+governor/reset
+governor/translate
+governor/validate

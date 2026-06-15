@@ -1,16 +1,1 @@
 Control_ID,Control_Statement,Control_Description
-CIS-GCP-EASY-1,Ensure compute engine instances do not possess public external IP addresses,Enforces total perimeter isolation by restricting server execution environments strictly to private network spaces.
-CIS-GCP-EASY-2,Ensure all cloud storage buckets have uniform bucket-level access enabled,Prevents accidental granular object leaks by forcing permission definitions exclusively to IAM control structures.
-CIS-GCP-EASY-3,Ensure cloud SQL database instances enforce encrypted SSL connections for all inbound traffic,Eliminates cleartext network sniffing vectors by mandating transport layer security for database interactions.
-CIS-GCP-EASY-4,Ensure the default network is completely deleted across all corporate projects,Eliminates broad default firewall openings and unmanaged routing assumptions from standard workspace templates.
-CIS-GCP-EASY-5,Ensure cloud storage buckets do not permit anonymous or public unauthenticated read permissions,Guarantees proprietary customer application documentation and statements remain closed to the public internet.
-CIS-GCP-MED-1,Ensure API keys are automatically rotated every 90 days or less,Mitigates long-term credential leakage risks by establishing deterministic secret lifetimes.
-CIS-GCP-MED-2,Ensure log storage buckets reside in a distinct compliance-governed cloud project,Isolates the operational audit footprint from production infrastructure environments to mitigate insider threats.
-CIS-GCP-MED-3,Ensure no firewall rules permit unauthenticated ingress traffic from the public internet to port 22,Shields administrative shell boundaries by blocking global SSH scanner sweeps from reaching host assets.
-CIS-GCP-MED-4,Ensure compute disk snapshots are retained for less than 30 days unless legal hold is active,Minimizes legacy shadow data footprints to limit liability in the event of an environment storage breach.
-CIS-GCP-MED-5,Ensure object lifecycle management policies are configured to transition data to archival storage,Automates financial record lifecycle obligations while ensuring unneeded warm files are aged out safely.
-CIS-GCP-HARD-1,Ensure separation of duties is enforced between project creators and resource managers,Maintains structural financial regulatory governance by ensuring distinct operators authorize infrastructure drift.
-CIS-GCP-HARD-2,Ensure corporate domain restricted sharing policies are enabled on all organization nodes,Enforces data sovereignty boundaries by blocking external identities from obtaining IAM permissions.
-CIS-GCP-HARD-3,Ensure alerting configurations are established for project IAM policy changes,Triggers immediate security operations response workflows whenever authorization structures are manipulated.
-CIS-GCP-HARD-4,Ensure cloud resource manager metadata does not contain sensitive static credentials,Prevents accidental environment credential exposures by shifting authentication materials out of text metadata variables.
-CIS-GCP-HARD-5,Ensure database instance root user passwords are rotated dynamically via automated secrets managers,Limits credential reuse risks by removing static root master credentials from the operational equation.

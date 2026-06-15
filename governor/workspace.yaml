@@ -1,6 +1,11 @@
-organization: "Enterprise-X"
+# Jula Governor Workspace Configuration
+# Edit this file to configure your organization and active cloud providers.
+
+organization: ""
 current_environment: "production"
 
+# Uncomment and configure the providers your organization uses.
+# The doc_root is used by the import tool for requirement extraction.
 active_providers:
   # gcp:
   #   doc_root: "https://cloud.google.com/docs"
