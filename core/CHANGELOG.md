@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/alibkaba/jula/compare/core-v2.0.0...core-v2.0.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **security:** autofix Potential file inclusion attack via reading file ([f16c61b](https://github.com/alibkaba/jula/commit/f16c61b2429eb6b03628d530b88d2b4331840f37))
+
 ## [2.0.0](https://github.com/alibkaba/jula/compare/core-v1.0.0...core-v2.0.0) (2026-06-15)
 
 
