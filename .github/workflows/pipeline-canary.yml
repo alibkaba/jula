@@ -11,8 +11,7 @@ jobs:
   canary:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - name: Checkout Monorepo
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -36,20 +35,26 @@ jobs:
       - name: Execute Collector Canary Scan
         id: collector
         run: |
-          ./jula-collector -output raw_findings.json
+          mkdir -p /tmp/canary-evidence
+          ./jula-collector run --output /tmp/canary-evidence
         continue-on-error: true
 
       - name: Execute Evaluator Policy Validation
         id: evaluator
+        env:
+          JULA_BUCKET_URL: /tmp/canary-evidence
+          JULA_POLICY_URL: governor/policies
         run: |
-          ./jula-evaluator -findings raw_findings.json -policies governor/policies
+          ./jula-evaluator
         continue-on-error: true
 
-      - name: Check for Schema Drift and Trigger Self-Healing
-        if: steps.evaluator.outcome == 'failure' || steps.collector.outcome == 'failure'
+      - name: Report Canary Results
+        if: always()
         run: |
-          echo "⚠️ Anomaly or schema drift detected! Initiating autonomous self-healing loop..."
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "### Canary Results"
+          echo "Collector: ${{ steps.collector.outcome }}"
+          echo "Evaluator: ${{ steps.evaluator.outcome }}"
+          if [ "${{ steps.collector.outcome }}" == "failure" ] || [ "${{ steps.evaluator.outcome }}" == "failure" ]; then
+            echo "⚠️ Canary detected failures. Review logs above."
+            exit 1
+          fi
