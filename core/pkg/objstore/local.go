@@ -48,10 +48,15 @@ func (s *LocalStore) Put(_ context.Context, key string, body io.Reader, _ string
 
 // Get opens the file at rootDir/key for reading.
 func (s *LocalStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
-	fullPath := filepath.Join(s.rootDir, key)
-	f, err := os.Open(fullPath)
+	baseClean := filepath.Clean(s.rootDir)
+	targetClean := filepath.Clean(filepath.Join(baseClean, key))
+	rel, err := filepath.Rel(baseClean, targetClean)
+	if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+		return nil, fmt.Errorf("invalid file path")
+	}
+	f, err := os.Open(targetClean)
 	if err != nil {
-		return nil, fmt.Errorf("local: opening file %s: %w", fullPath, err)
+		return nil, fmt.Errorf("local: opening file %s: %w", targetClean, err)
 	}
 	return f, nil
 }
