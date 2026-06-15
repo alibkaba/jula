@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/alibkaba/jula/compare/governor-v2.0.0...governor-v2.0.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* pin golang.org/x/crypto to v0.53.0 in governor ([52bbc6f](https://github.com/alibkaba/jula/commit/52bbc6f1861c422b335b5e1e73bbf5572eaa4b97))
+
 ## [2.0.0](https://github.com/alibkaba/jula/compare/governor-v1.0.0...governor-v2.0.0) (2026-06-15)
 
 
