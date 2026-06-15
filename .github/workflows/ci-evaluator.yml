@@ -86,7 +86,7 @@ jobs:
         run: docker save local-jula:latest | gzip > /tmp/jula-evaluator.tar.gz
 
       - name: Upload image artifact
-        uses: actions/upload-artifact@ea165f8d65b6db9a6b7e75b5161b5b31b56c61f8 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: jula-evaluator-image
           path: /tmp/jula-evaluator.tar.gz
