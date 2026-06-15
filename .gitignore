@@ -50,6 +50,7 @@ vendor/
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 terraform.tfvars
 !terraform.tfvars.example
 
