@@ -1,6 +1,6 @@
 {
-  "collector": "1.0.0",
-  "evaluator": "1.0.0",
-  "governor": "1.0.0",
-  "core": "1.0.0"
+  "collector": "2.0.0",
+  "evaluator": "2.0.0",
+  "governor": "2.0.0",
+  "core": "2.0.0"
 }
