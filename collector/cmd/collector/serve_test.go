@@ -44,7 +44,6 @@ func TestRunEndpointPOSTWithEnv_NoConfigs(t *testing.T) {
 	// With the engine wired, POST /run with valid env vars but no configs
 	// returns 500 (extraction fails).
 	// This confirms the serve endpoint correctly delegates to handleRun.
-	t.Setenv("JULA_OUTPUT_TARGET", "local")
 	t.Setenv("JULA_OUTPUT_PATH", t.TempDir())
 	t.Setenv("JULA_SIGNING_KEY", "")
 

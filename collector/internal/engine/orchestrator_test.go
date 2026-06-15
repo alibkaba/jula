@@ -416,8 +416,7 @@ endpoints:
 
 	// 3. Create Orchestrator with the integration map
 	o := New(RunConfig{
-		Target:         "local",
-		Path:           t.TempDir(),
+		OutputURL:      t.TempDir(),
 		Concurrency:    2,
 		Timeout:        5 * time.Second,
 		RunID:          "test-run-extract",

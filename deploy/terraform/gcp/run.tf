@@ -11,10 +11,6 @@ resource "google_cloud_run_v2_service" "jula_collector" {
       image = "us-central1-docker.pkg.dev/${var.project_id}/${var.repository_name}/jula:${var.collector_image_tag}"
 
       env {
-        name  = "JULA_OUTPUT_TARGET"
-        value = "gcs"
-      }
-      env {
         name  = "JULA_OUTPUT_PATH"
         value = "gs://${google_storage_bucket.evidence.name}"
       }

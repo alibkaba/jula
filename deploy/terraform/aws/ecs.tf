@@ -50,10 +50,6 @@ resource "aws_ecs_task_definition" "collector" {
 
       environment = [
         {
-          name  = "JULA_OUTPUT_TARGET"
-          value = "s3"
-        },
-        {
           name  = "JULA_OUTPUT_PATH"
           value = "s3://${aws_s3_bucket.evidence.id}"
         },

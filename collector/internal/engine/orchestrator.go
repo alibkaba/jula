@@ -23,8 +23,7 @@ import (
 // The "Collector Only" paradigm means there is no Framework field.
 // The engine blindly executes every Evidence extraction defined in its config.
 type RunConfig struct {
-	Target         string
-	Path           string
+	OutputURL      string
 	Concurrency    int
 	Timeout        time.Duration
 	RunID          string

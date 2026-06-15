@@ -1,0 +1,7 @@
+# Aikido scanner configuration
+# https://help.aikido.dev/code-scanning
+
+exclude:
+  paths:
+    # Test files containing AWS documentation example credentials (not real secrets)
+    - _test.go

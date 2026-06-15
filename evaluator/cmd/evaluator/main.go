@@ -142,8 +142,8 @@ func handleRun(args []string) error {
 		return fmt.Errorf("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
-	// Append deployment prefix and today's date if the bucketURL is just the root GCS bucket.
-	if strings.HasPrefix(bucketURL, "gs://") && !strings.Contains(bucketURL, "20") { // naive check for YYYY
+	// Append deployment prefix and today's date if the bucketURL is a root cloud bucket.
+	if (strings.HasPrefix(bucketURL, "gs://") || strings.HasPrefix(bucketURL, "s3://")) && !strings.Contains(bucketURL, "20") { // naive check for YYYY
 		if !strings.HasSuffix(bucketURL, "/") {
 			bucketURL += "/"
 		}
@@ -199,14 +199,14 @@ func handleRun(args []string) error {
 
 	// --- Phase 1: Ingestion & The Gatekeeper ---
 
-	// 1. Initialize the ingestion reader.
-	reader := ingestion.NewGCSReader(&http.Client{Timeout: 30 * time.Second})
-	if err := reader.Initialize(bucketURL); err != nil {
-		return fmt.Errorf("evaluator: failed to initialize GCS downloader: %w", err)
+	// 1. Initialize the cloud-agnostic ingestion reader.
+	reader, err := ingestion.NewCloudReader(bucketURL)
+	if err != nil {
+		return fmt.Errorf("evaluator: failed to initialize ingestion reader: %w", err)
 	}
 
 	// 2. Download the Manifest.
-	manifest, err := reader.ReadManifest(ctx, bucketURL)
+	manifest, err := reader.ReadManifest(ctx)
 	if err != nil {
 		return fmt.Errorf("evaluator: failed to download manifest.json: %w", err)
 	}
@@ -259,7 +259,7 @@ func handleRun(args []string) error {
 
 	// Ingest all files into memory
 	slog.Info("evaluator: downloading all evidence payloads", "files_count", len(validFiles))
-	payloads, err := reader.ReadPayloads(ctx, bucketURL, validFiles)
+	payloads, err := reader.ReadPayloads(ctx, validFiles)
 	if err != nil {
 		return fmt.Errorf("evaluator: failed to download evidence payloads: %w", err)
 	}
@@ -351,7 +351,7 @@ func handleRun(args []string) error {
 	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
 	
-	if err := reader.WriteFile(ctx, bucketURL, "evaluator_ledger.json", findingsJSON); err != nil {
+	if err := reader.WriteFile(ctx, "evaluator_ledger.json", findingsJSON); err != nil {
 		slog.Error("evaluator: failed to export evaluator ledger to file", "error", err)
 	}
 

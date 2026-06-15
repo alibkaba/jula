@@ -18,6 +18,7 @@ import (
 
 	"github.com/alibkaba/jula-collector/internal/engine"
 	"github.com/alibkaba/jula-collector/internal/reporter"
+	"github.com/alibkaba/jula-core/pkg/objstore"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
 
@@ -26,8 +27,7 @@ var newSafeClient = safehttp.NewClient
 func handleRun(args []string) error {
 	runCmd := flag.NewFlagSet("run", flag.ContinueOnError)
 
-	targetFlag := runCmd.String("target", os.Getenv("JULA_OUTPUT_TARGET"), "Delivery target: local, gcs")
-	pathFlag := runCmd.String("path", os.Getenv("JULA_OUTPUT_PATH"), "Target path or bucket URI")
+	outputFlag := runCmd.String("output", resolveOutputURL(), "Output URL: gs://bucket, s3://bucket, or local path")
 	urlFlag := runCmd.String("integration-url", os.Getenv("JULA_INTEGRATION_URL"), "URL to fetch integrations.tar.gz")
 	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent Evidence extraction goroutines")
 	timeoutFlag := runCmd.String("timeout", "5m", "Per-Evidence extraction timeout duration")
@@ -36,17 +36,9 @@ func handleRun(args []string) error {
 		return fmt.Errorf("parsing run flags: %w", err)
 	}
 
-	// Validate target.
-	if *targetFlag == "" {
-		return fmt.Errorf("target is required: use -target or set JULA_OUTPUT_TARGET")
-	}
-	if !isValidTarget(*targetFlag) {
-		return fmt.Errorf("unknown target: %q", *targetFlag)
-	}
-
-	// Validate path.
-	if *pathFlag == "" {
-		return fmt.Errorf("path is required: use -path or set JULA_OUTPUT_PATH")
+	// Validate output.
+	if *outputFlag == "" {
+		return fmt.Errorf("output is required: use -output or set JULA_OUTPUT_PATH")
 	}
 
 	// Parse timeout duration.
@@ -81,8 +73,7 @@ func handleRun(args []string) error {
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
 
 	slog.Info("run: pipeline starting",
-		"target", *targetFlag,
-		"path", *pathFlag,
+		"output", *outputFlag,
 		"concurrency", *concurrencyFlag,
 		"timeout", *timeoutFlag,
 		"integration_dir", integrationDir,
@@ -91,8 +82,7 @@ func handleRun(args []string) error {
 
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		Target:         *targetFlag,
-		Path:           *pathFlag,
+		OutputURL:      *outputFlag,
 		Concurrency:    *concurrencyFlag,
 		Timeout:        timeout,
 		RunID:          runID,
@@ -108,24 +98,20 @@ func handleRun(args []string) error {
 	slog.Info("run: extraction and transformation complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	var rep reporter.Reporter
-	switch *targetFlag {
-	case "local":
-		rep = &reporter.LocalReporter{
-			OutputDir:  *pathFlag,
-			SigningKey: signingKey,
-		}
-	case "gcs":
-		bucketName := reporter.ParseBucketName(*pathFlag)
-		tokenProvider := reporter.NewMetadataTokenProvider(&http.Client{})
-		rep = &reporter.GCSReporter{
-			BucketName:    bucketName,
-			SigningKey:    signingKey,
-			HTTPClient:    &http.Client{},
-			TokenProvider: tokenProvider,
-		}
-	default:
-		return fmt.Errorf("reporter not implemented for target: %s", *targetFlag)
+	bucketURL, pathPrefix, err := reporter.ParseOutputURL(*outputFlag)
+	if err != nil {
+		return fmt.Errorf("parsing output URL: %w", err)
+	}
+
+	store, _, err := objstore.FromURL(bucketURL, &http.Client{})
+	if err != nil {
+		return fmt.Errorf("creating object store: %w", err)
+	}
+
+	rep := &reporter.CloudReporter{
+		Store:      store,
+		SigningKey: signingKey,
+		PathPrefix: pathPrefix,
 	}
 
 	if err := rep.Validate(ctx); err != nil {
@@ -145,20 +131,22 @@ func handleRun(args []string) error {
 		"platform_type", orch.Platform().Type,
 		"total_erl_extractions", len(evidence),
 		"evidence_files", len(manifest.EvidenceFiles),
-		"evidence_location", *pathFlag,
+		"evidence_location", *outputFlag,
 		"signature", manifest.Signature[:16]+"...",
 	)
 
 	return nil
 }
 
-func isValidTarget(name string) bool {
-	switch name {
-	case "local", "gcs":
-		return true
-	default:
-		return false
+// resolveOutputURL builds the output URL from environment variables.
+// Supports JULA_OUTPUT_PATH directly (gs://bucket, s3://bucket, /local/path)
+// or the legacy JULA_OUTPUT_TARGET + JULA_OUTPUT_PATH combination.
+func resolveOutputURL() string {
+	// New: direct URL from env.
+	if path := os.Getenv("JULA_OUTPUT_PATH"); path != "" {
+		return path
 	}
+	return ""
 }
 
 // resolveConfigPath resolves a configuration file path by checking the environment variable.

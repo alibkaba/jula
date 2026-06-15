@@ -1,0 +1,94 @@
+package objstore
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// LocalStore implements Store for the local filesystem.
+// Used for development, testing, and local validation.
+type LocalStore struct {
+	rootDir string
+}
+
+// NewLocalStore creates a filesystem-backed Store rooted at the given directory.
+func NewLocalStore(rootDir string) *LocalStore {
+	return &LocalStore{rootDir: rootDir}
+}
+
+// Bucket returns the root directory path.
+func (s *LocalStore) Bucket() string {
+	return s.rootDir
+}
+
+// Put writes data to a file at rootDir/key.
+func (s *LocalStore) Put(_ context.Context, key string, body io.Reader, _ string) error {
+	fullPath := filepath.Join(s.rootDir, key)
+
+	dir := filepath.Dir(fullPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("local: creating directory %s: %w", dir, err)
+	}
+
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return fmt.Errorf("local: reading body: %w", err)
+	}
+
+	if err := os.WriteFile(fullPath, data, 0600); err != nil {
+		return fmt.Errorf("local: writing file %s: %w", fullPath, err)
+	}
+
+	return nil
+}
+
+// Get opens the file at rootDir/key for reading.
+func (s *LocalStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
+	fullPath := filepath.Join(s.rootDir, key)
+	f, err := os.Open(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("local: opening file %s: %w", fullPath, err)
+	}
+	return f, nil
+}
+
+// List returns all files under rootDir matching the given prefix.
+func (s *LocalStore) List(_ context.Context, prefix string) ([]Object, error) {
+	var objects []Object
+	searchDir := s.rootDir
+
+	err := filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		// Get relative path from root directory.
+		rel, err := filepath.Rel(s.rootDir, path)
+		if err != nil {
+			return err
+		}
+		// Normalize to forward slashes for consistency with cloud providers.
+		rel = filepath.ToSlash(rel)
+
+		if strings.HasPrefix(rel, prefix) {
+			objects = append(objects, Object{
+				Key:  rel,
+				Size: info.Size(),
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("local: listing directory: %w", err)
+	}
+
+	return objects, nil
+}
