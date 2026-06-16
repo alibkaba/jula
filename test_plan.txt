@@ -1,0 +1,8 @@
+1. Implement a comprehensive unit test suite in `collector/internal/reporter/cloud_test.go` for the `CloudReporter` methods (`Name`, `Validate`, `Deliver`, and `ParseOutputURL`) and `SanitizeResourceID` (already exists).
+2. The `CloudReporter.Deliver` method has some remaining branches that could be covered:
+   - `json.MarshalIndent` error for evidence (if possible to mock).
+   - `json.MarshalIndent` error for provenance.
+   - `crypto.SignProvenance` error.
+   - `crypto.SignManifest` error.
+3. Using an invalid signing key will trigger the `SignProvenance` and `SignManifest` errors, but the crypto package checks for typed keys (like ECDSA). We can pass a fake key or nil if we bypass validate. Actually `SignProvenance` does `signer.Sign`, so we can mock a signer or use an invalid one. But in standard crypto, `Signer` is an interface. We can provide a mock signer to fail when we want.
+4. Add the logging branch by doing a log handler setup in the test, which triggers the log capture branch.
