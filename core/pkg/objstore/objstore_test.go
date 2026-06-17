@@ -151,7 +151,7 @@ func TestS3Store_PutGet(t *testing.T) {
 	// Create static credential provider for testing.
 	staticCreds := &staticCredProvider{
 		creds: Credentials{
-			AccessKeyID:    "AKIATESTKEY",
+			AccessKeyID:     "AKIATESTKEY",
 			SecretAccessKey: "testsecret",
 		},
 	}

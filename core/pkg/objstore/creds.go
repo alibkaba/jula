@@ -80,9 +80,9 @@ func (p *ecsCredentialProvider) fetch() (Credentials, error) {
 	secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	if accessKey != "" && secretKey != "" {
 		return Credentials{
-			AccessKeyID:    accessKey,
+			AccessKeyID:     accessKey,
 			SecretAccessKey: secretKey,
-			SessionToken:   os.Getenv("AWS_SESSION_TOKEN"),
+			SessionToken:    os.Getenv("AWS_SESSION_TOKEN"),
 		}, nil
 	}
 
@@ -145,9 +145,9 @@ func (p *ecsCredentialProvider) fetchFromEndpoint(endpoint string) (Credentials,
 	}
 
 	return Credentials{
-		AccessKeyID:    credResp.AccessKeyID,
+		AccessKeyID:     credResp.AccessKeyID,
 		SecretAccessKey: credResp.SecretAccessKey,
-		SessionToken:   credResp.Token,
-		Expiration:     expiration,
+		SessionToken:    credResp.Token,
+		Expiration:      expiration,
 	}, nil
 }

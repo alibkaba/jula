@@ -32,7 +32,7 @@ func TestSigV4_HashPayload(t *testing.T) {
 func TestSigV4_CanonicalizeHeaders(t *testing.T) {
 	headers := http.Header{
 		"Host":                 {"example.amazonaws.com"},
-		"X-Amz-Date":          {"20130524T000000Z"},
+		"X-Amz-Date":           {"20130524T000000Z"},
 		"X-Amz-Content-Sha256": {"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
 		"Content-Type":         {"application/json"},
 		"X-Custom-Header":      {"should-be-ignored"},
@@ -96,9 +96,9 @@ func TestSigV4_SignSetsAuthorizationHeader(t *testing.T) {
 	req.Host = "s3.us-east-1.amazonaws.com"
 
 	creds := Credentials{
-		AccessKeyID:    "AKIAIOSFODNN7EXAMPLE",
+		AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
 		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-		SessionToken:   "FwoGZXIvYXdzEBY...",
+		SessionToken:    "FwoGZXIvYXdzEBY...",
 	}
 
 	signV4(req, creds, "us-east-1", "s3", hashPayload(nil))
@@ -127,7 +127,7 @@ func TestSigV4_SignWithoutSessionToken(t *testing.T) {
 	req.Host = "s3.us-east-1.amazonaws.com"
 
 	creds := Credentials{
-		AccessKeyID:    "AKIAIOSFODNN7EXAMPLE",
+		AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
 		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 	}
 
