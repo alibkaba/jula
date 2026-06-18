@@ -1,5 +1,0 @@
-project_id           = "your-gcp-project-id"
-region               = "us-central1"
-evidence_bucket_name = "jula-evidence-ledger-XXXXXX"
-repository_name      = "jula-collector"
-collector_image_tag  = "your-git-commit-sha"

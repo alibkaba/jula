@@ -4,6 +4,7 @@
 # User-specific documentation and scripts
 docs/
 scripts/
+deploy/
 todo.md
 
 # Security & Secrets
