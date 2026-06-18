@@ -56,6 +56,7 @@ flowchart TB
     classDef output fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#f0fdf4;
     classDef insights fill:#0f172a,stroke:#ec4899,stroke-width:2px,color:#e2e8f0;
     classDef core fill:#0f172a,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
+    classDef trust fill:#1e293b,stroke:#f43f5e,stroke-width:2px,color:#fda4af;
 
     subgraph Phase1 ["1. Governor Registry (governor/)"]
         direction LR
@@ -64,21 +65,22 @@ flowchart TB
         PR_Int["📂 engine/integrations/ <br> (YAML Data Collectors)"]
         PR_Norm["📂 engine/translators/ <br> (Rego Payload Adapters)"]
         Meta["📄 workspace.yaml <br> (Active Scopes & Targets)"]
+        KeyB["🔑 Key B: Policy Signing <br> (JULA_POLICY_SIGNING_KEY)"] -.->|Sign Bundle| BundleManifest["🛡️ bundle-manifest.json <br> (Signed Policy Bundle)"]
     end
 
     subgraph Phase2 ["2. Attestation Layer (collector/)"]
         direction TB
         APIs["☁️ Target Provider Scopes <br> (Configured Cloud Service Buckets)"] -->|1. Extract Configs| JIE["Collector Engine <br> (Stateless Go CLI)"]
         JIE -->|2a. Output Payloads| H["📄 Evidence Payloads <br> (Raw JSON / CSV / Text)"]
-        KMS["🔑 Cloud Secret Manager / Key Vault <br> (Asymmetric Private Key)"] -.->|Sign Manifest & Prov| Sign["Signing Engine"]
+        KMS["🔑 Key A: Evidence Signing <br> (Cloud KMS Asymmetric Key)"] -.->|Sign Manifest & Prov| Sign["Signing Engine"]
         Sign -->|2b. Sign Provenance| P["🛡️ Provenance Sidecars <br> (*.prov.json)"]
         Sign -->|2c. Sign Manifest| M["📜 Cryptographic Manifest <br> (manifest.json)"]
         Sign -->|2d. Mask & Compress Logs| L["📝 Sanitized Execution Trace <br> (run.log.gz)"]
     end
 
-    subgraph Phase3 ["3. Attestation Ledger"]
+    subgraph Phase3 ["3. Immutable Attestation Ledger"]
         direction TB
-        GCS[("🪣 Secure Object Storage <br> ledger://jula-evidence-ledger <br> (Uniform Bucket Access Enabled)")]
+        GCS[("🪣 Secure Object Storage <br> ledger://jula-evidence-ledger <br> (WORM Retention + Bucket Lock)")]
         H -->|Upload| GCS
         P -->|Upload| GCS
         M -->|Upload| GCS
@@ -91,17 +93,20 @@ flowchart TB
         
         subgraph GK ["Gatekeeper Modules"]
             direction LR
-            SigCheck["🔑 Signature Verification <br> (JULA_PUBLIC_KEY PEM)"]
+            SigCheck["🔑 Manifest Verification <br> (Key A Public)"]
             HashCheck["✅ Integrity Check <br> (Manifest vs Payload Hash)"]
             ProvCheck["🛡️ Provenance Verification <br> (Sidecar Payload Check)"]
+            PolicyCheck["🔑 Policy Bundle Verification <br> (Key B Public)"]
         end
         
         OPA["⚙️ Embedded OPA Engine <br> (Dynamic Rego Execution)"]
+        KeyC["🔑 Key C: Verdict Signing <br> (JULA_EVALUATOR_SIGNING_KEY)"]
         
         EE --> SigCheck
         SigCheck --> HashCheck
         HashCheck --> ProvCheck
-        ProvCheck --> OPA
+        ProvCheck --> PolicyCheck
+        PolicyCheck --> OPA
     end
 
     subgraph Phase5 ["5. Quantitative Risk & Posture Insights (Jula Insight Engine)"]
@@ -134,22 +139,73 @@ flowchart TB
     Meta -->|--metadata-url Ingestion| EE
     PR_Norm -->|Stream Translators| OPA
     PR_Pol -->|Stream Core Policies| OPA
+    BundleManifest -->|Verify Before Load| PolicyCheck
 
     %% Execution flow
     GCS -->|Pull Signed Ledger Run| SigCheck
     OPA -->|Audit Logs| Findings["🏆 Standardized Findings Ledger <br> (OSCAL Assessment Results)"]
-    Findings -->|Ingest Findings JSON| DB
+    KeyC -.->|Sign Verdict| SignedVerdict["🛡️ Signed Verdict <br> (verdict.json)"]
+    Findings --> SignedVerdict
+    SignedVerdict -->|Ingest Verified Verdicts| DB
 
     %% Apply Styles
     class APIs,JIE,H,Sign,P,M,L collector;
     class GCS ledger;
-    class PR_Int,PR_Norm,PR_Pol,Meta policy;
-    class EE,SigCheck,HashCheck,ProvCheck,OPA evaluator;
-    class KMS security;
-    class Findings output;
+    class PR_Int,PR_Norm,PR_Pol,Meta,BundleManifest policy;
+    class EE,SigCheck,HashCheck,ProvCheck,PolicyCheck,OPA evaluator;
+    class KMS,KeyB,KeyC security;
+    class Findings,SignedVerdict output;
     class DB,LEC,Radar,ROI,Trend insights;
     class JC core;
 ```
+
+---
+
+## Zero Trust Architecture
+
+Jula Controls enforces a zero-trust security model across the entire pipeline. No component implicitly trusts another: every artifact is cryptographically signed, verified, and auditable.
+
+### Cryptographic Trust Chain
+
+Three independent ECDSA P-256 signing keys enforce separation of duties:
+
+| Key | Owner | Purpose | Stored As |
+|:----|:------|:--------|:----------|
+| **Key A** | Collector | Signs evidence manifests and provenance sidecars | Cloud KMS (asymmetric) |
+| **Key B** | Governor | Signs policy bundles before Evaluator consumption | `JULA_POLICY_SIGNING_KEY` (GitHub Actions secret) |
+| **Key C** | Evaluator | Signs compliance verdicts after policy evaluation | `JULA_EVALUATOR_SIGNING_KEY` (GitHub Actions secret) |
+
+No single key can forge artifacts from another component. The Evaluator verifies Key A signatures on evidence, Key B signatures on policies, and produces Key C signatures on verdicts.
+
+### Supply Chain Integrity
+
+All build artifacts include [SLSA v1.0 provenance attestations](https://slsa.dev) generated by GitHub's first-party `actions/attest-build-provenance` action:
+
+- **Release binaries:** Darwin/ARM64, Linux/AMD64, Windows/AMD64 (Collector + Evaluator)
+- **Container images:** GCP Artifact Registry and AWS ECR (Collector + Evaluator)
+
+### Immutable Evidence Ledger
+
+The evidence storage bucket enforces write-once-read-many (WORM) semantics via GCS Bucket Lock:
+
+- **Retention policy:** 365 days (configurable, matches SOC 2 Type II audit window)
+- **Versioning:** Enabled to prevent silent overwrites
+- **Bucket Lock:** Optional irreversible lock (`lock_evidence_bucket = true`)
+
+### Zero-Knowledge Evidence Handling
+
+Jula Controls never receives, stores, or transits raw client infrastructure data. The Collector and Evaluator run exclusively inside the client's environment. Only signed compliance verdicts cross the trust boundary. See [ADR-001](docs/adr/001-zero-knowledge-evidence-handling.md) for the full architectural decision record.
+
+### Egress Enforcement
+
+The `safehttp` package provides SSRF protection and optional egress allowlisting. When `JULA_EGRESS_ALLOWLIST` is set, only approved domains (cloud provider APIs, GitHub) are reachable. Jula-controlled endpoints are blocked by default.
+
+### Minimum-Privilege IAM
+
+Pre-built, importable IAM policies for the Collector with explicit exclusion lists:
+
+- [GCP Collector Permissions](docs/iam-reference/gcp-collector-permissions.md)
+- [AWS Collector Permissions](docs/iam-reference/aws-collector-permissions.md)
 
 ---
 

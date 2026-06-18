@@ -33,6 +33,31 @@ func ParseECDSAPublicKey(pemStr string) (*ecdsa.PublicKey, error) {
 	return ecdsaPub, nil
 }
 
+// ParseECDSAPrivateKey parses an ECDSA Private Key from a PEM-encoded string block.
+// Supports both SEC1 (EC PRIVATE KEY) and PKCS8 (PRIVATE KEY) formats.
+func ParseECDSAPrivateKey(pemStr string) (*ecdsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
+	}
+
+	key, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		// Try PKCS8 format as fallback.
+		pkcs8Key, pkcs8Err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if pkcs8Err != nil {
+			return nil, fmt.Errorf("failed to parse EC private key (tried SEC1 and PKCS8): SEC1=%w, PKCS8=%v", err, pkcs8Err)
+		}
+		ecKey, ok := pkcs8Key.(*ecdsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("PKCS8 key is not an ECDSA key")
+		}
+		return ecKey, nil
+	}
+
+	return key, nil
+}
+
 // VerifyManifestSignature leverages the native local crypto verification
 // to validate the signature of the Manifest against the given public key.
 func VerifyManifestSignature(manifest *types.Manifest, publicKey *ecdsa.PublicKey) error {
@@ -43,6 +68,21 @@ func VerifyManifestSignature(manifest *types.Manifest, publicKey *ecdsa.PublicKe
 	if !ok {
 		return fmt.Errorf("manifest signature is cryptographically INVALID")
 	}
+	return nil
+}
+
+// VerifyPolicyBundle verifies the policy bundle signature against Key B's public key.
+// This enforces that policy bundles are signed by the Governor's dedicated signing key
+// and have not been tampered with during transit.
+func VerifyPolicyBundle(bundle *eeCrypto.PolicyBundle, publicKey *ecdsa.PublicKey) error {
+	ok, err := eeCrypto.VerifyBundle(bundle, publicKey)
+	if err != nil {
+		return fmt.Errorf("policy bundle signature verification error: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("POLICY BUNDLE signature is cryptographically INVALID - refusing to load untrusted policies")
+	}
+	slog.Info("gatekeeper: policy bundle signature verified successfully against JULA_POLICY_PUBLIC_KEY")
 	return nil
 }
 

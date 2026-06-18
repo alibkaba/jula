@@ -1,0 +1,64 @@
+name: "CI/CD: Governor Policy Bundle Signing"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'governor/policies/**'
+      - 'governor/engine/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sign-policy-bundle:
+    name: Sign Policy Bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Create Policy Bundle Tarball
+        id: bundle
+        run: |
+          BUNDLE_FILE="governor-policy-bundle.tar.gz"
+          tar -czf "${BUNDLE_FILE}" governor/policies/ governor/engine/
+          BUNDLE_HASH=$(sha256sum "${BUNDLE_FILE}" | awk '{print $1}')
+          echo "bundle_file=${BUNDLE_FILE}" >> $GITHUB_OUTPUT
+          echo "bundle_hash=${BUNDLE_HASH}" >> $GITHUB_OUTPUT
+          echo "Policy bundle hash: ${BUNDLE_HASH}"
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "core/go.mod"
+          cache: false
+
+      - name: Sign Policy Bundle (Key B)
+        env:
+          JULA_POLICY_SIGNING_KEY: ${{ secrets.JULA_POLICY_SIGNING_KEY }}
+        run: |
+          if [ -z "${JULA_POLICY_SIGNING_KEY}" ]; then
+            echo "::error::JULA_POLICY_SIGNING_KEY secret is not configured"
+            exit 1
+          fi
+
+          # Build and run the signing tool inline via Go.
+          # This uses the same crypto.SignBundle function from core/pkg/crypto/bundle.go.
+          go run -C core ./cmd/sign-bundle \
+            --bundle-hash "${{ steps.bundle.outputs.bundle_hash }}" \
+            --key-env "JULA_POLICY_SIGNING_KEY" \
+            --output "bundle-manifest.json"
+
+          echo "Signed bundle-manifest.json:"
+          cat bundle-manifest.json
+
+      - name: Upload Policy Bundle Artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: governor-policy-bundle
+          path: |
+            ${{ steps.bundle.outputs.bundle_file }}
+            bundle-manifest.json
+          retention-days: 90

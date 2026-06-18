@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,42 @@ import (
 // (e.g., 169.254.169.254) which are heavily targeted for Cloud Metadata extraction.
 // It allows Private RFC1918 IPs (10.x, 192.168.x) to support enterprise on-premise targets.
 func NewClient(timeout time.Duration) *http.Client {
+	return newClient(timeout, nil)
+}
+
+// NewClientWithEgressAllowlist returns an *http.Client with SSRF protection AND
+// egress domain allowlisting. Only connections to hosts matching one of the
+// allowed domain suffixes are permitted. All other outbound connections are blocked.
+//
+// This enforces the Zero-Knowledge Evidence Handling guarantee (ADR-001):
+// the Collector and Evaluator can only connect to approved cloud API endpoints.
+// Jula-controlled domains are blocked unless explicitly allowlisted.
+//
+// Example allowlist: ["googleapis.com", "amazonaws.com", "github.com"]
+func NewClientWithEgressAllowlist(timeout time.Duration, allowedDomains []string) *http.Client {
+	return newClient(timeout, allowedDomains)
+}
+
+// IsHostAllowed checks whether the given hostname matches any suffix in the
+// allowlist. Returns true if the allowlist is nil/empty (no restriction).
+func IsHostAllowed(hostname string, allowedDomains []string) bool {
+	if len(allowedDomains) == 0 {
+		return true
+	}
+
+	hostname = strings.ToLower(strings.TrimSuffix(hostname, "."))
+
+	for _, domain := range allowedDomains {
+		domain = strings.ToLower(strings.TrimSuffix(domain, "."))
+		if hostname == domain || strings.HasSuffix(hostname, "."+domain) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func newClient(timeout time.Duration, allowedDomains []string) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   timeout,
 		KeepAlive: 30 * time.Second,
@@ -30,6 +67,11 @@ func NewClient(timeout time.Duration) *http.Client {
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid address format: %w", err)
+			}
+
+			// Egress allowlist check: reject connections to non-allowlisted domains.
+			if len(allowedDomains) > 0 && !IsHostAllowed(host, allowedDomains) {
+				return nil, fmt.Errorf("egress violation: connection to %q blocked by allowlist policy", host)
 			}
 
 			// Force DNS resolution before establishing connection
@@ -68,3 +110,4 @@ func NewClient(timeout time.Duration) *http.Client {
 		Transport: transport,
 	}
 }
+

@@ -236,12 +236,42 @@ func handleRun(args []string) error {
 		return fmt.Errorf("evaluator: failed to download policies: %w", err)
 	}
 
-	// 3. Load policy files from target path.
+	// 3. Verify policy bundle signature (Key B) if JULA_POLICY_PUBLIC_KEY is set.
+	policyPubKeyPEM := os.Getenv("JULA_POLICY_PUBLIC_KEY")
+	if policyPubKeyPEM != "" {
+		slog.Info("evaluator: JULA_POLICY_PUBLIC_KEY is set, verifying policy bundle signature")
+
+		policyPubKey, err := intCrypto.ParseECDSAPublicKey(policyPubKeyPEM)
+		if err != nil {
+			return fmt.Errorf("evaluator: failed to parse policy public key PEM: %w", err)
+		}
+
+		bundleManifestPath := filepath.Join(policiesDir, "bundle-manifest.json")
+		bundleManifestData, err := os.ReadFile(bundleManifestPath)
+		if err != nil {
+			return fmt.Errorf("evaluator: bundle-manifest.json not found in policy bundle - refusing to load unsigned policies: %w", err)
+		}
+
+		var bundle pkgCrypto.PolicyBundle
+		if err := json.Unmarshal(bundleManifestData, &bundle); err != nil {
+			return fmt.Errorf("evaluator: failed to parse bundle-manifest.json: %w", err)
+		}
+
+		if err := intCrypto.VerifyPolicyBundle(&bundle, policyPubKey); err != nil {
+			return fmt.Errorf("evaluator: POLICY GATE FAILURE - %w", err)
+		}
+
+		slog.Info("evaluator: policy bundle cryptographic verification passed")
+	} else {
+		slog.Warn("evaluator: JULA_POLICY_PUBLIC_KEY is not set, skipping policy bundle signature verification")
+	}
+
+	// 4. Load policy files from target path.
 	if err := evaluator.LoadPolicies(policiesDir); err != nil {
 		return fmt.Errorf("evaluator: failed to load OPA policies: %w", err)
 	}
 
-	// 4. Compile loaded rules in memory and map SCF/Dataset targets.
+	// 5. Compile loaded rules in memory and map SCF/Dataset targets.
 	if err := evaluator.Compile(ctx); err != nil {
 		return fmt.Errorf("evaluator: failed to compile OPA policies: %w", err)
 	}
@@ -340,9 +370,14 @@ func handleRun(args []string) error {
 	slog.Info("evaluator: completed compliance evaluation", "findings_count", len(allFindings))
 
 	hasFailures := false
+	controlsPassed := 0
+	controlsFailed := 0
 	for _, f := range allFindings {
 		if f.Verdict != evaluation.VerdictCompliant {
 			hasFailures = true
+			controlsFailed++
+		} else {
+			controlsPassed++
 		}
 	}
 
@@ -353,6 +388,49 @@ func handleRun(args []string) error {
 	
 	if err := reader.WriteFile(ctx, "evaluator_ledger.json", findingsJSON); err != nil {
 		slog.Error("evaluator: failed to export evaluator ledger to file", "error", err)
+	}
+
+	// 6. Sign the evaluation verdict (Key C) if JULA_EVALUATOR_SIGNING_KEY is set.
+	evaluatorSigningKeyPEM := os.Getenv("JULA_EVALUATOR_SIGNING_KEY")
+	if evaluatorSigningKeyPEM != "" {
+		slog.Info("evaluator: signing evaluation verdict with Key C")
+
+		evaluatorSigningKey, err := intCrypto.ParseECDSAPrivateKey(evaluatorSigningKeyPEM)
+		if err != nil {
+			return fmt.Errorf("evaluator: failed to parse evaluator signing key: %w", err)
+		}
+
+		ledgerHash := pkgCrypto.HashFile(findingsJSON)
+		verdict := &pkgCrypto.Verdict{
+			RunID:          manifest.RunID,
+			LedgerHash:     ledgerHash,
+			ControlsPassed: controlsPassed,
+			ControlsFailed: controlsFailed,
+			ControlsTotal:  len(allFindings),
+			Timestamp:      time.Now().UTC(),
+		}
+
+		if err := pkgCrypto.SignVerdict(verdict, evaluatorSigningKey); err != nil {
+			return fmt.Errorf("evaluator: failed to sign verdict: %w", err)
+		}
+
+		verdictJSON, err := json.MarshalIndent(verdict, "", "  ")
+		if err != nil {
+			return fmt.Errorf("evaluator: failed to marshal signed verdict: %w", err)
+		}
+
+		if err := reader.WriteFile(ctx, "verdict.json", verdictJSON); err != nil {
+			slog.Error("evaluator: failed to export signed verdict", "error", err)
+		} else {
+			slog.Info("evaluator: signed verdict written successfully",
+				"run_id", verdict.RunID,
+				"ledger_hash", ledgerHash,
+				"controls_passed", controlsPassed,
+				"controls_failed", controlsFailed,
+			)
+		}
+	} else {
+		slog.Warn("evaluator: JULA_EVALUATOR_SIGNING_KEY is not set, skipping verdict signing")
 	}
 
 	fmt.Println("================================================================")

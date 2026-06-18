@@ -115,3 +115,90 @@ func TestVerifyManifestSignatureAndPayloads(t *testing.T) {
 		t.Error("expected gatekeeper missing file error, but got nil error")
 	}
 }
+
+func TestVerifyPolicyBundle_ValidSignature(t *testing.T) {
+	keyB, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate Key B: %v", err)
+	}
+
+	bundle := &eeCrypto.PolicyBundle{
+		BundleHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		Timestamp:  time.Now().UTC(),
+	}
+
+	if err := eeCrypto.SignBundle(bundle, keyB); err != nil {
+		t.Fatalf("failed to sign bundle: %v", err)
+	}
+
+	if err := VerifyPolicyBundle(bundle, &keyB.PublicKey); err != nil {
+		t.Fatalf("expected successful policy bundle verification, got: %v", err)
+	}
+}
+
+func TestVerifyPolicyBundle_TamperedHash(t *testing.T) {
+	keyB, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate Key B: %v", err)
+	}
+
+	bundle := &eeCrypto.PolicyBundle{
+		BundleHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		Timestamp:  time.Now().UTC(),
+	}
+
+	if err := eeCrypto.SignBundle(bundle, keyB); err != nil {
+		t.Fatalf("failed to sign bundle: %v", err)
+	}
+
+	// Tamper with the bundle hash after signing.
+	bundle.BundleHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+	if err := VerifyPolicyBundle(bundle, &keyB.PublicKey); err == nil {
+		t.Error("expected policy bundle verification failure for tampered hash, but got nil error")
+	}
+}
+
+func TestVerifyPolicyBundle_WrongKey_KeyAvsKeyB(t *testing.T) {
+	// Core Zero Trust test: a bundle signed with Key B must NOT verify with Key A.
+	keyA, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	keyB, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	bundle := &eeCrypto.PolicyBundle{
+		BundleHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		Timestamp:  time.Now().UTC(),
+	}
+
+	if err := eeCrypto.SignBundle(bundle, keyB); err != nil {
+		t.Fatalf("failed to sign bundle with Key B: %v", err)
+	}
+
+	// Verify with Key A's public key (must fail).
+	if err := VerifyPolicyBundle(bundle, &keyA.PublicKey); err == nil {
+		t.Error("expected verification failure when using Key A to verify Key B's signature (cryptographic separation violated)")
+	}
+}
+
+func TestVerifyPolicyBundle_EmptySignature(t *testing.T) {
+	keyB, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	bundle := &eeCrypto.PolicyBundle{
+		BundleHash: "abc123",
+		Signature:  "",
+	}
+
+	if err := VerifyPolicyBundle(bundle, &keyB.PublicKey); err == nil {
+		t.Error("expected error for empty signature")
+	}
+}
+
+func TestVerifyPolicyBundle_NilKey(t *testing.T) {
+	bundle := &eeCrypto.PolicyBundle{
+		BundleHash: "abc123",
+		Signature:  "deadbeef",
+	}
+
+	if err := VerifyPolicyBundle(bundle, nil); err == nil {
+		t.Error("expected error for nil public key")
+	}
+}
