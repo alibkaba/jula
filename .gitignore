@@ -1,7 +1,7 @@
 # Mac OS
 .DS_Store
 
-# User-specific documentation and scripts
+# Local
 docs/
 scripts/
 deploy/

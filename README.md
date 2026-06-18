@@ -155,4 +155,16 @@ flowchart TB
 
 ## Licensing
 
-Jula Controls is licensed under the Business Source License (BSL 1.1). See the `LICENSE` file for details.
+Jula Controls is licensed under the **Business Source License (BSL) 1.1**. See the [LICENSE](./LICENSE) file for full terms.
+
+**Key terms:**
+
+- **Internal, non-commercial use** is permitted with attribution ("Powered by Jula Controls")
+- **Rolling Change Date:** Each release converts to Apache License 2.0 four years after publication
+- **Expressly prohibited** without an Enterprise License:
+  - (a) Use by consultants, MSSPs, or vCISOs to deliver commercial compliance services
+  - (b) Hosting as a managed service or embedding in a commercial SaaS/API product
+  - (c) Use as training data for AI/ML models or automated code generation tools
+
+For Enterprise License inquiries, contact the Licensor.
+

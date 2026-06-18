@@ -4,9 +4,9 @@ Thank you for your interest in contributing to Jula Controls! Whether you're fix
 
 ## The BSL License & Developer Certificate of Origin (DCO)
 
-Jula Controls is licensed under the **Business Source License (BSL) 1.1**. To protect this licensing structure and ensure that the codebase remains unencumbered, we require all contributors to agree to the Developer Certificate of Origin (DCO).
+Jula Controls is licensed under the **Business Source License (BSL) 1.1** with a rolling Change Date (each release converts to Apache 2.0 four years after publication). The license permits internal, non-commercial use with attribution, and expressly prohibits: (a) use by consultants/MSSPs/vCISOs for commercial compliance services, (b) hosting as a managed service or embedding in a SaaS product, and (c) use as AI/ML training data. See the [LICENSE](./LICENSE) file for full terms.
 
-By contributing to this repository, you certify that you wrote the patch or otherwise have the right to submit it under the project's license. 
+To protect this licensing structure and ensure that the codebase remains unencumbered, we require all contributors to agree to the Developer Certificate of Origin (DCO).
 
 **How to sign off:**
 All commits must include a `Signed-off-by` line. You can add this automatically by using the `-s` flag when committing:

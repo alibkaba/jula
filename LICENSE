@@ -3,6 +3,25 @@ Business Source License 1.1
 Parameters
 Licensor: Ali Kaba
 Licensed Work: Jula Controls
-Additional Use Grant: You may copy, modify, create derivative works of, and distribute the Licensed Work for internal, non-commercial use purposes, provided that all generated evidence artifacts, reports, and internal documentation explicitly retain the attribution "Powered by Jula Controls." Third-party consultants, MSSPs, or vCISOs are strictly prohibited from using the Licensed Work to deliver commercial compliance services to their clients without purchasing an Enterprise License from Ali Kaba.
-Change Date: 2030-05-01
+Additional Use Grant: You may copy, modify, create derivative works of,
+and distribute the Licensed Work for internal, non-commercial use purposes,
+provided that all generated evidence artifacts, reports, and internal
+documentation explicitly retain the attribution "Powered by Jula Controls."
+
+The following uses are expressly prohibited without a separate Enterprise
+License from the Licensor:
+
+(a) Third-party consultants, managed security service providers (MSSPs),
+    or virtual CISOs (vCISOs) using the Licensed Work to deliver commercial
+    compliance, attestation, or audit-readiness services to their own clients.
+
+(b) Offering the Licensed Work, or any derivative thereof, as a hosted or
+    managed service, including embedding the Licensed Work as a component of
+    a commercial platform, API, or SaaS product.
+
+(c) Using the Licensed Work, or any output thereof, as training data for
+    machine learning models, artificial intelligence systems, or automated
+    code generation tools.
+
+Change Date: Four years from the date the Licensed Work is published.
 Change License: Apache License, Version 2.0
