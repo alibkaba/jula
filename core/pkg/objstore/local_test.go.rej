@@ -1,0 +1,22 @@
+--- local_test.go
++++ local_test.go
+@@ -107,7 +107,17 @@
+
+ func TestLocalStore_Errors(t *testing.T) {
+-	// Use a non-existent directory that cannot be created or accessed
+-	store := NewLocalStore("/root/protected/dir")
++	// To guarantee failure regardless of environment (even as root),
++	// we use a file path as the directory name. os.MkdirAll will fail
++	// when it tries to treat an existing file as a directory.
++	file, err := os.CreateTemp("", "dummy-file-*")
++	if err != nil {
++		t.Fatalf("failed to create temp file: %v", err)
++	}
++	fileName := file.Name()
++	file.Close()
++	defer os.Remove(fileName)
++
++	store := NewLocalStore(filepath.Join(fileName, "subdir"))
+	ctx := context.Background()
+
+	// Put error
