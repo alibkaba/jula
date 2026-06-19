@@ -194,32 +194,32 @@ func (e *Engine) applyAuth(ctx context.Context, req *http.Request, auth *AuthFlo
 
 	case "aws_sigv4":
 		if err := SignAWSv4(req, payload); err != nil {
-			return fmt.Errorf("aws_sigv4 signing failed: %w", err)
+			return fmt.Errorf("%w: aws_sigv4 signing failed: %v", ErrMissingCredentials, err)
 		}
 
 	case "gcp_adc":
 		if err := SignGCPADC(ctx, req); err != nil {
-			return fmt.Errorf("gcp_adc signing failed: %w", err)
+			return fmt.Errorf("%w: gcp_adc signing failed: %v", ErrMissingCredentials, err)
 		}
 
 	case "azure_identity":
 		if err := SignAzureIdentity(ctx, req); err != nil {
-			return fmt.Errorf("azure_identity signing failed: %w", err)
+			return fmt.Errorf("%w: azure_identity signing failed: %v", ErrMissingCredentials, err)
 		}
 
 	case "oci_cavage":
 		if err := SignOCICavage(req, payload); err != nil {
-			return fmt.Errorf("oci_cavage signing failed: %w", err)
+			return fmt.Errorf("%w: oci_cavage signing failed: %v", ErrMissingCredentials, err)
 		}
 
 	case "ali_tencent_hmac":
 		if err := SignAliTencentHMAC(req, payload); err != nil {
-			return fmt.Errorf("ali_tencent_hmac signing failed: %w", err)
+			return fmt.Errorf("%w: ali_tencent_hmac signing failed: %v", ErrMissingCredentials, err)
 		}
 
 	case "jws_financial":
 		if err := SignJWSFinancial(req, payload); err != nil {
-			return fmt.Errorf("jws_financial signing failed: %w", err)
+			return fmt.Errorf("%w: jws_financial signing failed: %v", ErrMissingCredentials, err)
 		}
 	}
 	return nil
