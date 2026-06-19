@@ -28,6 +28,7 @@ type RunConfig struct {
 	Concurrency    int
 	Timeout        time.Duration
 	RunID          string
+	Provider       string
 	IntegrationDir string
 	IntegrationMap map[string][]byte
 }
@@ -302,8 +303,11 @@ type IntegrationHeader struct {
 	Provider string `yaml:"provider"`
 }
 
-// buildJobs dynamically walks the flat integrations directory
-// and routes all YAML integration configs through the Universal REST engine.
+// buildJobs dynamically walks the integrations directory structure
+// and routes YAML integration configs through the Universal REST engine.
+// Native provider integrations live under native/{provider}.yaml and are
+// filtered by RunConfig.Provider. External integrations in the root are
+// always loaded.
 func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 	var integrations []*universalrest.RESTIntegration
 
@@ -324,6 +328,7 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 			return nil, fmt.Errorf("integrations directory does not exist: %s", dir)
 		}
 
+		// 1. Load external integrations from root (always loaded).
 		files, err := os.ReadDir(dir)
 		if err != nil {
 			return nil, fmt.Errorf("reading integrations directory: %w", err)
@@ -331,7 +336,7 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 
 		for _, f := range files {
 			if f.IsDir() {
-				continue
+				continue // Skip native/ and any other subdirectories.
 			}
 			name := f.Name()
 			if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
@@ -349,6 +354,27 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 				return nil, fmt.Errorf("malformed YAML syntax in %s: %w", name, err)
 			}
 			integrations = append(integrations, &integration)
+		}
+
+		// 2. Load native provider integration if JULA_PROVIDER is set.
+		if o.cfg.Provider != "" {
+			nativePath := filepath.Join(dir, "native", o.cfg.Provider+".yaml")
+			data, err := os.ReadFile(nativePath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					slog.Warn("buildJobs: native integration not found", "provider", o.cfg.Provider, "path", nativePath)
+				} else {
+					return nil, fmt.Errorf("reading native integration %s: %w", o.cfg.Provider, err)
+				}
+			} else {
+				var integration universalrest.RESTIntegration
+				if err := yaml.Unmarshal(data, &integration); err != nil {
+					return nil, fmt.Errorf("malformed YAML syntax in native/%s.yaml: %w", o.cfg.Provider, err)
+				}
+				integrations = append(integrations, &integration)
+			}
+		} else {
+			slog.Warn("buildJobs: JULA_PROVIDER not set, skipping native integrations")
 		}
 	}
 

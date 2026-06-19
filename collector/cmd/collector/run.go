@@ -29,6 +29,7 @@ func handleRun(args []string) error {
 
 	outputFlag := runCmd.String("output", resolveOutputURL(), "Output URL: gs://bucket, s3://bucket, or local path")
 	urlFlag := runCmd.String("integration-url", os.Getenv("JULA_INTEGRATION_URL"), "URL to fetch integrations.tar.gz")
+	providerFlag := runCmd.String("provider", os.Getenv("JULA_PROVIDER"), "Native provider to collect from (gcp, aws, azure, etc.)")
 	concurrencyFlag := runCmd.Int("concurrency", 3, "Max concurrent Evidence extraction goroutines")
 	timeoutFlag := runCmd.String("timeout", "5m", "Per-Evidence extraction timeout duration")
 
@@ -65,7 +66,7 @@ func handleRun(args []string) error {
 	if *urlFlag != "" && (strings.HasPrefix(*urlFlag, "http://") || strings.HasPrefix(*urlFlag, "https://")) {
 		slog.Info("run: fetching integrations from URL", "url", *urlFlag)
 		var err error
-		integrationMap, err = fetchIntegrationsMap(*urlFlag)
+		integrationMap, err = fetchIntegrationsMap(*urlFlag, *providerFlag)
 		if err != nil {
 			return fmt.Errorf("fetching integrations: %w", err)
 		}
@@ -76,6 +77,7 @@ func handleRun(args []string) error {
 		"output", *outputFlag,
 		"concurrency", *concurrencyFlag,
 		"timeout", *timeoutFlag,
+		"provider", *providerFlag,
 		"integration_dir", integrationDir,
 		"run_id", runID,
 	)
@@ -86,6 +88,7 @@ func handleRun(args []string) error {
 		Concurrency:    *concurrencyFlag,
 		Timeout:        timeout,
 		RunID:          runID,
+		Provider:       *providerFlag,
 		IntegrationDir: integrationDir,
 		IntegrationMap: integrationMap,
 	})
@@ -168,7 +171,7 @@ func resolveConfigPath(envKey, defaultPath string) string {
 	return path
 }
 
-func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
+func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid integrations URL: %w", err)
@@ -235,12 +238,26 @@ func fetchIntegrationsMap(urlStr string) (map[string][]byte, error) {
 			}
 			tail := parts[1]
 
-			// Accept files under governor/engine/integrations/ (flat layout).
+			// Accept files under governor/engine/integrations/ only.
 			if !strings.HasPrefix(tail, "governor/engine/integrations/") {
 				continue
 			}
 
 			normalizedName := strings.TrimPrefix(tail, "governor/engine/integrations/")
+
+			// Filter native/ provider integrations: only load the YAML matching JULA_PROVIDER.
+			// External integrations (root-level) are always loaded.
+			if strings.HasPrefix(normalizedName, "native/") {
+				if provider == "" {
+					continue // No provider set, skip all native integrations.
+				}
+				expected := "native/" + provider + ".yaml"
+				if normalizedName != expected {
+					continue // Skip non-matching native providers.
+				}
+				// Strip the native/ prefix so the map key is just "gcp.yaml".
+				normalizedName = strings.TrimPrefix(normalizedName, "native/")
+			}
 
 			data, err := io.ReadAll(tr)
 			if err != nil {

@@ -224,9 +224,10 @@ func TestFetchIntegrationsMap(t *testing.T) {
 	tw := tar.NewWriter(gzw)
 
 	files := map[string]string{
-		"repo-name-123/governor/engine/integrations/gcp.yaml":  "gcp config content",
-		"repo-name-123/governor/engine/integrations/aws.yaml":  "aws config content",
-		"repo-name-123/other-folder/not-integration": "ignored file",
+		"repo-name-123/governor/engine/integrations/native/gcp.yaml": "gcp config content",
+		"repo-name-123/governor/engine/integrations/native/aws.yaml": "aws config content",
+		"repo-name-123/governor/engine/integrations/github.yaml":      "github config content",
+		"repo-name-123/other-folder/not-integration":                   "ignored file",
 	}
 
 	for path, content := range files {
@@ -269,21 +270,24 @@ func TestFetchIntegrationsMap(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-github-token")
 	t.Setenv("JULA_TEST_ENV", "true")
 
-	// 4. Call fetchIntegrationsMap
-	res, err := fetchIntegrationsMap(ts.URL)
+	// 4. Call fetchIntegrationsMap with provider=gcp
+	res, err := fetchIntegrationsMap(ts.URL, "gcp")
 	if err != nil {
 		t.Fatalf("fetchIntegrationsMap failed: %v", err)
 	}
 
-	// 5. Verify the map output
+	// 5. Verify the map output: gcp.yaml (native, matching provider) + github.yaml (external)
 	if len(res) != 2 {
-		t.Errorf("expected 2 files in map, got %d", len(res))
+		t.Errorf("expected 2 files in map, got %d: %v", len(res), res)
 	}
 	if string(res["gcp.yaml"]) != "gcp config content" {
 		t.Errorf("expected gcp config content, got %q", string(res["gcp.yaml"]))
 	}
-	if string(res["aws.yaml"]) != "aws config content" {
-		t.Errorf("expected aws config content, got %q", string(res["aws.yaml"]))
+	if string(res["github.yaml"]) != "github config content" {
+		t.Errorf("expected github config content, got %q", string(res["github.yaml"]))
+	}
+	if _, ok := res["aws.yaml"]; ok {
+		t.Errorf("expected aws.yaml to be filtered out (provider=gcp), but found in map")
 	}
 	if _, ok := res["not-integration"]; ok {
 		t.Errorf("expected other-folder files to be ignored, but found in map")
@@ -466,8 +470,8 @@ func TestFetchIntegrationsMap_CustomTokenEnv(t *testing.T) {
 	t.Setenv("GITLAB_TOKEN", "my-gitlab-token-value")
 	t.Setenv("JULA_TEST_ENV", "true")
 
-	// 5. Call fetchIntegrationsMap
-	res, err := fetchIntegrationsMap(ts.URL)
+	// 5. Call fetchIntegrationsMap (custom.yaml is in root, not native/, so no provider needed)
+	res, err := fetchIntegrationsMap(ts.URL, "")
 	if err != nil {
 		t.Fatalf("fetchIntegrationsMap failed: %v", err)
 	}
