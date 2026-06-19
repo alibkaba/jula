@@ -136,7 +136,9 @@ jobs:
 
       - name: Configure Docker for GCP
         if: env.SKIP_DEPLOY != 'true'
-        run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
+          echo '${{ steps.auth-gcp.outputs.access_token }}' | docker login -u oauth2accesstoken --password-stdin https://${{ env.ARTIFACT_REGISTRY }}
 
       - name: Tag and Push (GCP)
         if: env.SKIP_DEPLOY != 'true'
@@ -155,8 +157,6 @@ jobs:
           subject-name: ${{ steps.push-gcp.outputs.image }}
           subject-digest: ${{ steps.push-gcp.outputs.digest }}
           push-to-registry: true
-          registry-username: oauth2accesstoken
-          registry-password: ${{ steps.auth-gcp.outputs.access_token }}
 
       - name: Deploy to Cloud Run
         if: env.SKIP_DEPLOY != 'true'
