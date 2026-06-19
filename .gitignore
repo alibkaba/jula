@@ -5,7 +5,7 @@
 docs/
 scripts/
 deploy/
-todo.md
+TODO.md
 
 # Security & Secrets
 *.log
@@ -30,8 +30,7 @@ keys/
 *.out
 
 # Go Test files
-coverage.out
-c.out
+coverage_full.txt
 
 # Local Evidence Ledger Folder
 evidence_ledger/
@@ -55,8 +54,6 @@ tfplan
 terraform.tfvars
 !terraform.tfvars.example
 
-# Local evidence ledger output
-evidence_ledger/
 
 # Governor compiled binaries
 governor/import
