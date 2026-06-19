@@ -45,6 +45,8 @@ jobs:
 
       - name: Execute Collector Canary Scan
         id: collector
+        env:
+          JULA_INTEGRATION_DIR: governor/engine/integrations
         run: |
           mkdir -p /tmp/canary-evidence
           ./jula-collector run --output /tmp/canary-evidence
