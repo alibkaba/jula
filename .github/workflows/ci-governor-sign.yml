@@ -49,7 +49,7 @@ jobs:
           go run -C core ./cmd/sign-bundle \
             --bundle-hash "${{ steps.bundle.outputs.bundle_hash }}" \
             --key-env "JULA_POLICY_SIGNING_KEY" \
-            --output "bundle-manifest.json"
+            --output "../bundle-manifest.json"
 
           echo "Signed bundle-manifest.json:"
           cat bundle-manifest.json

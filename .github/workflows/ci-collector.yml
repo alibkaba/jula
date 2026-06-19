@@ -157,7 +157,7 @@ jobs:
         with:
           subject-name: ${{ steps.push-gcp.outputs.image }}
           subject-digest: ${{ steps.push-gcp.outputs.digest }}
-          push-to-registry: true
+          push-to-registry: false
 
       - name: Deploy to Cloud Run
         if: env.SKIP_DEPLOY != 'true'
