@@ -10,11 +10,11 @@ func TestStructInstantiation(t *testing.T) {
 	now := time.Now()
 
 	f := Finding{
-		EvidenceID:     "EVID-TEST-01",
-		Provider:  "test-provider",
-		RawData:   []byte(`{"key":"value"}`),
-		Timestamp: now,
-		RunID:     "test-run",
+		EvidenceID: "EVID-TEST-01",
+		Provider:   "test-provider",
+		RawData:    []byte(`{"key":"value"}`),
+		Timestamp:  now,
+		RunID:      "test-run",
 	}
 
 	if f.EvidenceID != "EVID-TEST-01" {
@@ -22,7 +22,7 @@ func TestStructInstantiation(t *testing.T) {
 	}
 
 	e := Evidence{
-		EvidenceID:       "EVID-TEST-01",
+		EvidenceID:  "EVID-TEST-01",
 		Finding:     f,
 		PayloadHash: "abc-123",
 	}
@@ -115,4 +115,3 @@ func TestJSONSerialization(t *testing.T) {
 		t.Errorf("unmarshaled Manifest mismatch. Expected %+v, got %+v", m, mDecoded)
 	}
 }
-

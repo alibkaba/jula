@@ -18,10 +18,10 @@ import (
 // No AWS SDK dependency. Authentication uses the ECS task role on Fargate
 // or static environment variables for local development.
 type S3Store struct {
-	bucket   string
-	region   string
-	client   *http.Client
-	creds    CredentialProvider
+	bucket string
+	region string
+	client *http.Client
+	creds  CredentialProvider
 
 	// baseURL allows overriding the S3 endpoint for testing or S3-compatible services.
 	baseURL string

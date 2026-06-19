@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -151,7 +152,7 @@ func TestS3Store_PutGet(t *testing.T) {
 	// Create static credential provider for testing.
 	staticCreds := &staticCredProvider{
 		creds: Credentials{
-			AccessKeyID:    "AKIATESTKEY",
+			AccessKeyID:     "AKIATESTKEY",
 			SecretAccessKey: "testsecret",
 		},
 	}
@@ -274,4 +275,139 @@ type staticCredProvider struct {
 
 func (p *staticCredProvider) Resolve() (Credentials, error) {
 	return p.creds, nil
+}
+
+func TestGCSStore_Errors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	store := NewGCSStore("test-bucket", server.Client(),
+		WithGCSBaseURL(server.URL),
+		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
+			return "mock-token", 1 * time.Hour, nil
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Put error
+	err := store.Put(ctx, "evidence/test.json", bytes.NewReader([]byte("test")), "application/json")
+	if err == nil {
+		t.Fatal("Put expected error, got nil")
+	}
+
+	// Get error
+	_, err = store.Get(ctx, "evidence/test.json")
+	if err == nil {
+		t.Fatal("Get expected error, got nil")
+	}
+
+	// List error
+	_, err = store.List(ctx, "evidence/")
+	if err == nil {
+		t.Fatal("List expected error, got nil")
+	}
+}
+
+func TestGCSStore_TokenError(t *testing.T) {
+	store := NewGCSStore("test-bucket", nil,
+		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
+			return "", 0, errors.New("token error")
+		}),
+	)
+
+	ctx := context.Background()
+
+	// Put error
+	err := store.Put(ctx, "test.json", bytes.NewReader(nil), "")
+	if err == nil {
+		t.Fatal("Put expected token error, got nil")
+	}
+
+	// Get error
+	_, err = store.Get(ctx, "test.json")
+	if err == nil {
+		t.Fatal("Get expected token error, got nil")
+	}
+
+	// List error
+	_, err = store.List(ctx, "")
+	if err == nil {
+		t.Fatal("List expected token error, got nil")
+	}
+}
+
+func TestS3Store_Errors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	staticCreds := &staticCredProvider{
+		creds: Credentials{
+			AccessKeyID:     "AKIATESTKEY",
+			SecretAccessKey: "testsecret",
+		},
+	}
+
+	store := NewS3Store("test-bucket", "us-east-1", server.Client(),
+		WithS3BaseURL(server.URL),
+		WithS3Credentials(staticCreds),
+	)
+
+	ctx := context.Background()
+
+	// Put error
+	err := store.Put(ctx, "evidence/test.json", bytes.NewReader([]byte("test")), "application/json")
+	if err == nil {
+		t.Fatal("Put expected error, got nil")
+	}
+
+	// Get error
+	_, err = store.Get(ctx, "evidence/test.json")
+	if err == nil {
+		t.Fatal("Get expected error, got nil")
+	}
+
+	// List error
+	_, err = store.List(ctx, "evidence/")
+	if err == nil {
+		t.Fatal("List expected error, got nil")
+	}
+}
+
+func TestS3Store_CredError(t *testing.T) {
+	store := NewS3Store("test-bucket", "us-east-1", nil,
+		WithS3Credentials(&errorCredProvider{}),
+	)
+
+	ctx := context.Background()
+
+	// Put error
+	err := store.Put(ctx, "test.json", bytes.NewReader(nil), "")
+	if err == nil {
+		t.Fatal("Put expected cred error, got nil")
+	}
+
+	// Get error
+	_, err = store.Get(ctx, "test.json")
+	if err == nil {
+		t.Fatal("Get expected cred error, got nil")
+	}
+
+	// List error
+	_, err = store.List(ctx, "")
+	if err == nil {
+		t.Fatal("List expected cred error, got nil")
+	}
+}
+
+type errorCredProvider struct{}
+
+func (p *errorCredProvider) Resolve() (Credentials, error) {
+	return Credentials{}, errors.New("cred error")
 }

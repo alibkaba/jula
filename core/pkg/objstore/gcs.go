@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	gcsUploadURL  = "https://storage.googleapis.com/upload/storage/v1"
-	gcsAPIURL     = "https://storage.googleapis.com/storage/v1"
+	gcsUploadURL   = "https://storage.googleapis.com/upload/storage/v1"
+	gcsAPIURL      = "https://storage.googleapis.com/storage/v1"
 	gcsMetadataURL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 )
 
@@ -29,8 +29,8 @@ type GCSStore struct {
 	// baseURL allows overriding the GCS API endpoint for testing.
 	baseURL string
 
-	mu    sync.Mutex
-	token string
+	mu     sync.Mutex
+	token  string
 	expiry time.Time
 
 	// tokenFetcher is the function used to fetch tokens. Overridable for tests.
@@ -204,7 +204,7 @@ func (s *GCSStore) List(ctx context.Context, prefix string) ([]Object, error) {
 
 		for _, item := range listResp.Items {
 			objects = append(objects, Object{
-				Key:  item.Name,
+				Key: item.Name,
 			})
 		}
 

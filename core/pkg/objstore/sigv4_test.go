@@ -1,6 +1,8 @@
 package objstore
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -32,7 +34,7 @@ func TestSigV4_HashPayload(t *testing.T) {
 func TestSigV4_CanonicalizeHeaders(t *testing.T) {
 	headers := http.Header{
 		"Host":                 {"example.amazonaws.com"},
-		"X-Amz-Date":          {"20130524T000000Z"},
+		"X-Amz-Date":           {"20130524T000000Z"},
 		"X-Amz-Content-Sha256": {"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
 		"Content-Type":         {"application/json"},
 		"X-Custom-Header":      {"should-be-ignored"},
@@ -96,9 +98,9 @@ func TestSigV4_SignSetsAuthorizationHeader(t *testing.T) {
 	req.Host = "s3.us-east-1.amazonaws.com"
 
 	creds := Credentials{
-		AccessKeyID:    "AKIAIOSFODNN7EXAMPLE",
+		AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
 		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-		SessionToken:   "FwoGZXIvYXdzEBY...",
+		SessionToken:    "FwoGZXIvYXdzEBY...",
 	}
 
 	signV4(req, creds, "us-east-1", "s3", hashPayload(nil))
@@ -127,7 +129,7 @@ func TestSigV4_SignWithoutSessionToken(t *testing.T) {
 	req.Host = "s3.us-east-1.amazonaws.com"
 
 	creds := Credentials{
-		AccessKeyID:    "AKIAIOSFODNN7EXAMPLE",
+		AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
 		SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 	}
 
@@ -140,5 +142,59 @@ func TestSigV4_SignWithoutSessionToken(t *testing.T) {
 	authHeader := req.Header.Get("Authorization")
 	if authHeader == "" {
 		t.Fatal("Authorization header not set")
+	}
+}
+
+type errorReader struct{}
+
+func (errorReader) Read(p []byte) (n int, err error) {
+	return 0, http.ErrBodyReadAfterClose
+}
+
+func TestSigV4_HashReader(t *testing.T) {
+	tests := []struct {
+		name     string
+		reader   io.Reader
+		wantHash string
+		wantData []byte
+		wantErr  bool
+	}{
+		{
+			name:     "nil reader",
+			reader:   nil,
+			wantHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			wantData: nil,
+			wantErr:  false,
+		},
+		{
+			name:     "valid reader",
+			reader:   bytes.NewReader([]byte("hello")),
+			wantHash: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+			wantData: []byte("hello"),
+			wantErr:  false,
+		},
+		{
+			name:     "error reading",
+			reader:   errorReader{},
+			wantHash: "",
+			wantData: nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotHash, gotData, err := hashReader(tt.reader)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("hashReader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotHash != tt.wantHash {
+				t.Errorf("hashReader() gotHash = %v, want %v", gotHash, tt.wantHash)
+			}
+			if string(gotData) != string(tt.wantData) {
+				t.Errorf("hashReader() gotData = %v, want %v", gotData, tt.wantData)
+			}
+		})
 	}
 }

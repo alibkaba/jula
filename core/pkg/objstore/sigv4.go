@@ -16,7 +16,7 @@ import (
 // Credentials holds temporary AWS (or compatible) credentials.
 type Credentials struct {
 	AccessKeyID     string
-	SecretAccessKey  string
+	SecretAccessKey string
 	SessionToken    string
 	Expiration      time.Time
 }

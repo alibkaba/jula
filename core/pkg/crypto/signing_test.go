@@ -206,7 +206,7 @@ func TestProvenance_SignAndVerify(t *testing.T) {
 	}
 
 	prov := &Provenance{
-		EvidenceID:       "EVID-TEST-01",
+		EvidenceID:  "EVID-TEST-01",
 		Provider:    "gcp_cai",
 		SourceID:    "src-1",
 		PayloadHash: "abc123hash",
@@ -285,8 +285,8 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		{
 			name: "Nil public key",
 			prov: &Provenance{
-				EvidenceID:     "EVID-TEST-03",
-				Signature: "valid-sig",
+				EvidenceID: "EVID-TEST-03",
+				Signature:  "valid-sig",
 			},
 			pubKey:    nil,
 			wantErr:   true,
@@ -295,8 +295,8 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		{
 			name: "Empty signature",
 			prov: &Provenance{
-				EvidenceID:     "EVID-TEST-03",
-				Signature: "",
+				EvidenceID: "EVID-TEST-03",
+				Signature:  "",
 			},
 			pubKey:    &privKey.PublicKey,
 			wantErr:   true,
@@ -305,8 +305,8 @@ func TestVerifyProvenance_Negative(t *testing.T) {
 		{
 			name: "Malformed signature",
 			prov: &Provenance{
-				EvidenceID:     "EVID-TEST-03",
-				Signature: "not-a-valid-hex-!@#",
+				EvidenceID: "EVID-TEST-03",
+				Signature:  "not-a-valid-hex-!@#",
 			},
 			pubKey:    &privKey.PublicKey,
 			wantErr:   true,

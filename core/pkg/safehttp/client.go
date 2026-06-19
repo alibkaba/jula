@@ -110,4 +110,3 @@ func newClient(timeout time.Duration, allowedDomains []string) *http.Client {
 		Transport: transport,
 	}
 }
-
