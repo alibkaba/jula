@@ -32,6 +32,17 @@ jobs:
       - name: Build Evaluator
         run: go build -o jula-evaluator ./evaluator/cmd/evaluator
 
+      - name: Generate Ephemeral Signing Key Pair
+        run: |
+          openssl ecparam -genkey -name prime256v1 -noout -out /tmp/canary-signing-key.pem 2>/dev/null
+          openssl ec -in /tmp/canary-signing-key.pem -pubout -out /tmp/canary-public-key.pem 2>/dev/null
+          echo "JULA_SIGNING_KEY<<CANARY_EOF" >> $GITHUB_ENV
+          cat /tmp/canary-signing-key.pem >> $GITHUB_ENV
+          echo "CANARY_EOF" >> $GITHUB_ENV
+          echo "JULA_PUBLIC_KEY<<CANARY_PUB_EOF" >> $GITHUB_ENV
+          cat /tmp/canary-public-key.pem >> $GITHUB_ENV
+          echo "CANARY_PUB_EOF" >> $GITHUB_ENV
+
       - name: Execute Collector Canary Scan
         id: collector
         run: |
@@ -45,7 +56,9 @@ jobs:
           JULA_BUCKET_URL: /tmp/canary-evidence
           JULA_POLICY_URL: governor/policies
         run: |
-          ./jula-evaluator
+          ./jula-evaluator run \
+            --bucket-url "$JULA_BUCKET_URL" \
+            --policy-url "$JULA_POLICY_URL"
         continue-on-error: true
 
       - name: Report Canary Results
