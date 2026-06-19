@@ -4,7 +4,7 @@ auth_flow:
   type: "bearer"
   token_env: "GITHUB_TOKEN"
 endpoints:
-  "https://api.github.com/repos/alibkaba/jula/pulls?state=all&per_page=100":
+  "https://api.github.com/repos/${JULA_SOURCE_ORG}/${JULA_SOURCE_REPO}/pulls?state=all&per_page=100":
     method: "GET"
     evidence_id: "EVID-GH-PULLS"
     description: "List pull requests for change management tracking"
@@ -14,7 +14,7 @@ endpoints:
     pagination:
       next_url_field: "header.Link"
       max_pages: 5
-  "https://api.github.com/repos/alibkaba/jula/branches":
+  "https://api.github.com/repos/${JULA_SOURCE_ORG}/${JULA_SOURCE_REPO}/branches":
     method: "GET"
     evidence_id: "EVID-GH-BRANCHES"
     description: "List branches and protection rules"
@@ -24,7 +24,7 @@ endpoints:
     pagination:
       next_url_field: "header.Link"
       max_pages: 5
-  "https://api.github.com/orgs/alibkaba/members":
+  "https://api.github.com/orgs/${JULA_SOURCE_ORG}/members":
     method: "GET"
     evidence_id: "EVID-GH-MEMBERS"
     description: "List organization members for access control audit"
