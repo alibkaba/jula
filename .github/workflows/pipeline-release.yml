@@ -60,7 +60,17 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      - name: Verify GCP infrastructure
+        run: |
+          if ! gcloud artifacts repositories describe jula-collector \
+              --project=${{ env.GCP_PROJECT_ID }} --location=${{ env.GCP_REGION }} \
+              --quiet 2>/dev/null; then
+            echo "::warning::GCP infrastructure not deployed. Skipping image tagging."
+            echo "SKIP_DEPLOY=true" >> $GITHUB_ENV
+          fi
+
       - name: Tag Docker image with SemVer (GCP)
+        if: env.SKIP_DEPLOY != 'true'
         run: |
           gcloud artifacts docker tags add \
             ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-collector/${{ env.IMAGE_NAME }}:${{ github.sha }} \
@@ -118,7 +128,17 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      - name: Verify GCP infrastructure
+        run: |
+          if ! gcloud artifacts repositories describe jula-evaluator \
+              --project=${{ env.GCP_PROJECT_ID }} --location=${{ env.GCP_REGION }} \
+              --quiet 2>/dev/null; then
+            echo "::warning::GCP infrastructure not deployed. Skipping image tagging."
+            echo "SKIP_DEPLOY=true" >> $GITHUB_ENV
+          fi
+
       - name: Tag Docker image with SemVer (GCP)
+        if: env.SKIP_DEPLOY != 'true'
         run: |
           gcloud artifacts docker tags add \
             ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-evaluator/${{ env.IMAGE_NAME }}:${{ github.sha }} \
