@@ -146,7 +146,8 @@ jobs:
         run: |
           GCP_TAG="${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REPOSITORY }}/${{ env.IMAGE_NAME }}"
           docker tag local-jula:latest ${GCP_TAG}:${{ github.sha }}
-          DIGEST=$(docker push ${GCP_TAG}:${{ github.sha }} | grep -oP 'sha256:[a-f0-9]+')
+          docker push ${GCP_TAG}:${{ github.sha }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${GCP_TAG}:${{ github.sha }} | cut -d@ -f2)
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
           echo "image=${GCP_TAG}" >> $GITHUB_OUTPUT
 
@@ -223,7 +224,8 @@ jobs:
           ECR_TAG="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/jula-evaluator"
           docker tag local-jula:latest ${ECR_TAG}:${{ github.sha }}
           docker tag local-jula:latest ${ECR_TAG}:latest
-          DIGEST=$(docker push ${ECR_TAG}:${{ github.sha }} | grep -oP 'sha256:[a-f0-9]+')
+          docker push ${ECR_TAG}:${{ github.sha }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${ECR_TAG}:${{ github.sha }} | cut -d@ -f2)
           echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
           echo "image=${ECR_TAG}" >> $GITHUB_OUTPUT
           docker push ${ECR_TAG}:latest
