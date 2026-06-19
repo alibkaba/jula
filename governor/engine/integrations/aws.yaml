@@ -1,8 +1,7 @@
 vendor_name: "aws"
 provider: "aws"
 auth_flow:
-  type: "aws_native_auth"
-  token_env: "AWS_ACCESS_TOKEN"
+  type: "aws_sigv4"
 endpoints:
   "https://s3.${AWS_REGION}.amazonaws.com/?list-type=2":
     method: "GET"

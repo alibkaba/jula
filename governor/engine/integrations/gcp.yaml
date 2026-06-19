@@ -1,8 +1,7 @@
 vendor_name: "gcp"
 provider: "gcp"
 auth_flow:
-  type: "gcp_native_auth"
-  token_env: "GCP_ACCESS_TOKEN"
+  type: "gcp_adc"
 endpoints:
   "https://storage.googleapis.com/storage/v1/b?project=${GCP_PROJECT_ID}":
     method: "GET"
