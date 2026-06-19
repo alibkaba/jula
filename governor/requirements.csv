@@ -1,1 +1,6 @@
 Control_ID,Requirement_ID,Target_Provider,Parameter_Field,Operator,Expected_Value,Confidence,Status,Documentation_URL
+CIS-GCP-5.1,GCP-GCS-IAM-001,gcp,iam_policy_bindings_members,not_contains,"allUsers, allAuthenticatedUsers",1.00,APPROVED,https://cloud.google.com/docs/storage/docs/access-control/iam#public-access-prevention
+CIS-GCP-6.1,REQ-GCP-SQL-001,gcp,ipConfiguration.sslMode,==,TRUSTED_CLIENT_CERTIFICATE_REQUIRED,1.00,APPROVED,https://cloud.google.com/docs/sql/mysql/configure-ssl-instance#enforcing-ssl
+CIS-GCP-6.2,REQ-SQL-BACKUP-001,gcp,settings.backupConfiguration.enabled,==,true,1.00,APPROVED,https://cloud.google.com/docs/sql/docs/mysql/backup-recovery/performing
+CIS-GCP-4.1,GCP-COMP-001,gcp,service_accounts.email,!=,default,1.00,APPROVED,https://cloud.google.com/docs/compute/docs/access/service-accounts#default_service_account
+CIS-GCP-5.2,REQ-GCP-STORAGE-001,gcp,iamConfiguration.uniformBucketLevelAccess.enabled,==,true,1.00,APPROVED,https://cloud.google.com/docs/storage/docs/uniform-bucket-level-access

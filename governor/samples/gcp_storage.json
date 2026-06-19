@@ -1,0 +1,39 @@
+{
+  "kind": "storage#buckets",
+  "items": [
+    {
+      "kind": "storage#bucket",
+      "selfLink": "https://www.googleapis.com/storage/v1/b/jula-evidence-ledger-494603",
+      "id": "jula-evidence-ledger-494603",
+      "name": "jula-evidence-ledger-494603",
+      "projectNumber": "29629008538",
+      "generation": "1780104463664047561",
+      "metageneration": "19",
+      "location": "US-CENTRAL1",
+      "storageClass": "STANDARD",
+      "etag": "CBM=",
+      "timeCreated": "2026-05-30T01:27:43.770Z",
+      "updated": "2026-06-19T14:22:16.739Z",
+      "versioning": {
+        "enabled": true
+      },
+      "softDeletePolicy": {
+        "retentionDurationSeconds": "604800",
+        "effectiveTime": "2026-05-30T01:27:43.770Z"
+      },
+      "iamConfiguration": {
+        "bucketPolicyOnly": {
+          "enabled": true,
+          "lockedTime": "2026-08-28T01:27:43.770Z"
+        },
+        "uniformBucketLevelAccess": {
+          "enabled": true,
+          "lockedTime": "2026-08-28T01:27:43.770Z"
+        },
+        "publicAccessPrevention": "enforced"
+      },
+      "locationType": "region",
+      "satisfiesPZI": true
+    }
+  ]
+}

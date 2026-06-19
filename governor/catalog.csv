@@ -1,1 +1,6 @@
 Control_ID,Control_Statement,Control_Description
+CIS-GCP-5.1,Ensure Cloud Storage buckets are not publicly accessible,Verify that no Cloud Storage bucket grants access to allUsers or allAuthenticatedUsers via IAM policy bindings or ACLs
+CIS-GCP-6.1,Ensure Cloud SQL instances require SSL connections,All Cloud SQL database instances must enforce SSL/TLS for client connections to prevent unencrypted data transmission
+CIS-GCP-6.2,Ensure Cloud SQL automated backups are enabled,Automated daily backups must be configured and enabled for all Cloud SQL instances to support disaster recovery
+CIS-GCP-4.1,Ensure default service account is not used for compute instances,Virtual machine instances must not use the default Compute Engine service account to limit lateral movement risk
+CIS-GCP-5.2,Ensure uniform bucket-level access is enabled on Cloud Storage buckets,Storage buckets must use uniform bucket-level access instead of fine-grained ACLs to simplify and strengthen access management

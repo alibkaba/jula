@@ -21,7 +21,7 @@ import (
 const (
 	workspaceFile    = "../../workspace.yaml"
 	requirementsFile = "../../requirements.csv"
-	promptFile       = "../../engine/prompts/06_generate_policy.md"
+	promptFile       = "../../engine/prompts/setup_04_generate_policy.md"
 	translatorsDir   = "../../engine/translators/"
 	policiesDir      = "../../policies/rules/"
 )

@@ -1,0 +1,13 @@
+{
+    "Buckets": [
+        {
+            "Name": "jula-evidence-ledger-352486518067",
+            "CreationDate": "2026-06-15T18:52:30+00:00",
+            "BucketArn": "arn:aws:s3:::jula-evidence-ledger-352486518067"
+        }
+    ],
+    "Owner": {
+        "ID": "bab03a2e4d8c3e1e4df7f3afb3a184caad2cd42df93b26c5b523b02568e4d202"
+    },
+    "Prefix": null
+}

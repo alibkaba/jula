@@ -1,16 +1,35 @@
 # Jula Governor
 
-The **Jula Governor** is the Registry and AI Generation engine of the Jula Controls ecosystem.
+The **Jula Governor** is the policy authoring engine of the Jula compliance platform. It transforms compliance controls into executable OPA Rego policies through an AI-powered pipeline.
 
-It houses the configuration components, data adapters, and executable rule criteria for the platform. It isolates high-level compliance checklists from raw execution code, delivering an automated, auditable security posture.
+## Capabilities
 
-## Key Features
+- Ingests compliance catalogs and extracts technical requirements via AI
+- Generates Rego translator modules from raw cloud API responses
+- Produces standalone OPA policy files per compliance requirement
+- Validates generated Rego via OPA AST compilation
+- Self-heals translator drift when provider APIs change
 
-1. **Workspace Spec:** Acts as the central registry (`workspace.yaml`) declaring which providers and SaaS integrations are active.
-2. **AI Translation:** Extracts engineering parameters from unstructured corporate GRC spreadsheets (`catalog.csv`).
-3. **Policy Generation:** Autonomously writes and manages executable OPA Rego policies (`policies/rules/`).
-4. **GitOps Self-Healing:** Powers the autonomous feedback loop that repairs `SCHEMA_DRIFT` anomalies detected by the `jula-evaluator`.
+## Directory Structure
 
-## Usage
+```
+governor/
+├── workspace.yaml        # Provider configuration
+├── catalog.csv           # Compliance controls (input)
+├── requirements.csv      # Extracted requirements (output)
+├── engine/
+│   ├── integrations/     # Provider API endpoint definitions
+│   ├── translators/      # Rego normalization modules
+│   └── prompts/          # AI prompt templates
+├── policies/
+│   └── rules/            # Generated OPA Rego policies
+└── cmd/                  # CLI tools (import, translate, build, validate, reset)
+```
 
-For full ecosystem documentation, architecture diagrams, and licensing details, please refer to the [Root README](../README.md).
+## Configuration
+
+The Governor requires an OpenAI-compatible chat completions endpoint. Set `JULA_PRIMARY_ENDPOINT`, `JULA_PRIMARY_KEY`, and `JULA_PRIMARY_MODEL` in your environment. An optional fallback tier provides automatic failover on rate limits.
+
+## Full Documentation
+
+For architecture and licensing details, see the [Root README](../README.md).

@@ -21,7 +21,7 @@ const (
 	workspaceFile    = "../../workspace.yaml"
 	catalogFile      = "../../catalog.csv"
 	requirementsFile = "../../requirements.csv"
-	promptFile       = "../../engine/prompts/04_extract_requirements.md"
+	promptFile       = "../../engine/prompts/setup_03_extract_requirements.md"
 )
 
 type ProviderConfig struct {
