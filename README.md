@@ -9,6 +9,14 @@
 | **[Jula Evaluator](./evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-evaluator.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-evaluator.yml) | Policy evaluation and manifest verification |
 | **[Jula Governor](./governor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml) | AI Translation & Policy Generation CLI |
 
+| Pipeline | Status | Description |
+| :--- | :--- | :--- |
+| **Canary** | [![Canary](https://github.com/alibkaba/jula/actions/workflows/pipeline-canary.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-canary.yml) | Scheduled daily build and integration smoke test |
+| **Release** | [![Release](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml) | Multi-platform binary release with SLSA attestation |
+| **Policy Signing** | [![Policy Signing](https://github.com/alibkaba/jula/actions/workflows/ci-governor-sign.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor-sign.yml) | Cryptographic signing of policy bundles |
+
+> For a detailed technical inventory of every feature, see [FEATURES.md](./FEATURES.md).
+
 ## The Jula Controls Ecosystem
 
 Jula Controls is designed as a decoupled, multi-repository architecture (now consolidated into a monorepo) where specialized tools cooperate to automate security assurance:
@@ -109,7 +117,7 @@ flowchart TB
         PolicyCheck --> OPA
     end
 
-    subgraph Phase5 ["5. Quantitative Risk & Posture Insights (Jula Insight Engine)"]
+    subgraph Phase5 ["5. Quantitative Risk & Posture Insights (Planned)"]
         direction TB
         DB["📊 Insight Engine <br> (Quantitative Risk & Posture)"]
         
