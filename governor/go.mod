@@ -1,6 +1,6 @@
 module jula-governor
 
-go 1.25.0
+go 1.25.10
 
 require github.com/open-policy-agent/opa v1.17.1
 
