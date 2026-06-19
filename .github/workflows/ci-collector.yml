@@ -56,7 +56,7 @@ jobs:
   # 2. BUILD CHECK (Runs on PRs only)
   # ==========================================
   build-check:
-    name: Verify Docker Build
+    name: Verify Build Image
     needs: test
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
