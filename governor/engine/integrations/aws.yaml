@@ -4,25 +4,25 @@ auth_flow:
   type: "aws_native_auth"
   token_env: "AWS_ACCESS_TOKEN"
 endpoints:
-  "https://s3.${AWS_REGION}.amazonaws.com/?list-type=2":
+  "https://s3.us-east-1.amazonaws.com/?list-type=2":
     method: "GET"
     evidence_id: "EVID-AWS-S3-BUCKETS"
     description: "List S3 buckets for storage compliance audit"
     headers:
       Accept: "application/json"
-  "https://s3.${AWS_REGION}.amazonaws.com/${BUCKET_NAME}?publicAccessBlock":
+  "https://s3.us-east-1.amazonaws.com/jula-evidence-ledger-352486518067?publicAccessBlock":
     method: "GET"
     evidence_id: "EVID-AWS-S3-PUBLIC-ACCESS"
     description: "Get S3 bucket public access block configuration"
     headers:
       Accept: "application/json"
-  "https://s3.${AWS_REGION}.amazonaws.com/${BUCKET_NAME}?encryption":
+  "https://s3.us-east-1.amazonaws.com/jula-evidence-ledger-352486518067?encryption":
     method: "GET"
     evidence_id: "EVID-AWS-S3-ENCRYPTION"
     description: "Get S3 bucket server-side encryption configuration"
     headers:
       Accept: "application/json"
-  "https://s3.${AWS_REGION}.amazonaws.com/${BUCKET_NAME}?versioning":
+  "https://s3.us-east-1.amazonaws.com/jula-evidence-ledger-352486518067?versioning":
     method: "GET"
     evidence_id: "EVID-AWS-S3-VERSIONING"
     description: "Get S3 bucket versioning status"
