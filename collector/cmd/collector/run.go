@@ -95,6 +95,12 @@ func handleRun(args []string) error {
 	if err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
+
+	if len(evidence) == 0 {
+		slog.Warn("run: no evidence collected (all integrations skipped or returned empty results)")
+		return nil
+	}
+
 	slog.Info("run: extraction and transformation complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---

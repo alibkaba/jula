@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -194,13 +195,20 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 
 // executeJobs runs a slice of extractionJobs concurrently with bounded
 // concurrency and per-job timeouts. It collects all successful Findings
-// and returns them. Partial failures are logged as warnings. Total failure
-// (zero findings) returns an error.
+// and returns them.
+//
+// Error classification:
+//   - Missing credentials (ErrMissingCredentials): logged as warnings, counted as skips.
+//   - Real extraction failures: logged as errors, counted as failures.
+//
+// The method returns an error only when real failures occur and zero findings
+// were collected. All-skipped (no credentials anywhere) returns nil, nil.
 func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([]types.Finding, error) {
 	var (
 		mu          sync.Mutex
 		allFindings []types.Finding
-		errs        []error
+		realErrs    []error  // Extraction failures with valid credentials.
+		skipped     []string // Evidence IDs skipped due to missing credentials.
 	)
 
 	sem := make(chan struct{}, o.cfg.Concurrency)
@@ -217,7 +225,7 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 				defer func() { <-sem }()
 			case <-ctx.Done():
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("erl %q: context cancelled before start", j.evidenceID))
+				realErrs = append(realErrs, fmt.Errorf("erl %q: context cancelled before start", j.evidenceID))
 				mu.Unlock()
 				return
 			}
@@ -234,12 +242,23 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 
 			findings, err := j.execute(erlCtx)
 			if err != nil {
+				// Distinguish "credentials not configured" from real failures.
+				if errors.Is(err, universalrest.ErrMissingCredentials) {
+					slog.Warn("extract: skipping, credentials not configured",
+						"evidence_id", j.evidenceID,
+					)
+					mu.Lock()
+					skipped = append(skipped, j.evidenceID)
+					mu.Unlock()
+					return
+				}
+
 				slog.Error("extract: Evidence extraction failed",
 					"evidence_id", j.evidenceID,
 					"error", err,
 				)
 				mu.Lock()
-				errs = append(errs, fmt.Errorf("erl %q: %w", j.evidenceID, err))
+				realErrs = append(realErrs, fmt.Errorf("erl %q: %w", j.evidenceID, err))
 				mu.Unlock()
 				return
 			}
@@ -257,13 +276,21 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 
 	wg.Wait()
 
-	if len(errs) > 0 {
+	// Log skip summary.
+	if len(skipped) > 0 {
+		slog.Warn("extract: integrations skipped (no credentials)",
+			"count", len(skipped),
+			"evidence_ids", skipped,
+		)
+	}
+
+	// Fail only on real extraction errors with zero findings.
+	if len(realErrs) > 0 {
 		if len(allFindings) == 0 {
-			// Total failure: no findings extracted from any Evidence.
-			return nil, fmt.Errorf("all Evidence extractions failed: %v", errs)
+			return nil, fmt.Errorf("all configured extractions failed: %v", realErrs)
 		}
-		// Partial failure: log warnings but return what we have.
-		for _, e := range errs {
+		// Partial real failures: log but proceed.
+		for _, e := range realErrs {
 			slog.Warn("extract: partial failure", "error", e)
 		}
 	}
