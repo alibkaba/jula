@@ -87,6 +87,12 @@ variable "jula_provider" {
   default     = "aws"
 }
 
+variable "source_repo" {
+  description = "The Git repository name (e.g. jula) used in OIDC trust policy for CI/CD"
+  type        = string
+  default     = "jula"
+}
+
 # Auto-discovery data sources
 data "aws_vpc" "default" {
   count   = var.vpc_id == "" ? 1 : 0
