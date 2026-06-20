@@ -47,6 +47,10 @@ jobs:
         id: collector
         env:
           JULA_INTEGRATION_DIR: governor/engine/integrations
+          GITHUB_TOKEN: ${{ secrets.JULA_GITHUB_COLLECTOR_TOKEN }}
+          JULA_SOURCE_TOKEN_ENV: GITHUB_TOKEN
+          JULA_SOURCE_ORG: alibkaba
+          JULA_ALLOWED_HOSTS: api.github.com,github.com
         run: |
           mkdir -p /tmp/canary-evidence
           ./jula-collector run --output /tmp/canary-evidence

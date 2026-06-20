@@ -1,0 +1,125 @@
+name: "CI/CD: Release Artifacts"
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
+  IMAGE_NAME: jula
+
+jobs:
+  # ==========================================
+  # Determine which components were released
+  # ==========================================
+  detect-release:
+    name: Detect Released Component
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      service: ${{ steps.detect.outputs.service }}
+    steps:
+      - name: Parse release tag
+        id: detect
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "Release tag: $TAG"
+          if [[ "$TAG" == collector-* ]]; then
+            echo "service=collector" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == evaluator-* ]]; then
+            echo "service=evaluator" >> $GITHUB_OUTPUT
+          else
+            echo "service=unknown" >> $GITHUB_OUTPUT
+            echo "::warning::Unknown release tag format: $TAG"
+          fi
+
+  # ==========================================
+  # Tag container image with SemVer + build binaries
+  # ==========================================
+  release-artifacts:
+    name: "Release: ${{ needs.detect-release.outputs.service }}"
+    needs: detect-release
+    if: needs.detect-release.outputs.service != 'unknown'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # --- GCP Image Tagging ---
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Verify GCP infrastructure
+        run: |
+          if ! gcloud artifacts repositories describe jula-${{ needs.detect-release.outputs.service }} \
+              --project=${{ env.GCP_PROJECT_ID }} --location=${{ env.GCP_REGION }} \
+              --quiet 2>/dev/null; then
+            echo "::warning::GCP infrastructure not deployed. Skipping image tagging."
+            echo "SKIP_GCP=true" >> $GITHUB_ENV
+          fi
+
+      - name: Wait for CI image to be available (GCP)
+        if: env.SKIP_GCP != 'true'
+        run: |
+          IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-${{ needs.detect-release.outputs.service }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          for i in $(seq 1 12); do
+            if gcloud artifacts docker images describe "$IMAGE" --quiet 2>/dev/null; then
+              echo "Image found after attempt $i"
+              exit 0
+            fi
+            echo "Image not found yet, waiting 30s (attempt $i/12)..."
+            sleep 30
+          done
+          echo "::error::Image not available after 6 minutes. CI may not have pushed it yet."
+          exit 1
+
+      - name: Tag Docker image with SemVer (GCP)
+        if: env.SKIP_GCP != 'true'
+        run: |
+          gcloud artifacts docker tags add \
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-${{ needs.detect-release.outputs.service }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-${{ needs.detect-release.outputs.service }}/${{ env.IMAGE_NAME }}:${{ github.event.release.tag_name }} \
+            --quiet
+
+      # --- Build Binaries ---
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "${{ needs.detect-release.outputs.service }}/go.mod"
+          cache: false
+
+      - name: Build macOS Binary (ARM64)
+        run: GOOS=darwin GOARCH=arm64 go build -o build/jula-${{ needs.detect-release.outputs.service }}-darwin-arm64 ./${{ needs.detect-release.outputs.service }}/cmd/${{ needs.detect-release.outputs.service }}
+
+      - name: Build Linux Binary (AMD64)
+        run: GOOS=linux GOARCH=amd64 go build -o build/jula-${{ needs.detect-release.outputs.service }}-linux-amd64 ./${{ needs.detect-release.outputs.service }}/cmd/${{ needs.detect-release.outputs.service }}
+
+      - name: Build Windows Binary (AMD64)
+        run: GOOS=windows GOARCH=amd64 go build -o build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe ./${{ needs.detect-release.outputs.service }}/cmd/${{ needs.detect-release.outputs.service }}
+
+      - name: Upload Release Artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            build/jula-${{ needs.detect-release.outputs.service }}-darwin-arm64 \
+            build/jula-${{ needs.detect-release.outputs.service }}-linux-amd64 \
+            build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            build/jula-${{ needs.detect-release.outputs.service }}-darwin-arm64
+            build/jula-${{ needs.detect-release.outputs.service }}-linux-amd64
+            build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe

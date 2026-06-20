@@ -32,3 +32,77 @@ jobs:
         run: cd governor/cmd/build && go build -o /dev/null main.go
       - name: Verify translate generator
         run: cd governor/cmd/translate && go build -o /dev/null main.go
+
+  # ==========================================
+  # 2. SIGN POLICY BUNDLE (Main only, policy/engine changes)
+  # ==========================================
+  sign-policy-bundle:
+    name: Sign Policy Bundle
+    needs: build-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 2
+
+      - name: Check if policies or engine changed
+        id: check
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if echo "$CHANGED" | grep -qE '^governor/(policies|engine)/'; then
+            echo "should_sign=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_sign=false" >> $GITHUB_OUTPUT
+            echo "No policy or engine changes detected. Skipping signing."
+          fi
+
+      - name: Create Policy Bundle Tarball
+        if: steps.check.outputs.should_sign == 'true'
+        id: bundle
+        run: |
+          BUNDLE_FILE="governor-policy-bundle.tar.gz"
+          tar -czf "${BUNDLE_FILE}" governor/policies/ governor/engine/
+          BUNDLE_HASH=$(sha256sum "${BUNDLE_FILE}" | awk '{print $1}')
+          echo "bundle_file=${BUNDLE_FILE}" >> $GITHUB_OUTPUT
+          echo "bundle_hash=${BUNDLE_HASH}" >> $GITHUB_OUTPUT
+          echo "Policy bundle hash: ${BUNDLE_HASH}"
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        if: steps.check.outputs.should_sign == 'true'
+        with:
+          go-version-file: "core/go.mod"
+          cache: false
+
+      - name: Sign Policy Bundle (Key B)
+        if: steps.check.outputs.should_sign == 'true'
+        env:
+          JULA_POLICY_SIGNING_KEY: ${{ secrets.JULA_POLICY_SIGNING_KEY }}
+        run: |
+          if [ -z "${JULA_POLICY_SIGNING_KEY}" ]; then
+            echo "::error::JULA_POLICY_SIGNING_KEY secret is not configured"
+            exit 1
+          fi
+
+          # Build and run the signing tool inline via Go.
+          # This uses the same crypto.SignBundle function from core/pkg/crypto/bundle.go.
+          go run -C core ./cmd/sign-bundle \
+            --bundle-hash "${{ steps.bundle.outputs.bundle_hash }}" \
+            --key-env "JULA_POLICY_SIGNING_KEY" \
+            --output "../bundle-manifest.json"
+
+          echo "Signed bundle-manifest.json:"
+          cat bundle-manifest.json
+
+      - name: Upload Policy Bundle Artifacts
+        if: steps.check.outputs.should_sign == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: governor-policy-bundle
+          path: |
+            ${{ steps.bundle.outputs.bundle_file }}
+            bundle-manifest.json
+          retention-days: 90
