@@ -133,7 +133,7 @@ jobs:
   # ==========================================
   build-check:
     name: "Verify Build: ${{ matrix.service }}"
-    needs: test
+    needs: [test, detect-changes]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -152,7 +152,7 @@ jobs:
   # ==========================================
   build:
     name: "Build: ${{ matrix.service }}"
-    needs: test
+    needs: [test, detect-changes]
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     permissions:
@@ -182,7 +182,7 @@ jobs:
   # ==========================================
   deploy-gcp:
     name: "Deploy GCP: ${{ matrix.service }}"
-    needs: build
+    needs: [build, detect-changes]
     if: vars.GCP_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -268,7 +268,7 @@ jobs:
   # ==========================================
   deploy-aws:
     name: "Deploy AWS: ${{ matrix.service }}"
-    needs: build
+    needs: [build, detect-changes]
     if: vars.AWS_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
