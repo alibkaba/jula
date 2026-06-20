@@ -52,9 +52,12 @@ jobs:
 
       - name: Determine services to build
         id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SERVICE: ${{ inputs.service }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            CHOICE="${{ inputs.service }}"
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            CHOICE="$INPUT_SERVICE"
             if [ "$CHOICE" == "both" ] || [ -z "$CHOICE" ]; then
               echo 'services=["collector","evaluator"]' >> $GITHUB_OUTPUT
             else
