@@ -12,17 +12,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -o /collect \
     ./collector/cmd/collector/
 
-# Production stage: empty scratch container.
-# No shell, no OS, no attack surface.
-FROM scratch
-
-# Copy CA certificates so the binary can verify TLS connections.
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Production stage: distroless static container.
+# No shell, no OS tools, no attack surface. Includes /tmp, CA certs, and nonroot user.
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
 
 # Copy the static binary from the build stage.
 COPY --from=builder /collect /collect
-
-USER 65532:65532
 
 ENTRYPOINT ["/collect"]
 CMD ["serve"]
