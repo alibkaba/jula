@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.0](https://github.com/alibkaba/jula/compare/collector-v2.0.0...collector-v2.1.0) (2026-06-20)
+
+
+### Features
+
+* implement Zero Trust Architecture (T1-T7) ([49b9170](https://github.com/alibkaba/jula/commit/49b9170576563c9b38d045eb6adb8b21a007040f))
+* separate native provider integrations from external (SaaS) integrations ([4cc5501](https://github.com/alibkaba/jula/commit/4cc550191f9e04f0e2c42a1da2b6c3284ed6a8fd))
+
+
+### Bug Fixes
+
+* distinguish missing credentials from extraction failures to allow clean skips when no evidence is collected ([8101fcd](https://github.com/alibkaba/jula/commit/8101fcd3cd92e32be52c8d1843c1e5c182dab5ff))
+* wrap provider signing errors with ErrMissingCredentials for consistent error handling ([5296352](https://github.com/alibkaba/jula/commit/5296352a99f8ccf8b41eb6e4cc25c27fef332cfc))
+
 ## [2.0.0](https://github.com/alibkaba/jula/compare/collector-v1.0.0...collector-v2.0.0) (2026-06-15)
 
 

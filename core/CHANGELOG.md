@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/alibkaba/jula/compare/core-v2.0.1...core-v2.1.0) (2026-06-20)
+
+
+### Features
+
+* implement Zero Trust Architecture (T1-T7) ([49b9170](https://github.com/alibkaba/jula/commit/49b9170576563c9b38d045eb6adb8b21a007040f))
+
 ## [2.0.1](https://github.com/alibkaba/jula/compare/core-v2.0.0...core-v2.0.1) (2026-06-15)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.1.0](https://github.com/alibkaba/jula/compare/governor-v2.0.1...governor-v2.1.0) (2026-06-20)
+
+
+### Features
+
+* add CIS GCP compliance rules, expand GCP integration endpoints, and implement AWS S3 data translation logic. ([2bd6d4c](https://github.com/alibkaba/jula/commit/2bd6d4c97de0141d6673b53a7b0978d57889a149))
+* separate native provider integrations from external (SaaS) integrations ([4cc5501](https://github.com/alibkaba/jula/commit/4cc550191f9e04f0e2c42a1da2b6c3284ed6a8fd))
+
+
+### Bug Fixes
+
+* hardcode integration endpoints for Collector compatibility ([e8f14ea](https://github.com/alibkaba/jula/commit/e8f14ea4704330c9ad3bc3e513e3454db9bc5a61))
+* revert to template variables, interpolation works at runtime ([e9fd716](https://github.com/alibkaba/jula/commit/e9fd7167d24a23e5806e731adfff7a4b5b50963d))
+* use correct auth types (gcp_adc, aws_sigv4) matching Collector implementation ([094c2f9](https://github.com/alibkaba/jula/commit/094c2f9453a4537f4172737c5c64ab5b3823ffdd))
+
 ## [2.0.1](https://github.com/alibkaba/jula/compare/governor-v2.0.0...governor-v2.0.1) (2026-06-15)
 
 
