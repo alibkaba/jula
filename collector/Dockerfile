@@ -19,5 +19,9 @@ FROM gcr.io/distroless/static-debian12:nonroot@sha256:d093aa3e30dbadd3efe1310db0
 # Copy the static binary from the build stage.
 COPY --from=builder /collect /collect
 
+# Explicit non-root. The :nonroot tag defaults to 65532 but linters
+# require a USER directive to verify.
+USER 65532:65532
+
 ENTRYPOINT ["/collect"]
 CMD ["serve"]
