@@ -251,6 +251,7 @@ jobs:
           service: jula-${{ matrix.service }}
           region: ${{ env.GCP_REGION }}
           image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/jula-${{ matrix.service }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          flags: '--no-allow-unauthenticated --ingress internal-and-cloud-load-balancing'
 
       - name: Tag as Latest (GCP)
         run: |
