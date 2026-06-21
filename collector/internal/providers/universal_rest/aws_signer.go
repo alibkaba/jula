@@ -170,6 +170,8 @@ type ecsCredentials struct {
 	Token           string `json:"Token"`
 }
 
+var ecsCredentialsEndpointPrefix = "http://169.254.170.2"
+
 // resolveECSCredentials fetches temporary credentials from the ECS container
 // metadata endpoint. ECS Fargate sets AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
 // to a path like /v2/credentials/<uuid>, which returns IAM role credentials.
@@ -179,7 +181,7 @@ func resolveECSCredentials() (*ecsCredentials, error) {
 		return nil, fmt.Errorf("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI not set")
 	}
 
-	endpoint := "http://169.254.170.2" + relativeURI
+	endpoint := ecsCredentialsEndpointPrefix + relativeURI
 	client := &http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(endpoint)
 	if err != nil {
