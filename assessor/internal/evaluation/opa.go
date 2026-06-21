@@ -35,22 +35,22 @@ type ControlFinding struct {
 	RawBreakingData   interface{}       `json:"-"`
 }
 
-// OPAEvaluator manages the in-memory loading, compilation, and execution of Rego policies.
-type OPAEvaluator struct {
+// OPAEngine manages the in-memory loading, compilation, and execution of Rego policies.
+type OPAEngine struct {
 	policyModules map[string]string
 	controlPackageMap map[string][]string // Control ID -> List of OPA Package paths
 }
 
-// NewOPAEvaluator creates a new OPAEvaluator.
-func NewOPAEvaluator() *OPAEvaluator {
-	return &OPAEvaluator{
+// NewOPAEngine creates a new OPAEngine.
+func NewOPAEngine() *OPAEngine {
+	return &OPAEngine{
 		policyModules: make(map[string]string),
 		controlPackageMap: make(map[string][]string),
 	}
 }
 
 // LoadPolicies walks a local directory and loads all .rego policy files.
-func (e *OPAEvaluator) LoadPolicies(policiesDir string) error {
+func (e *OPAEngine) LoadPolicies(policiesDir string) error {
 	slog.Info("evaluation: loading OPA policies from directory", "path", policiesDir)
 
 	err := filepath.WalkDir(policiesDir, func(path string, d fs.DirEntry, err error) error {
@@ -84,7 +84,7 @@ func (e *OPAEvaluator) LoadPolicies(policiesDir string) error {
 }
 
 // Compile compiles all loaded policies and dynamically maps declared Control IDs to their respective Rego packages.
-func (e *OPAEvaluator) Compile(ctx context.Context) error {
+func (e *OPAEngine) Compile(ctx context.Context) error {
 	if len(e.policyModules) == 0 {
 		slog.Warn("evaluation: no policy modules loaded to compile")
 		return nil
@@ -125,7 +125,7 @@ func (e *OPAEvaluator) Compile(ctx context.Context) error {
 }
 
 // GetRegisteredControlIDs returns a list of all Control IDs dynamically mapped from the loaded OPA policies.
-func (e *OPAEvaluator) GetRegisteredControlIDs() []string {
+func (e *OPAEngine) GetRegisteredControlIDs() []string {
 	var ids []string
 	for id := range e.controlPackageMap {
 		ids = append(ids, id)
@@ -134,7 +134,7 @@ func (e *OPAEvaluator) GetRegisteredControlIDs() []string {
 }
 
 // EvaluateControl evaluates compliance for a specific control ID using a slice of evidence.
-func (e *OPAEvaluator) EvaluateControl(ctx context.Context, controlID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) {
+func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) {
 	var findings []ControlFinding
 	now := time.Now().UTC()
 

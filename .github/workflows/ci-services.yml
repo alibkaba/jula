@@ -5,13 +5,13 @@ on:
     branches: [main]
     paths:
       - 'collector/**'
-      - 'evaluator/**'
+      - 'assessor/**'
       - 'core/**'
   pull_request:
     branches: [main]
     paths:
       - 'collector/**'
-      - 'evaluator/**'
+      - 'assessor/**'
       - 'core/**'
   workflow_dispatch:
     inputs:
@@ -21,7 +21,7 @@ on:
         options:
           - both
           - collector
-          - evaluator
+          - assessor
         default: both
 
 env:
@@ -59,7 +59,7 @@ jobs:
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             CHOICE="$INPUT_SERVICE"
             if [ "$CHOICE" == "both" ] || [ -z "$CHOICE" ]; then
-              echo 'services=["collector","evaluator"]' >> $GITHUB_OUTPUT
+              echo 'services=["collector","assessor"]' >> $GITHUB_OUTPUT
             else
               echo "services=[\"$CHOICE\"]" >> $GITHUB_OUTPUT
             fi
@@ -71,28 +71,28 @@ jobs:
 
           CORE_CHANGED=false
           COLLECTOR_CHANGED=false
-          EVALUATOR_CHANGED=false
+          ASSESSOR_CHANGED=false
 
           for FILE in $CHANGED; do
             case "$FILE" in
               core/*) CORE_CHANGED=true ;;
               collector/*) COLLECTOR_CHANGED=true ;;
-              evaluator/*) EVALUATOR_CHANGED=true ;;
+              assessor/*) ASSESSOR_CHANGED=true ;;
             esac
           done
 
           # Core changes affect both services
           if [ "$CORE_CHANGED" == "true" ]; then
             COLLECTOR_CHANGED=true
-            EVALUATOR_CHANGED=true
+            ASSESSOR_CHANGED=true
           fi
 
-          if [ "$COLLECTOR_CHANGED" == "true" ] && [ "$EVALUATOR_CHANGED" == "true" ]; then
-            SERVICES='["collector","evaluator"]'
+          if [ "$COLLECTOR_CHANGED" == "true" ] && [ "$ASSESSOR_CHANGED" == "true" ]; then
+            SERVICES='["collector","assessor"]'
           elif [ "$COLLECTOR_CHANGED" == "true" ]; then
             SERVICES='["collector"]'
-          elif [ "$EVALUATOR_CHANGED" == "true" ]; then
-            SERVICES='["evaluator"]'
+          elif [ "$ASSESSOR_CHANGED" == "true" ]; then
+            SERVICES='["assessor"]'
           fi
 
           echo "services=$SERVICES" >> $GITHUB_OUTPUT

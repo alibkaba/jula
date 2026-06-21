@@ -245,18 +245,18 @@ func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, er
 
 			normalizedName := strings.TrimPrefix(tail, "governor/engine/integrations/")
 
-			// Filter native/ provider integrations: only load the YAML matching JULA_PROVIDER.
+			// Filter cloud/ provider integrations: only load the YAML matching JULA_PROVIDER.
 			// External integrations (root-level) are always loaded.
-			if strings.HasPrefix(normalizedName, "native/") {
+			if strings.HasPrefix(normalizedName, "cloud/") {
 				if provider == "" {
-					continue // No provider set, skip all native integrations.
+					continue // No provider set, skip all cloud integrations.
 				}
-				expected := "native/" + provider + ".yaml"
+				expected := "cloud/" + provider + ".yaml"
 				if normalizedName != expected {
-					continue // Skip non-matching native providers.
+					continue // Skip non-matching cloud providers.
 				}
-				// Strip the native/ prefix so the map key is just "gcp.yaml".
-				normalizedName = strings.TrimPrefix(normalizedName, "native/")
+				// Strip the cloud/ prefix so the map key is just "gcp.yaml".
+				normalizedName = strings.TrimPrefix(normalizedName, "cloud/")
 			}
 
 			data, err := io.ReadAll(tr)

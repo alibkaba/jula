@@ -23,7 +23,7 @@ func NewClient(timeout time.Duration) *http.Client {
 // allowed domain suffixes are permitted. All other outbound connections are blocked.
 //
 // This enforces the Zero-Knowledge Evidence Handling guarantee (ADR-001):
-// the Collector and Evaluator can only connect to approved cloud API endpoints.
+// the Collector and Assessor can only connect to approved cloud API endpoints.
 // Jula-controlled domains are blocked unless explicitly allowlisted.
 //
 // Example allowlist: ["googleapis.com", "amazonaws.com", "github.com"]

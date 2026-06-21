@@ -6,7 +6,7 @@
 | :--- | :--- | :--- |
 | **[Jula Core](./core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-core.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-core.yml) | Shared models and cryptographic utilities |
 | **[Jula Collector](./collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-collector.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-collector.yml) | Stateless Go extraction engine |
-| **[Jula Evaluator](./evaluator)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-evaluator.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-evaluator.yml) | Policy evaluation and manifest verification |
+| **[Jula Assessor](./assessor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-assessor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-assessor.yml) | Policy evaluation and manifest verification |
 | **[Jula Governor](./governor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml) | AI Translation & Policy Generation CLI |
 
 | Pipeline | Status | Description |
@@ -23,7 +23,7 @@ Jula Controls is designed as a decoupled, multi-repository architecture (now con
 
 * The **[Jula Core](./core) defines shared models and cryptographic validation** utilities used by all modules, ensuring consistent data schemas across the pipeline.
 * The **[Jula Collector](./collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
-* The **[Jula Evaluator](./evaluator) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
+* The **[Jula Assessor](./assessor) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies.
 * The **[Jula Governor](./governor) stores Rego policies** in a version-controlled directory that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
 
 Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
@@ -59,7 +59,7 @@ flowchart TB
     classDef collector fill:#0f172a,stroke:#0ea5e9,stroke-width:2px,color:#e2e8f0;
     classDef ledger fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#e2e8f0;
     classDef policy fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0;
-    classDef evaluator fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0;
+    classDef assessor fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0;
     classDef security fill:#1e293b,stroke:#ef4444,stroke-width:1px,color:#f8fafc;
     classDef output fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#f0fdf4;
     classDef insights fill:#0f172a,stroke:#ec4899,stroke-width:2px,color:#e2e8f0;
@@ -95,9 +95,9 @@ flowchart TB
         L -->|Upload| GCS
     end
 
-    subgraph Phase4 ["4. Continuous Assurance Layer (evaluator/)"]
+    subgraph Phase4 ["4. Continuous Assurance Layer (assessor/)"]
         direction TB
-        EE["🔍 Evaluator Engine <br> (Stateless Go CLI)"]
+        EE["🔍 Assessor Engine <br> (Stateless Go CLI)"]
         
         subgraph GK ["Gatekeeper Modules"]
             direction LR
@@ -108,7 +108,7 @@ flowchart TB
         end
         
         OPA["⚙️ Embedded OPA Engine <br> (Dynamic Rego Execution)"]
-        KeyC["🔑 Key C: Verdict Signing <br> (JULA_EVALUATOR_SIGNING_KEY)"]
+        KeyC["🔑 Key C: Verdict Signing <br> (JULA_ASSESSOR_SIGNING_KEY)"]
         
         EE --> SigCheck
         SigCheck --> HashCheck
@@ -160,7 +160,7 @@ flowchart TB
     class APIs,JIE,H,Sign,P,M,L collector;
     class GCS ledger;
     class PR_Int,PR_Norm,PR_Pol,Meta,BundleManifest policy;
-    class EE,SigCheck,HashCheck,ProvCheck,PolicyCheck,OPA evaluator;
+    class EE,SigCheck,HashCheck,ProvCheck,PolicyCheck,OPA assessor;
     class KMS,KeyB,KeyC security;
     class Findings,SignedVerdict output;
     class DB,LEC,Radar,ROI,Trend insights;
@@ -180,17 +180,17 @@ Three independent ECDSA P-256 signing keys enforce separation of duties:
 | Key | Owner | Purpose | Stored As |
 |:----|:------|:--------|:----------|
 | **Key A** | Collector | Signs evidence manifests and provenance sidecars | Cloud KMS (asymmetric) |
-| **Key B** | Governor | Signs policy bundles before Evaluator consumption | `JULA_POLICY_SIGNING_KEY` (GitHub Actions secret) |
-| **Key C** | Evaluator | Signs compliance verdicts after policy evaluation | `JULA_EVALUATOR_SIGNING_KEY` (GitHub Actions secret) |
+| **Key B** | Governor | Signs policy bundles before Assessor consumption | `JULA_POLICY_SIGNING_KEY` (GitHub Actions secret) |
+| **Key C** | Assessor | Signs compliance verdicts after policy evaluation | `JULA_ASSESSOR_SIGNING_KEY` (GitHub Actions secret) |
 
-No single key can forge artifacts from another component. The Evaluator verifies Key A signatures on evidence, Key B signatures on policies, and produces Key C signatures on verdicts.
+No single key can forge artifacts from another component. The Assessor verifies Key A signatures on evidence, Key B signatures on policies, and produces Key C signatures on verdicts.
 
 ### Supply Chain Integrity
 
 All build artifacts include [SLSA v1.0 provenance attestations](https://slsa.dev) generated by GitHub's first-party `actions/attest-build-provenance` action:
 
-- **Release binaries:** Darwin/ARM64, Linux/AMD64, Windows/AMD64 (Collector + Evaluator)
-- **Container images:** GCP Artifact Registry and AWS ECR (Collector + Evaluator)
+- **Release binaries:** Darwin/ARM64, Linux/AMD64, Windows/AMD64 (Collector + Assessor)
+- **Container images:** GCP Artifact Registry and AWS ECR (Collector + Assessor)
 
 ### Immutable Evidence Ledger
 
@@ -202,7 +202,7 @@ The evidence storage bucket enforces write-once-read-many (WORM) semantics via G
 
 ### Zero-Knowledge Evidence Handling
 
-Jula Controls never receives, stores, or transits raw client infrastructure data. The Collector and Evaluator run exclusively inside the client's environment. Only signed compliance verdicts cross the trust boundary. See [ADR-001](docs/adr/001-zero-knowledge-evidence-handling.md) for the full architectural decision record.
+Jula Controls never receives, stores, or transits raw client infrastructure data. The Collector and Assessor run exclusively inside the client's environment. Only signed compliance verdicts cross the trust boundary. See [ADR-001](docs/adr/001-zero-knowledge-evidence-handling.md) for the full architectural decision record.
 
 ### Egress Enforcement
 

@@ -305,7 +305,7 @@ type IntegrationHeader struct {
 
 // buildJobs dynamically walks the integrations directory structure
 // and routes YAML integration configs through the Universal REST engine.
-// Native provider integrations live under native/{provider}.yaml and are
+// Cloud provider integrations live under cloud/{provider}.yaml and are
 // filtered by RunConfig.Provider. External integrations in the root are
 // always loaded.
 func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
@@ -336,7 +336,7 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 
 		for _, f := range files {
 			if f.IsDir() {
-				continue // Skip native/ and any other subdirectories.
+				continue // Skip cloud/ and any other subdirectories.
 			}
 			name := f.Name()
 			if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
@@ -356,25 +356,25 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 			integrations = append(integrations, &integration)
 		}
 
-		// 2. Load native provider integration if JULA_PROVIDER is set.
+		// 2. Load cloud provider integration if JULA_PROVIDER is set.
 		if o.cfg.Provider != "" {
-			nativePath := filepath.Join(dir, "native", o.cfg.Provider+".yaml")
-			data, err := os.ReadFile(nativePath)
+			cloudPath := filepath.Join(dir, "cloud", o.cfg.Provider+".yaml")
+			data, err := os.ReadFile(cloudPath)
 			if err != nil {
 				if os.IsNotExist(err) {
-					slog.Warn("buildJobs: native integration not found", "provider", o.cfg.Provider, "path", nativePath)
+					slog.Warn("buildJobs: cloud integration not found", "provider", o.cfg.Provider, "path", cloudPath)
 				} else {
-					return nil, fmt.Errorf("reading native integration %s: %w", o.cfg.Provider, err)
+					return nil, fmt.Errorf("reading cloud integration %s: %w", o.cfg.Provider, err)
 				}
 			} else {
 				var integration universalrest.RESTIntegration
 				if err := yaml.Unmarshal(data, &integration); err != nil {
-					return nil, fmt.Errorf("malformed YAML syntax in native/%s.yaml: %w", o.cfg.Provider, err)
+					return nil, fmt.Errorf("malformed YAML syntax in cloud/%s.yaml: %w", o.cfg.Provider, err)
 				}
 				integrations = append(integrations, &integration)
 			}
 		} else {
-			slog.Warn("buildJobs: JULA_PROVIDER not set, skipping native integrations")
+			slog.Warn("buildJobs: JULA_PROVIDER not set, skipping cloud integrations")
 		}
 	}
 

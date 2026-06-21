@@ -1,4 +1,4 @@
-module github.com/alibkaba/jula-evaluator
+module github.com/alibkaba/jula-assessor
 
 go 1.25.10
 

@@ -87,8 +87,8 @@ resource "google_cloud_run_v2_service" "jula_collector" {
   }
 }
 
-resource "google_cloud_run_v2_service" "jula_evaluator" {
-  name     = "jula-evaluator"
+resource "google_cloud_run_v2_service" "jula_assessor" {
+  name     = "jula-assessor"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
 
@@ -167,10 +167,10 @@ resource "google_cloud_run_service_iam_binding" "public_access" {
   members  = ["allUsers"]
 }
 
-resource "google_cloud_run_service_iam_binding" "evaluator_public_access" {
-  location = google_cloud_run_v2_service.jula_evaluator.location
-  project  = google_cloud_run_v2_service.jula_evaluator.project
-  service  = google_cloud_run_v2_service.jula_evaluator.name
+resource "google_cloud_run_service_iam_binding" "assessor_public_access" {
+  location = google_cloud_run_v2_service.jula_assessor.location
+  project  = google_cloud_run_v2_service.jula_assessor.project
+  service  = google_cloud_run_v2_service.jula_assessor.name
   role     = "roles/run.invoker"
   members  = ["allUsers"]
 }

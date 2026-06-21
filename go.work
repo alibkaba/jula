@@ -3,6 +3,6 @@ go 1.25.10
 use (
 	./collector
 	./core
-	./evaluator
+	./assessor
 	./governor
 )

@@ -11,9 +11,9 @@ import (
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
-func TestOPAEvaluator_LoadPolicies(t *testing.T) {
+func TestOPAEngine_LoadPolicies(t *testing.T) {
 	// Create a temporary policies directory
-	tmpDir, err := os.MkdirTemp("", "jula-evaluator-policies-*")
+	tmpDir, err := os.MkdirTemp("", "jula-assessor-policies-*")
 	if err != nil {
 		t.Fatalf("Failed to create tmp dir: %v", err)
 	}
@@ -48,25 +48,25 @@ func TestOPAEvaluator_LoadPolicies(t *testing.T) {
 		t.Fatalf("Failed to write txt file: %v", err)
 	}
 
-	evaluator := NewOPAEvaluator()
-	if err := evaluator.LoadPolicies(tmpDir); err != nil {
+	engine := NewOPAEngine()
+	if err := engine.LoadPolicies(tmpDir); err != nil {
 		t.Fatalf("LoadPolicies failed: %v", err)
 	}
 
 	// Verify only the non-test rego file is loaded
-	if len(evaluator.policyModules) != 1 {
-		t.Errorf("Expected exactly 1 loaded policy module, got %d", len(evaluator.policyModules))
+	if len(engine.policyModules) != 1 {
+		t.Errorf("Expected exactly 1 loaded policy module, got %d", len(engine.policyModules))
 	}
 
-	if _, ok := evaluator.policyModules["db_encryption.rego"]; !ok {
-		t.Errorf("Expected db_encryption.rego to be loaded, policyModules: %v", evaluator.policyModules)
+	if _, ok := engine.policyModules["db_encryption.rego"]; !ok {
+		t.Errorf("Expected db_encryption.rego to be loaded, policyModules: %v", engine.policyModules)
 	}
 }
 
-func TestOPAEvaluator_EvaluateControl(t *testing.T) {
+func TestOPAEngine_EvaluateControl(t *testing.T) {
 	ctx := context.Background()
 
-	evaluator := NewOPAEvaluator()
+	engine := NewOPAEngine()
 	mockRego := `
 		package compliance.controls.bcd_11_4
 		import rego.v1
@@ -87,9 +87,9 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 			}
 		}
 	`
-	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
+	engine.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
 
-	if err := evaluator.Compile(ctx); err != nil {
+	if err := engine.Compile(ctx); err != nil {
 		t.Fatalf("failed to compile policies: %v", err)
 	}
 
@@ -107,7 +107,7 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 	}
 
 	// Test passing nil metadata
-	findings, err := evaluator.EvaluateControl(ctx, "BCD-11.4", evidenceList, nil)
+	findings, err := engine.EvaluateControl(ctx, "BCD-11.4", evidenceList, nil)
 	if err != nil {
 		t.Fatalf("EvaluateControl failed: %v", err)
 	}
@@ -129,10 +129,10 @@ func TestOPAEvaluator_EvaluateControl(t *testing.T) {
 	}
 }
 
-func TestOPAEvaluator_EvaluateControl_UnmappedPolicy(t *testing.T) {
+func TestOPAEngine_EvaluateControl_UnmappedPolicy(t *testing.T) {
 	ctx := context.Background()
 
-	evaluator := NewOPAEvaluator()
+	engine := NewOPAEngine()
 	evidenceList := []types.Evidence{}
 
 	// Load a policy that maps to "BCD-11.4" only
@@ -144,14 +144,14 @@ func TestOPAEvaluator_EvaluateControl_UnmappedPolicy(t *testing.T) {
 			"compliant": false
 		}
 	`
-	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
+	engine.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
 
-	if err := evaluator.Compile(ctx); err != nil {
+	if err := engine.Compile(ctx); err != nil {
 		t.Fatalf("failed to compile policies: %v", err)
 	}
 
 	// Evaluate a completely different SCF ID that has no mapped policy
-	findings, err := evaluator.EvaluateControl(ctx, "VPM-01", evidenceList, nil)
+	findings, err := engine.EvaluateControl(ctx, "VPM-01", evidenceList, nil)
 	if err != nil {
 		t.Fatalf("EvaluateControl returned unexpected error: %v", err)
 	}
@@ -173,13 +173,13 @@ func TestOPAEvaluator_EvaluateControl_UnmappedPolicy(t *testing.T) {
 	}
 }
 
-func TestOPAEvaluator_EvaluateControl_EmptyEvaluator(t *testing.T) {
+func TestOPAEngine_EvaluateControl_EmptyEngine(t *testing.T) {
 	ctx := context.Background()
 
-	// Freshly created evaluator with no policies loaded at all
-	evaluator := NewOPAEvaluator()
+	// Freshly created engine with no policies loaded at all
+	engine := NewOPAEngine()
 
-	findings, err := evaluator.EvaluateControl(ctx, "ANY-01", nil, nil)
+	findings, err := engine.EvaluateControl(ctx, "ANY-01", nil, nil)
 	if err != nil {
 		t.Fatalf("EvaluateControl returned unexpected error: %v", err)
 	}
@@ -193,10 +193,10 @@ func TestOPAEvaluator_EvaluateControl_EmptyEvaluator(t *testing.T) {
 	}
 }
 
-func TestOPAEvaluator_GetRegisteredControlIDs(t *testing.T) {
+func TestOPAEngine_GetRegisteredControlIDs(t *testing.T) {
 	ctx := context.Background()
 
-	evaluator := NewOPAEvaluator()
+	engine := NewOPAEngine()
 	mockRego := `
 		package compliance.controls.bcd_11_4
 		import rego.v1
@@ -205,13 +205,13 @@ func TestOPAEvaluator_GetRegisteredControlIDs(t *testing.T) {
 			"compliant": true
 		}
 	`
-	evaluator.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
+	engine.policyModules["compliance/controls/bcd_11_4.rego"] = mockRego
 
-	if err := evaluator.Compile(ctx); err != nil {
+	if err := engine.Compile(ctx); err != nil {
 		t.Fatalf("failed to compile policies: %v", err)
 	}
 
-	ids := evaluator.GetRegisteredControlIDs()
+	ids := engine.GetRegisteredControlIDs()
 	if len(ids) != 1 {
 		t.Fatalf("expected 1 registered control ID, got %d", len(ids))
 	}

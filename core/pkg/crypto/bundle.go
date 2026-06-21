@@ -13,7 +13,7 @@ import (
 
 // PolicyBundle represents a signed policy bundle manifest.
 // The BundleHash is the SHA-256 of the entire policy tarball file (not individual files).
-// Key B signs the bundle; the Evaluator verifies with Key B's public half.
+// Key B signs the bundle; the Assessor verifies with Key B's public half.
 type PolicyBundle struct {
 	BundleHash string    `json:"bundle_hash"`
 	Timestamp  time.Time `json:"timestamp"`

@@ -1,8 +1,8 @@
-# Jula Evaluator
+# Jula Assessor
 
-The **Jula Evaluator** is the Continuous Assurance Engine of the Jula Controls ecosystem.
+The **Jula Assessor** is the Continuous Assurance Engine of the Jula Controls ecosystem.
 
-It evaluates compliance by consuming the raw ledger artifacts produced by the `jula-collector`. The Evaluator runs a stateless Go engine that performs strict cryptographic gatekeeping before executing dynamic Open Policy Agent (OPA) rules.
+It assesses compliance by consuming the raw ledger artifacts produced by the `jula-collector`. The Assessor runs a stateless Go engine that performs strict cryptographic gatekeeping before executing dynamic Open Policy Agent (OPA) rules.
 
 ## Key Features
 

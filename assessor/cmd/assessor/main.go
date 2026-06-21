@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	intCrypto "github.com/alibkaba/jula-evaluator/internal/crypto"
-	"github.com/alibkaba/jula-evaluator/internal/evaluation"
-	"github.com/alibkaba/jula-evaluator/internal/ingestion"
+	intCrypto "github.com/alibkaba/jula-assessor/internal/crypto"
+	"github.com/alibkaba/jula-assessor/internal/evaluation"
+	"github.com/alibkaba/jula-assessor/internal/ingestion"
 	pkgCrypto "github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 	"github.com/alibkaba/jula-core/pkg/types"
@@ -54,7 +54,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Printf("evaluate %s\n", version)
+		fmt.Printf("assess %s\n", version)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
 		printUsage()
@@ -63,10 +63,10 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, `Usage: evaluate <command> [flags]
+	fmt.Fprintln(os.Stderr, `Usage: assess <command> [flags]
 
 Commands:
-  run         Run evaluation pipeline (single-pass, in-memory)
+  run         Run assessment pipeline (single-pass, in-memory)
   serve       Start HTTP server for Cloud Run deployment
   version     Print binary version and build metadata`)
 }
@@ -119,7 +119,7 @@ func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
 }
 
 func handleRun(args []string) error {
-	fs := flag.NewFlagSet("evaluate", flag.ContinueOnError)
+	fs := flag.NewFlagSet("assess", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-evidence-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-governor/)")
 	metadataURLFlag := fs.String("metadata-url", "", "The client metadata file URL or path (e.g. ./client_metadata.json)")
@@ -139,7 +139,7 @@ func handleRun(args []string) error {
 	}
 
 	if bucketURL == "" {
-		return fmt.Errorf("evaluator: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
+		return fmt.Errorf("assessor: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
 	// Append deployment prefix and today's date if the bucketURL is a root cloud bucket.
@@ -149,7 +149,7 @@ func handleRun(args []string) error {
 		}
 		deployID := os.Getenv("JULA_DEPLOYMENT_ID")
 		if deployID == "" {
-			return fmt.Errorf("evaluator: JULA_DEPLOYMENT_ID environment variable is required")
+			return fmt.Errorf("assessor: JULA_DEPLOYMENT_ID environment variable is required")
 		}
 		bucketURL += fmt.Sprintf("deploy-%s/", deployID)
 		bucketURL += time.Now().UTC().Format("2006-01-02")
@@ -162,20 +162,20 @@ func handleRun(args []string) error {
 	}
 
 	if policyURL == "" {
-		return fmt.Errorf("evaluator: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
+		return fmt.Errorf("assessor: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
 	}
 
-	slog.Info("evaluator: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
+	slog.Info("assessor: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
 
 	// Validate the JULA_PUBLIC_KEY env variable early.
 	pubKeyPEM := os.Getenv("JULA_PUBLIC_KEY")
 	if pubKeyPEM == "" {
-		return fmt.Errorf("evaluator: missing public key: JULA_PUBLIC_KEY environment variable is required for gatekeeper signature verification")
+		return fmt.Errorf("assessor: missing public key: JULA_PUBLIC_KEY environment variable is required for gatekeeper signature verification")
 	}
 
 	pubKey, err := intCrypto.ParseECDSAPublicKey(pubKeyPEM)
 	if err != nil {
-		return fmt.Errorf("evaluator: failed to parse public key PEM: %w", err)
+		return fmt.Errorf("assessor: failed to parse public key PEM: %w", err)
 	}
 
 	// Resolve the target metadata URL.
@@ -186,11 +186,11 @@ func handleRun(args []string) error {
 
 	var metadata map[string]interface{}
 	if metadataURL != "" {
-		slog.Info("evaluator: loading client metadata", "metadata_url", metadataURL)
+		slog.Info("assessor: loading client metadata", "metadata_url", metadataURL)
 		var err error
 		metadata, err = loadMetadata(metadataURL)
 		if err != nil {
-			return fmt.Errorf("evaluator: failed to load client metadata: %w", err)
+			return fmt.Errorf("assessor: failed to load client metadata: %w", err)
 		}
 	}
 
@@ -202,16 +202,16 @@ func handleRun(args []string) error {
 	// 1. Initialize the cloud-agnostic ingestion reader.
 	reader, err := ingestion.NewCloudReader(bucketURL)
 	if err != nil {
-		return fmt.Errorf("evaluator: failed to initialize ingestion reader: %w", err)
+		return fmt.Errorf("assessor: failed to initialize ingestion reader: %w", err)
 	}
 
 	// 2. Download the Manifest.
 	manifest, err := reader.ReadManifest(ctx)
 	if err != nil {
-		return fmt.Errorf("evaluator: failed to download manifest.json: %w", err)
+		return fmt.Errorf("assessor: failed to download manifest.json: %w", err)
 	}
 
-	slog.Info("evaluator: downloaded manifest successfully",
+	slog.Info("assessor: downloaded manifest successfully",
 		"run_id", manifest.RunID,
 		"timestamp", manifest.Timestamp,
 		"providers", manifest.Providers,
@@ -220,60 +220,60 @@ func handleRun(args []string) error {
 
 	// 3. Cryptographically verify the manifest signature.
 	if err := intCrypto.VerifyManifestSignature(manifest, pubKey); err != nil {
-		return fmt.Errorf("evaluator: signature verification failed: %w", err)
+		return fmt.Errorf("assessor: signature verification failed: %w", err)
 	}
-	slog.Info("evaluator: manifest signature verified successfully against JULA_PUBLIC_KEY")
+	slog.Info("assessor: manifest signature verified successfully against JULA_PUBLIC_KEY")
 
 	// --- Phase 2: Open Policy Agent (OPA) Setup ---
 
-	// 1. Initialize OPA Evaluator.
-	evaluator := evaluation.NewOPAEvaluator()
+	// 1. Initialize OPA engine.
+	engine := evaluation.NewOPAEngine()
 
 	// 2. Download and extract policies from GitHub tarball.
-	slog.Info("evaluator: fetching policies", "url", policyURL)
+	slog.Info("assessor: fetching policies", "url", policyURL)
 	policiesDir, err := downloadPolicies(ctx, policyURL)
 	if err != nil {
-		return fmt.Errorf("evaluator: failed to download policies: %w", err)
+		return fmt.Errorf("assessor: failed to download policies: %w", err)
 	}
 
 	// 3. Verify policy bundle signature (Key B) if JULA_POLICY_PUBLIC_KEY is set.
 	policyPubKeyPEM := os.Getenv("JULA_POLICY_PUBLIC_KEY")
 	if policyPubKeyPEM != "" {
-		slog.Info("evaluator: JULA_POLICY_PUBLIC_KEY is set, verifying policy bundle signature")
+		slog.Info("assessor: JULA_POLICY_PUBLIC_KEY is set, verifying policy bundle signature")
 
 		policyPubKey, err := intCrypto.ParseECDSAPublicKey(policyPubKeyPEM)
 		if err != nil {
-			return fmt.Errorf("evaluator: failed to parse policy public key PEM: %w", err)
+			return fmt.Errorf("assessor: failed to parse policy public key PEM: %w", err)
 		}
 
 		bundleManifestPath := filepath.Join(policiesDir, "bundle-manifest.json")
 		bundleManifestData, err := os.ReadFile(bundleManifestPath)
 		if err != nil {
-			return fmt.Errorf("evaluator: bundle-manifest.json not found in policy bundle - refusing to load unsigned policies: %w", err)
+			return fmt.Errorf("assessor: bundle-manifest.json not found in policy bundle - refusing to load unsigned policies: %w", err)
 		}
 
 		var bundle pkgCrypto.PolicyBundle
 		if err := json.Unmarshal(bundleManifestData, &bundle); err != nil {
-			return fmt.Errorf("evaluator: failed to parse bundle-manifest.json: %w", err)
+			return fmt.Errorf("assessor: failed to parse bundle-manifest.json: %w", err)
 		}
 
 		if err := intCrypto.VerifyPolicyBundle(&bundle, policyPubKey); err != nil {
-			return fmt.Errorf("evaluator: POLICY GATE FAILURE - %w", err)
+			return fmt.Errorf("assessor: POLICY GATE FAILURE - %w", err)
 		}
 
-		slog.Info("evaluator: policy bundle cryptographic verification passed")
+		slog.Info("assessor: policy bundle cryptographic verification passed")
 	} else {
-		slog.Warn("evaluator: JULA_POLICY_PUBLIC_KEY is not set, skipping policy bundle signature verification")
+		slog.Warn("assessor: JULA_POLICY_PUBLIC_KEY is not set, skipping policy bundle signature verification")
 	}
 
 	// 4. Load policy files from target path.
-	if err := evaluator.LoadPolicies(policiesDir); err != nil {
-		return fmt.Errorf("evaluator: failed to load OPA policies: %w", err)
+	if err := engine.LoadPolicies(policiesDir); err != nil {
+		return fmt.Errorf("assessor: failed to load OPA policies: %w", err)
 	}
 
 	// 5. Compile loaded rules in memory and map SCF/Dataset targets.
-	if err := evaluator.Compile(ctx); err != nil {
-		return fmt.Errorf("evaluator: failed to compile OPA policies: %w", err)
+	if err := engine.Compile(ctx); err != nil {
+		return fmt.Errorf("assessor: failed to compile OPA policies: %w", err)
 	}
 
 	// --- Phase 3: Unified Global Evaluation Loop ---
@@ -281,22 +281,22 @@ func handleRun(args []string) error {
 	var validFiles []types.FileChecksum
 	for _, f := range manifest.EvidenceFiles {
 		if strings.HasSuffix(f.Path, ".log.gz") {
-			slog.Info("evaluator: skipping non-evidence trace log file in manifest", "path", f.Path)
+			slog.Info("assessor: skipping non-evidence trace log file in manifest", "path", f.Path)
 			continue
 		}
 		validFiles = append(validFiles, f)
 	}
 
 	// Ingest all files into memory
-	slog.Info("evaluator: downloading all evidence payloads", "files_count", len(validFiles))
+	slog.Info("assessor: downloading all evidence payloads", "files_count", len(validFiles))
 	payloads, err := reader.ReadPayloads(ctx, validFiles)
 	if err != nil {
-		return fmt.Errorf("evaluator: failed to download evidence payloads: %w", err)
+		return fmt.Errorf("assessor: failed to download evidence payloads: %w", err)
 	}
 
 	// Gatekeeper validation: verify raw content hashes against manifest checksums
 	if err := intCrypto.VerifyPayloads(validFiles, payloads); err != nil {
-		return fmt.Errorf("evaluator: GATEKEEPER FAILURE - file hash mismatch: %w", err)
+		return fmt.Errorf("assessor: GATEKEEPER FAILURE - file hash mismatch: %w", err)
 	}
 
 	// Cryptographically verify provenance sidecars
@@ -308,38 +308,38 @@ func handleRun(args []string) error {
 		provPath := strings.TrimSuffix(f.Path, ".json") + ".prov.json"
 		provBytes, ok := payloads[provPath]
 		if !ok {
-			slog.Warn("evaluator: missing provenance sidecar for evidence file", "file", f.Path)
+			slog.Warn("assessor: missing provenance sidecar for evidence file", "file", f.Path)
 			continue
 		}
 		var prov pkgCrypto.Provenance
 		if err := json.Unmarshal(provBytes, &prov); err != nil {
-			return fmt.Errorf("evaluator: failed to parse provenance sidecar %s: %w", provPath, err)
+			return fmt.Errorf("assessor: failed to parse provenance sidecar %s: %w", provPath, err)
 		}
 		okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
 		if err != nil || !okSignature {
-			return fmt.Errorf("evaluator: provenance signature is INVALID for %s: %w", provPath, err)
+			return fmt.Errorf("assessor: provenance signature is INVALID for %s: %w", provPath, err)
 		}
 		var ev types.Evidence
 		if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
-			return fmt.Errorf("evaluator: failed to unmarshal evidence payload %s: %w", f.Path, err)
+			return fmt.Errorf("assessor: failed to unmarshal evidence payload %s: %w", f.Path, err)
 		}
 		if prov.PayloadHash != ev.PayloadHash {
-			return fmt.Errorf("evaluator: provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
+			return fmt.Errorf("assessor: provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
 		}
 		allEvidences = append(allEvidences, ev)
-		slog.Info("evaluator: successfully verified provenance sidecar", "file", provPath)
+		slog.Info("assessor: successfully verified provenance sidecar", "file", provPath)
 	}
 
 	allFindings := make([]evaluation.ControlFinding, 0)
-	registeredIDs := evaluator.GetRegisteredControlIDs()
-	slog.Info("evaluator: starting sequential control evaluation", "controls_count", len(registeredIDs))
+	registeredIDs := engine.GetRegisteredControlIDs()
+	slog.Info("assessor: starting sequential control evaluation", "controls_count", len(registeredIDs))
 
 	for _, controlID := range registeredIDs {
-		slog.Info("evaluator: sequentially evaluating control", "control_id", controlID)
+		slog.Info("assessor: sequentially evaluating control", "control_id", controlID)
 
-		findings, err := evaluator.EvaluateControl(ctx, controlID, allEvidences, metadata)
+		findings, err := engine.EvaluateControl(ctx, controlID, allEvidences, metadata)
 		if err != nil {
-			return fmt.Errorf("evaluator: policy evaluation error for control %s: %w", controlID, err)
+			return fmt.Errorf("assessor: policy evaluation error for control %s: %w", controlID, err)
 		}
 
 		for _, finding := range findings {
@@ -367,7 +367,7 @@ func handleRun(args []string) error {
 	runtime.GC()
 
 	// --- Output Results ---
-	slog.Info("evaluator: completed compliance evaluation", "findings_count", len(allFindings))
+	slog.Info("assessor: completed compliance evaluation", "findings_count", len(allFindings))
 
 	hasFailures := false
 	controlsPassed := 0
@@ -386,18 +386,18 @@ func handleRun(args []string) error {
 	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
 	
-	if err := reader.WriteFile(ctx, "evaluator_ledger.json", findingsJSON); err != nil {
-		slog.Error("evaluator: failed to export evaluator ledger to file", "error", err)
+	if err := reader.WriteFile(ctx, "assessor_ledger.json", findingsJSON); err != nil {
+		slog.Error("assessor: failed to export assessor ledger to file", "error", err)
 	}
 
-	// 6. Sign the evaluation verdict (Key C) if JULA_EVALUATOR_SIGNING_KEY is set.
-	evaluatorSigningKeyPEM := os.Getenv("JULA_EVALUATOR_SIGNING_KEY")
-	if evaluatorSigningKeyPEM != "" {
-		slog.Info("evaluator: signing evaluation verdict with Key C")
+	// 6. Sign the assessment verdict (Key C) if JULA_ASSESSOR_SIGNING_KEY is set.
+	assessorSigningKeyPEM := os.Getenv("JULA_ASSESSOR_SIGNING_KEY")
+	if assessorSigningKeyPEM != "" {
+		slog.Info("assessor: signing assessment verdict with Key C")
 
-		evaluatorSigningKey, err := intCrypto.ParseECDSAPrivateKey(evaluatorSigningKeyPEM)
+		assessorSigningKey, err := intCrypto.ParseECDSAPrivateKey(assessorSigningKeyPEM)
 		if err != nil {
-			return fmt.Errorf("evaluator: failed to parse evaluator signing key: %w", err)
+			return fmt.Errorf("assessor: failed to parse assessor signing key: %w", err)
 		}
 
 		ledgerHash := pkgCrypto.HashFile(findingsJSON)
@@ -410,19 +410,19 @@ func handleRun(args []string) error {
 			Timestamp:      time.Now().UTC(),
 		}
 
-		if err := pkgCrypto.SignVerdict(verdict, evaluatorSigningKey); err != nil {
-			return fmt.Errorf("evaluator: failed to sign verdict: %w", err)
+		if err := pkgCrypto.SignVerdict(verdict, assessorSigningKey); err != nil {
+			return fmt.Errorf("assessor: failed to sign verdict: %w", err)
 		}
 
 		verdictJSON, err := json.MarshalIndent(verdict, "", "  ")
 		if err != nil {
-			return fmt.Errorf("evaluator: failed to marshal signed verdict: %w", err)
+			return fmt.Errorf("assessor: failed to marshal signed verdict: %w", err)
 		}
 
 		if err := reader.WriteFile(ctx, "verdict.json", verdictJSON); err != nil {
-			slog.Error("evaluator: failed to export signed verdict", "error", err)
+			slog.Error("assessor: failed to export signed verdict", "error", err)
 		} else {
-			slog.Info("evaluator: signed verdict written successfully",
+			slog.Info("assessor: signed verdict written successfully",
 				"run_id", verdict.RunID,
 				"ledger_hash", ledgerHash,
 				"controls_passed", controlsPassed,
@@ -430,18 +430,18 @@ func handleRun(args []string) error {
 			)
 		}
 	} else {
-		slog.Warn("evaluator: JULA_EVALUATOR_SIGNING_KEY is not set, skipping verdict signing")
+		slog.Warn("assessor: JULA_ASSESSOR_SIGNING_KEY is not set, skipping verdict signing")
 	}
 
 	fmt.Println("================================================================")
 
 	if hasFailures {
-		slog.Error("evaluator: compliance audit FAILED - security issues detected!")
+		slog.Error("assessor: compliance audit FAILED - security issues detected!")
 		fmt.Println("STATUS: NON_COMPLIANT")
 		return fmt.Errorf("compliance audit failed")
 	}
 
-	slog.Info("evaluator: compliance audit SUCCESSFUL - system is fully secure!")
+	slog.Info("assessor: compliance audit SUCCESSFUL - system is fully secure!")
 	fmt.Println("STATUS: COMPLIANT")
 	return nil
 }

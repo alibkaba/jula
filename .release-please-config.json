@@ -4,9 +4,9 @@
       "release-type": "go",
       "component": "collector"
     },
-    "evaluator": {
+    "assessor": {
       "release-type": "go",
-      "component": "evaluator"
+      "component": "assessor"
     },
     "governor": {
       "release-type": "go",

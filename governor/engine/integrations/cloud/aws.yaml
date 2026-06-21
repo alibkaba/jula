@@ -1,0 +1,106 @@
+vendor_name: "aws"
+provider: "aws"
+auth_flow:
+  type: "aws_sigv4"
+endpoints:
+  # --- S3: Storage Compliance ---
+  "https://s3.${AWS_REGION}.amazonaws.com/?list-type=2":
+    method: "GET"
+    evidence_id: "EVID-AWS-S3-BUCKETS"
+    description: "List S3 buckets for storage compliance audit"
+    headers:
+      Accept: "application/json"
+  "https://s3.${AWS_REGION}.amazonaws.com/${BUCKET_NAME}?publicAccessBlock":
+    method: "GET"
+    evidence_id: "EVID-AWS-S3-PUBLIC-ACCESS"
+    description: "Get S3 bucket public access block configuration"
+    headers:
+      Accept: "application/json"
+  "https://s3.${AWS_REGION}.amazonaws.com/${BUCKET_NAME}?encryption":
+    method: "GET"
+    evidence_id: "EVID-AWS-S3-ENCRYPTION"
+    description: "Get S3 bucket server-side encryption configuration"
+    headers:
+      Accept: "application/json"
+  "https://s3.${AWS_REGION}.amazonaws.com/${BUCKET_NAME}?versioning":
+    method: "GET"
+    evidence_id: "EVID-AWS-S3-VERSIONING"
+    description: "Get S3 bucket versioning status"
+    headers:
+      Accept: "application/json"
+
+  # --- IAM: Logical Access Security (SOC 2 CC6.1) ---
+  "https://iam.amazonaws.com/?Action=ListUsers&Version=2010-05-08":
+    method: "GET"
+    evidence_id: "EVID-AWS-IAM-USERS"
+    description: "Enumerate IAM users for access control audits"
+    headers:
+      Accept: "application/json"
+  "https://iam.amazonaws.com/?Action=ListAccessKeys&Version=2010-05-08&UserName=${IAM_USER}":
+    method: "GET"
+    evidence_id: "EVID-AWS-IAM-ACCESS-KEYS"
+    description: "Check for long-lived access keys that violate ephemeral credential policies"
+    headers:
+      Accept: "application/json"
+  "https://iam.amazonaws.com/?Action=ListMFADevices&Version=2010-05-08&UserName=${IAM_USER}":
+    method: "GET"
+    evidence_id: "EVID-AWS-IAM-MFA"
+    description: "Verify MFA enforcement on user accounts"
+    headers:
+      Accept: "application/json"
+  "https://iam.amazonaws.com/?Action=ListRoles&Version=2010-05-08":
+    method: "GET"
+    evidence_id: "EVID-AWS-IAM-ROLES"
+    description: "Enumerate IAM roles for privilege escalation audits"
+    headers:
+      Accept: "application/json"
+
+  # --- EC2: Network Segmentation (SOC 2 CC6.6) ---
+  "https://ec2.${AWS_REGION}.amazonaws.com/?Action=DescribeInstances&Version=2016-11-15":
+    method: "GET"
+    evidence_id: "EVID-AWS-EC2-INSTANCES"
+    description: "Enumerate EC2 instances for security group and network audits"
+    headers:
+      Accept: "application/json"
+  "https://ec2.${AWS_REGION}.amazonaws.com/?Action=DescribeSecurityGroups&Version=2016-11-15":
+    method: "GET"
+    evidence_id: "EVID-AWS-EC2-SECURITY-GROUPS"
+    description: "Read security group rules for network segmentation audits"
+    headers:
+      Accept: "application/json"
+
+  # --- CloudTrail: Audit Logging (SOC 2 CC7.2) ---
+  "https://cloudtrail.${AWS_REGION}.amazonaws.com/?Action=DescribeTrails&Version=2013-11-01":
+    method: "GET"
+    evidence_id: "EVID-AWS-CT-TRAILS"
+    description: "Verify CloudTrail audit logging is enabled"
+    headers:
+      Accept: "application/json"
+  "https://cloudtrail.${AWS_REGION}.amazonaws.com/?Action=GetTrailStatus&Version=2013-11-01&Name=${TRAIL_NAME}":
+    method: "GET"
+    evidence_id: "EVID-AWS-CT-STATUS"
+    description: "Check that audit logging is actively recording"
+    headers:
+      Accept: "application/json"
+
+  # --- RDS: Database Compliance (SOC 2 A1.2, C1.1) ---
+  "https://rds.${AWS_REGION}.amazonaws.com/?Action=DescribeDBInstances&Version=2014-10-31":
+    method: "GET"
+    evidence_id: "EVID-AWS-RDS-INSTANCES"
+    description: "Enumerate RDS instances for encryption, backup, and TLS audits"
+    headers:
+      Accept: "application/json"
+  "https://rds.${AWS_REGION}.amazonaws.com/?Action=DescribeDBClusters&Version=2014-10-31":
+    method: "GET"
+    evidence_id: "EVID-AWS-RDS-CLUSTERS"
+    description: "Enumerate RDS Aurora clusters for multi-AZ and encryption audits"
+    headers:
+      Accept: "application/json"
+
+  # --- KMS: Encryption Key Management (SOC 2 C1.1) ---
+  "https://kms.${AWS_REGION}.amazonaws.com/?Action=ListKeys&Version=2014-11-01":
+    method: "GET"
+    evidence_id: "EVID-AWS-KMS-KEYS"
+    description: "List KMS keys for encryption key lifecycle audits"
+    headers:
+      Accept: "application/json"

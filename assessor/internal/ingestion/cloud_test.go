@@ -113,12 +113,12 @@ func TestCloudReader_LocalLifecycle(t *testing.T) {
 
 	// Write file.
 	writeData := []byte(`{"result": "pass"}`)
-	if err := reader.WriteFile(ctx, "evaluator_ledger.json", writeData); err != nil {
+	if err := reader.WriteFile(ctx, "assessor_ledger.json", writeData); err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
 	}
 
 	// Verify written file.
-	written, err := os.ReadFile(filepath.Join(dir, "evaluator_ledger.json"))
+	written, err := os.ReadFile(filepath.Join(dir, "assessor_ledger.json"))
 	if err != nil {
 		t.Fatalf("written file not found: %v", err)
 	}

@@ -29,8 +29,8 @@ jobs:
       - name: Build Collector
         run: go build -o jula-collector ./collector/cmd/collector
 
-      - name: Build Evaluator
-        run: go build -o jula-evaluator ./evaluator/cmd/evaluator
+      - name: Build Assessor
+        run: go build -o jula-assessor ./assessor/cmd/assessor
 
       - name: Generate Ephemeral Signing Key Pair
         run: |
@@ -56,14 +56,14 @@ jobs:
           ./jula-collector run --output /tmp/canary-evidence
         continue-on-error: true
 
-      - name: Execute Evaluator Policy Validation
-        id: evaluator
+      - name: Execute Assessor Policy Validation
+        id: assessor
         if: steps.collector.outcome == 'success' && hashFiles('/tmp/canary-evidence/manifest.json') != ''
         env:
           JULA_BUCKET_URL: /tmp/canary-evidence
           JULA_POLICY_URL: governor/policies
         run: |
-          ./jula-evaluator run \
+          ./jula-assessor run \
             --bucket-url "$JULA_BUCKET_URL" \
             --policy-url "$JULA_POLICY_URL"
         continue-on-error: true
@@ -73,15 +73,15 @@ jobs:
         run: |
           echo "### Canary Results"
           echo "Collector: ${{ steps.collector.outcome }}"
-          echo "Evaluator: ${{ steps.evaluator.outcome }}"
+          echo "Assessor: ${{ steps.assessor.outcome }}"
           if [ "${{ steps.collector.outcome }}" == "failure" ]; then
             echo "⚠️ Canary detected failures. Review logs above."
             exit 1
           fi
-          if [ "${{ steps.evaluator.outcome }}" == "failure" ]; then
+          if [ "${{ steps.assessor.outcome }}" == "failure" ]; then
             echo "⚠️ Canary detected failures. Review logs above."
             exit 1
           fi
-          if [ "${{ steps.evaluator.outcome }}" == "skipped" ]; then
-            echo "ℹ️ Evaluator skipped: no evidence was collected (all integrations lacked credentials)."
+          if [ "${{ steps.assessor.outcome }}" == "skipped" ]; then
+            echo "ℹ️ Assessor skipped: no evidence was collected (all integrations lacked credentials)."
           fi

@@ -101,9 +101,9 @@ resource "aws_ecs_task_definition" "collector" {
   ])
 }
 
-# Jula Evaluator Task Definition
-resource "aws_ecs_task_definition" "evaluator" {
-  family                   = "jula-evaluator"
+# Jula Assessor Task Definition
+resource "aws_ecs_task_definition" "assessor" {
+  family                   = "jula-assessor"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "256"
@@ -113,8 +113,8 @@ resource "aws_ecs_task_definition" "evaluator" {
 
   container_definitions = jsonencode([
     {
-      name      = "jula-evaluator"
-      image     = "${aws_ecr_repository.evaluator.repository_url}:${var.evaluator_image_tag}"
+      name      = "jula-assessor"
+      image     = "${aws_ecr_repository.assessor.repository_url}:${var.assessor_image_tag}"
       essential = true
       command   = ["run"]
 
@@ -123,7 +123,7 @@ resource "aws_ecs_task_definition" "evaluator" {
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.jula.name
           "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "evaluator"
+          "awslogs-stream-prefix" = "assessor"
         }
       }
 

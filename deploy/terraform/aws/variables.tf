@@ -15,8 +15,8 @@ variable "collector_image_tag" {
   default     = "latest"
 }
 
-variable "evaluator_image_tag" {
-  description = "The container image tag for the evaluator"
+variable "assessor_image_tag" {
+  description = "The container image tag for the assessor"
   type        = string
   default     = "latest"
 }

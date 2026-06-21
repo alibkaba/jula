@@ -8,7 +8,7 @@ Jula is structured as a Go monorepo with four independent modules connected thro
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Governor    │     │  Collector   │     │  Evaluator   │
+│  Governor    │     │  Collector   │     │  Assessor   │
 │  (Policy     │     │  (Evidence   │     │  (Policy     │
 │   Authoring) │     │   Gathering) │     │   Engine)    │
 └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
@@ -82,9 +82,9 @@ Seven cloud and SaaS integrations ship out of the box, each defined as a standal
 
 ---
 
-## Evaluator
+## Assessor
 
-The evaluator is a policy execution engine that reads collected evidence, runs it through OPA Rego policies, and produces cryptographically signed compliance verdicts.
+The assessor is a policy execution engine that reads collected evidence, runs it through OPA Rego policies, and produces cryptographically signed compliance verdicts.
 
 ### Policy Evaluation
 
@@ -169,7 +169,7 @@ Eight GitHub Actions workflows automate the full build, test, deploy, and assura
 
 ### Build & Deploy Pipelines
 
-- **Per-module CI** (`ci-collector.yml`, `ci-evaluator.yml`, `ci-governor.yml`, `ci-core.yml`) with independent test, lint, build, and deploy stages
+- **Per-module CI** (`ci-collector.yml`, `ci-assessor.yml`, `ci-governor.yml`, `ci-core.yml`) with independent test, lint, build, and deploy stages
 - **Dual-cloud container deployment** pushing Docker images to both GCP Artifact Registry and AWS ECR
 - **Cloud Run deployment** for serverless execution on GCP
 - **Path-filtered triggers** ensuring only affected modules rebuild on push
@@ -183,14 +183,14 @@ Eight GitHub Actions workflows automate the full build, test, deploy, and assura
 ### Release Management
 
 - **Automated releases** via `release-please` with conventional commit parsing and changelog generation
-- **Multi-artifact release pipeline** building collector, evaluator, and signing artifacts for Linux and Darwin (amd64/arm64)
+- **Multi-artifact release pipeline** building collector, assessor, and signing artifacts for Linux and Darwin (amd64/arm64)
 - **Build provenance attestation** on every release binary
 
 ### Canary Pipeline
 
 - **Scheduled daily canary** (`pipeline-canary.yml`) running at 2:00 AM UTC via cron
 - **Ephemeral signing key generation** per canary run (no persistent secrets required for basic validation)
-- **Graceful no-evidence handling** where the evaluator is skipped when no integrations have credentials configured
+- **Graceful no-evidence handling** where the assessor is skipped when no integrations have credentials configured
 - **Build and boot validation** confirming both binaries compile and execute without crashes
 
 ### Self-Healing Pipeline

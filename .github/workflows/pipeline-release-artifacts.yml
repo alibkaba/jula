@@ -31,8 +31,8 @@ jobs:
           echo "Release tag: $TAG"
           if [[ "$TAG" == collector-* ]]; then
             echo "service=collector" >> $GITHUB_OUTPUT
-          elif [[ "$TAG" == evaluator-* ]]; then
-            echo "service=evaluator" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == assessor-* ]]; then
+            echo "service=assessor" >> $GITHUB_OUTPUT
           else
             echo "service=unknown" >> $GITHUB_OUTPUT
             echo "::warning::Unknown release tag format: $TAG"
