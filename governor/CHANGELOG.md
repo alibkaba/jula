@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/alibkaba/jula/compare/governor-v2.1.0...governor-v2.2.0) (2026-06-21)
+
+
+### Features
+
+* implement JC-001 through JC-009 compliance rules and update requirements catalog ([8ce17ec](https://github.com/alibkaba/jula/commit/8ce17eccb3e2aa10b968fc85917aa7ddb1091223))
+
 ## [2.1.0](https://github.com/alibkaba/jula/compare/governor-v2.0.1...governor-v2.1.0) (2026-06-20)
 
 
