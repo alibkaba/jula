@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,8 +16,9 @@ import (
 
 // SignAWSv4 strictly signs an HTTP request according to AWS Signature Version 4.
 // It relies entirely on standard Go crypto and net/http packages.
-// It pulls credentials from AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
-// AWS_SESSION_TOKEN, and AWS_REGION environment variables.
+// Credentials are resolved in order:
+//  1. AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY environment variables
+//  2. ECS container credentials endpoint (AWS_CONTAINER_CREDENTIALS_RELATIVE_URI)
 func SignAWSv4(req *http.Request, payload []byte) error {
 	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -25,6 +27,16 @@ func SignAWSv4(req *http.Request, payload []byte) error {
 		region = os.Getenv("AWS_DEFAULT_REGION")
 	}
 	sessionToken := os.Getenv("AWS_SESSION_TOKEN")
+
+	// Fallback: ECS Fargate injects credentials via a container metadata endpoint.
+	if accessKey == "" || secretKey == "" {
+		ecsCreds, err := resolveECSCredentials()
+		if err == nil {
+			accessKey = ecsCreds.AccessKeyID
+			secretKey = ecsCreds.SecretAccessKey
+			sessionToken = ecsCreds.Token
+		}
+	}
 
 	if accessKey == "" || secretKey == "" || region == "" {
 		return fmt.Errorf("aws_sigv4 requires AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION")
@@ -148,4 +160,40 @@ func getSignatureKey(secret, date, region, service string) []byte {
 	kService := hmacSHA256(kRegion, []byte(service))
 	kSigning := hmacSHA256(kService, []byte("aws4_request"))
 	return kSigning
+}
+
+// ecsCredentials represents the JSON response from the ECS container
+// credentials endpoint at 169.254.170.2.
+type ecsCredentials struct {
+	AccessKeyID     string `json:"AccessKeyId"`
+	SecretAccessKey string `json:"SecretAccessKey"`
+	Token           string `json:"Token"`
+}
+
+// resolveECSCredentials fetches temporary credentials from the ECS container
+// metadata endpoint. ECS Fargate sets AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+// to a path like /v2/credentials/<uuid>, which returns IAM role credentials.
+func resolveECSCredentials() (*ecsCredentials, error) {
+	relativeURI := os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
+	if relativeURI == "" {
+		return nil, fmt.Errorf("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI not set")
+	}
+
+	endpoint := "http://169.254.170.2" + relativeURI
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("fetching ECS credentials: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ECS credentials endpoint returned %d", resp.StatusCode)
+	}
+
+	var creds ecsCredentials
+	if err := json.NewDecoder(resp.Body).Decode(&creds); err != nil {
+		return nil, fmt.Errorf("decoding ECS credentials: %w", err)
+	}
+	return &creds, nil
 }
