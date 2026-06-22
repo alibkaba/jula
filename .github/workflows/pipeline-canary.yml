@@ -1,4 +1,4 @@
-name: Scheduled Canary Pipeline
+name: "Pipeline: Canary"
 
 on:
   schedule:

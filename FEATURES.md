@@ -70,11 +70,11 @@ Seven authentication strategies are implemented, each as a standalone signer mod
 
 ### Pre-Built Integrations
 
-Seven cloud and SaaS integrations ship out of the box, each defined as a standalone YAML file:
+Eleven cloud and SaaS integrations ship out of the box, each defined as a standalone YAML file:
 
 - **GitHub** (Pull requests, branches, organization members)
-- **GCP** (Cloud Asset Inventory via REST)
-- **AWS** (Placeholder via SigV4)
+- **GCP** (Compute instances, firewalls, IAM service accounts, Cloud Run services, SQL instances, Storage buckets, logging sinks)
+- **AWS** (CloudTrail trails, EC2 instances, EC2 security groups, KMS keys, RDS instances, RDS clusters, S3 encryption)
 - **Azure** (Placeholder via Managed Identity)
 - **OCI** (Placeholder via Cavage HTTP Signatures)
 - **Alibaba Cloud** (Placeholder via HMAC)
@@ -165,14 +165,16 @@ Shared infrastructure used by all modules.
 
 ## CI/CD & Supply Chain Security
 
-Eight GitHub Actions workflows automate the full build, test, deploy, and assurance lifecycle.
+Six GitHub Actions workflows automate the full build, test, deploy, and assurance lifecycle.
 
 ### Build & Deploy Pipelines
 
-- **Per-module CI** (`ci-collector.yml`, `ci-assessor.yml`, `ci-governor.yml`, `ci-core.yml`) with independent test, lint, build, and deploy stages
+- **Consolidated services CI** (`ci-services.yml`) with unified build, test, lint, and dual-cloud deploy for Collector, Assessor, and Core
+- **Governor CI** (`ci-governor.yml`) with policy validation, bundle signing, and provenance attestation
 - **Dual-cloud container deployment** pushing Docker images to both GCP Artifact Registry and AWS ECR
-- **Cloud Run deployment** for serverless execution on GCP
+- **Cloud Run deployment** for serverless execution on GCP, ECS Fargate for AWS
 - **Path-filtered triggers** ensuring only affected modules rebuild on push
+- **Manual dispatch** via `workflow_dispatch` with service selector (both, collector, or assessor)
 
 ### Supply Chain Attestation
 
@@ -203,11 +205,12 @@ Eight GitHub Actions workflows automate the full build, test, deploy, and assura
 
 ## Infrastructure
 
-### Terraform
+### Dual-Cloud Terraform
 
-- **GCP infrastructure** provisioned via Terraform
-- **AWS infrastructure** provisioned via Terraform
-- **Dual-cloud deployment** architecture supporting simultaneous GCP Cloud Run and AWS ECS/Lambda targets
+- **GCP infrastructure** provisioned via Terraform (Cloud Run, Artifact Registry, Secret Manager, Cloud Scheduler, VPC with NAT)
+- **AWS infrastructure** provisioned via Terraform (ECS Fargate, ECR, Secrets Manager, EventBridge, VPC with private subnets and VPC endpoints)
+- **Consistent naming convention** using `jula-ledger-{cloud_id}` where the ID is the AWS Account ID or GCP Project Number
+- **Companion audit buckets** (`jula-ledger-audit-{cloud_id}`) for access log separation
 
 ---
 

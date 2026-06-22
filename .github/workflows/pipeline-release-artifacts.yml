@@ -1,4 +1,4 @@
-name: "CI/CD: Release Artifacts"
+name: "Pipeline: Release Artifacts"
 
 on:
   release:

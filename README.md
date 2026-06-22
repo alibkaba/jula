@@ -4,16 +4,14 @@
 
 | Component | Build & Release | Description |
 | :--- | :--- | :--- |
-| **[Jula Core](./core)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-core.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-core.yml) | Shared models and cryptographic utilities |
-| **[Jula Collector](./collector)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-collector.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-collector.yml) | Stateless Go extraction engine |
-| **[Jula Assessor](./assessor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-assessor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-assessor.yml) | Policy evaluation and manifest verification |
-| **[Jula Governor](./governor)** | [![CI/CD Pipeline](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml) | AI Translation & Policy Generation CLI |
+| **[Collector + Assessor + Core](./collector)** | [![CI/CD: Services](https://github.com/alibkaba/jula/actions/workflows/ci-services.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-services.yml) | Unified build, test, and dual-cloud deploy pipeline |
+| **[Governor](./governor)** | [![CI/CD: Governor](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml) | AI translation, policy generation, and bundle signing |
 
 | Pipeline | Status | Description |
 | :--- | :--- | :--- |
-| **Canary** | [![Canary](https://github.com/alibkaba/jula/actions/workflows/pipeline-canary.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-canary.yml) | Scheduled daily build and integration smoke test |
-| **Release** | [![Release](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml) | Multi-platform binary release with SLSA attestation |
-| **Policy Signing** | [![Policy Signing](https://github.com/alibkaba/jula/actions/workflows/ci-governor-sign.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor-sign.yml) | Cryptographic signing of policy bundles |
+| **Canary** | [![Pipeline: Canary](https://github.com/alibkaba/jula/actions/workflows/pipeline-canary.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-canary.yml) | Scheduled daily build and integration smoke test |
+| **Release** | [![Pipeline: Release](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml) | Multi-platform binary release with SLSA attestation |
+| **Self-Heal** | [![Pipeline: Self-Heal](https://github.com/alibkaba/jula/actions/workflows/pipeline-self-heal.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-self-heal.yml) | AI-driven schema drift remediation |
 
 > For a detailed technical inventory of every feature, see [FEATURES.md](./FEATURES.md).
 
@@ -88,7 +86,7 @@ flowchart TB
 
     subgraph Phase3 ["3. Immutable Attestation Ledger"]
         direction TB
-        GCS[("🪣 Secure Object Storage <br> ledger://jula-evidence-ledger <br> (WORM Retention + Bucket Lock)")]
+        GCS[("🪣 Secure Object Storage <br> ledger://jula-ledger-{cloud_id} <br> (Versioned + Audit Logged)")]
         H -->|Upload| GCS
         P -->|Upload| GCS
         M -->|Upload| GCS
@@ -192,13 +190,14 @@ All build artifacts include [SLSA v1.0 provenance attestations](https://slsa.dev
 - **Release binaries:** Darwin/ARM64, Linux/AMD64, Windows/AMD64 (Collector + Assessor)
 - **Container images:** GCP Artifact Registry and AWS ECR (Collector + Assessor)
 
-### Immutable Evidence Ledger
+### Evidence Ledger
 
-The evidence storage bucket enforces write-once-read-many (WORM) semantics via GCS Bucket Lock:
+Evidence is stored in dual-cloud object storage buckets using a consistent naming convention based on cloud account identifiers:
 
-- **Retention policy:** 365 days (configurable, matches SOC 2 Type II audit window)
-- **Versioning:** Enabled to prevent silent overwrites
-- **Bucket Lock:** Optional irreversible lock (`lock_evidence_bucket = true`)
+- **Naming:** `jula-ledger-{cloud_id}` where the ID is the AWS Account ID or GCP Project Number
+- **Audit logging:** Each ledger has a companion `jula-ledger-audit-{cloud_id}` bucket for access logs
+- **Versioning:** Enabled on both clouds to prevent silent overwrites
+- **Lifecycle:** Audit logs rotate after 90 days
 
 ### Zero-Knowledge Evidence Handling
 

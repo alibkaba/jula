@@ -1,4 +1,4 @@
-name: Jula Autopilot Self-Healing Loop
+name: "Pipeline: Self-Heal"
 
 on:
   repository_dispatch:
