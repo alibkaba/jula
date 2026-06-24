@@ -3,4 +3,17 @@ provider: "aws"
 auth_flow:
   type: "aws_native_auth"
   token_env: "AWS_ACCESS_TOKEN"
-endpoints: {}
+
+# Egress manifest: required domains for evidence collection.
+# Deployment tooling derives firewall rules from this list.
+endpoints:
+  s3: "s3.amazonaws.com"
+  iam: "iam.amazonaws.com"
+  ec2: "ec2.amazonaws.com"
+  sts: "sts.amazonaws.com"
+  secretsmanager: "secretsmanager.amazonaws.com"
+  cloudtrail: "cloudtrail.amazonaws.com"
+  config: "config.amazonaws.com"
+  rds: "rds.amazonaws.com"
+  lambda: "lambda.amazonaws.com"
+  kms: "kms.amazonaws.com"

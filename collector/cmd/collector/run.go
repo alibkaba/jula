@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/alibkaba/jula-collector/internal/engine"
-	"github.com/alibkaba/jula-collector/internal/reporter"
+	"github.com/alibkaba/jula-collector/internal/courier"
 	"github.com/alibkaba/jula-core/pkg/objstore"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
@@ -107,7 +107,7 @@ func handleRun(args []string) error {
 	slog.Info("run: extraction and transformation complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	bucketURL, pathPrefix, err := reporter.ParseOutputURL(*outputFlag)
+	bucketURL, pathPrefix, err := courier.ParseOutputURL(*outputFlag)
 	if err != nil {
 		return fmt.Errorf("parsing output URL: %w", err)
 	}
@@ -117,14 +117,14 @@ func handleRun(args []string) error {
 		return fmt.Errorf("creating object store: %w", err)
 	}
 
-	rep := &reporter.CloudReporter{
+	rep := &courier.CloudCourier{
 		Store:      store,
 		SigningKey: signingKey,
 		PathPrefix: pathPrefix,
 	}
 
 	if err := rep.Validate(ctx); err != nil {
-		return fmt.Errorf("reporter validation failed: %w", err)
+		return fmt.Errorf("courier validation failed: %w", err)
 	}
 
 	manifest, err := rep.Deliver(ctx, evidence, runID)

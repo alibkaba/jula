@@ -6,6 +6,7 @@
 | :--- | :--- | :--- |
 | **[Collector + Assessor + Core](./collector)** | [![CI/CD: Services](https://github.com/alibkaba/jula/actions/workflows/ci-services.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-services.yml) | Unified build, test, and dual-cloud deploy pipeline |
 | **[Governor](./governor)** | [![CI/CD: Governor](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-governor.yml) | AI translation, policy generation, and bundle signing |
+| **[Reporter](./reporter)** | [![CI/CD: Reporter](https://github.com/alibkaba/jula/actions/workflows/ci-reporter.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/ci-reporter.yml) | CLI compliance posture reporting (`jula-posture`) |
 | **[Core CLI Tools](./core)** | [![Pipeline: Release](https://github.com/alibkaba/jula/actions/workflows/pipeline-release-artifacts.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-release-artifacts.yml) | `jula-sign-evidence` and `jula-verify` standalone binaries |
 
 | Pipeline | Status | Description |
@@ -23,6 +24,7 @@ Jula Controls is designed as a decoupled, multi-repository architecture (now con
 * The **[Jula Core](./core) defines shared models and cryptographic validation** utilities used by all modules, ensuring consistent data schemas across the pipeline. Core also ships three CLI tools: **`jula-sign-evidence`** for signing external evidence payloads with ECDSA provenance sidecars, **`jula-sign-bundle`** for signing governor policy bundles (Key B), and **`jula-verify`** for independently auditing the cryptographic chain of any Jula evidence run.
 * The **[Jula Collector](./collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
 * The **[Jula Assessor](./assessor) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies. The Assessor optionally produces **NIST OSCAL Assessment Results** JSON output via the `--output-format oscal` flag.
+* The **[Jula Reporter](./reporter) reports compliance posture** by reading assessment verdicts and rendering rich posture reports directly in the terminal via `jula-posture`. Provides executive summaries, automation coverage analysis, and historical compliance trending using the signed verdict chain.
 * The **[Jula Governor](./governor) stores Rego policies** in a version-controlled directory that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
 
 Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
@@ -116,22 +118,30 @@ flowchart TB
         PolicyCheck --> OPA
     end
 
-    subgraph Phase5 ["5. Quantitative Risk & Posture Insights (Planned)"]
+    subgraph Phase5 ["5. Quantitative Risk & Posture Insights (reporter/)"]
         direction TB
-        DB["📊 Insight Engine <br> (Quantitative Risk & Posture)"]
+        DB["📊 Insight Engine <br> (jula-posture CLI)"]
         
-        subgraph Views ["Visualization Modules"]
+        subgraph Shipped ["Shipped Modules"]
+            direction LR
+            Summary["📋 Executive Summary <br> (Control Family Pass/Fail)"]
+            Coverage["🔧 Automation Coverage <br> (Auto vs Manual Analysis)"]
+            TrendMod["📈 Compliance Trend <br> (Historical Sparklines)"]
+        end
+
+        subgraph Planned ["Planned Modules"]
             direction LR
             LEC["📈 Loss Exceedance Curve <br> (FAIR Financial Simulation)"]
-            Radar["🕸️ Maturity Radar Chart <br> (NIST CSF spider chart)"]
+            Radar["🕸️ Maturity Radar Chart <br> (NIST CSF Spider Chart)"]
             ROI["📊 Risk ROI Bar Chart <br> (Mitigation Cost vs Residual Loss)"]
-            Trend["📈 KRI Trend Lines <br> (12-Month Maturity Tracking)"]
         end
         
-        DB --> LEC
-        DB --> Radar
-        DB --> ROI
-        DB --> Trend
+        DB --> Summary
+        DB --> Coverage
+        DB --> TrendMod
+        DB -.-> LEC
+        DB -.-> Radar
+        DB -.-> ROI
     end
 
     JC["📦 Jula Core <br> (Shared Go Module)"]
@@ -162,7 +172,7 @@ flowchart TB
     class EE,SigCheck,HashCheck,ProvCheck,PolicyCheck,OPA assessor;
     class KMS,KeyB,KeyC security;
     class Findings,SignedVerdict output;
-    class DB,LEC,Radar,ROI,Trend insights;
+    class DB,Summary,Coverage,TrendMod,LEC,Radar,ROI insights;
     class JC core;
 ```
 

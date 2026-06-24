@@ -51,6 +51,7 @@ func TestSignEvidenceEndToEnd(t *testing.T) {
 		runID:        "test-run-001",
 		deploymentID: "test-deploy",
 		provider:     "test-provider",
+		noSchema:     true,
 	})
 	if err != nil {
 		t.Fatalf("signDirectory failed: %v", err)
@@ -191,6 +192,7 @@ func TestTamperedManifestFails(t *testing.T) {
 		signingKey: privKey,
 		runID:      "tamper-test",
 		provider:   "test",
+		noSchema:   true,
 	})
 	if err != nil {
 		t.Fatalf("signDirectory failed: %v", err)
@@ -228,6 +230,7 @@ func TestWrongKeyFails(t *testing.T) {
 		signingKey: privKey1,
 		runID:      "wrong-key-test",
 		provider:   "test",
+		noSchema:   true,
 	})
 	if err != nil {
 		t.Fatalf("signDirectory failed: %v", err)

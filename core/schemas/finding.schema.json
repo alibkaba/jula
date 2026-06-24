@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alibkaba/jula/core/schemas/finding.schema.json",
+  "title": "Jula Finding",
+  "description": "Schema for the finding object within an evidence file. Contains raw infrastructure state data extracted from a provider.",
+  "type": "object",
+  "required": ["evidence_id", "control_id", "source_id", "provider", "raw_data", "timestamp", "run_id"],
+  "additionalProperties": false,
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "description": "Evidence Request List identifier that triggered this extraction."
+    },
+    "control_id": {
+      "type": "string",
+      "description": "Generic control identifier."
+    },
+    "source_id": {
+      "type": "string",
+      "description": "Resource source identifier (e.g., GCP project ID, AWS account ID)."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Extraction source identifier (e.g., 'gcp_cai', 'steampipe', 'cloudquery', 'filedrop')."
+    },
+    "raw_data": {
+      "description": "Raw extraction payload. For API-based extractions, this is the JSON array of resource objects. For file-based extractions, this is the raw file content."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the extraction occurred (UTC, RFC 3339)."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this execution run."
+    }
+  }
+}

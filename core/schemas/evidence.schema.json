@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alibkaba/jula/core/schemas/evidence.schema.json",
+  "title": "Jula Evidence",
+  "description": "Schema for evidence files consumed by the Jula Assessor. Any tool producing evidence for Jula must conform to this shape.",
+  "type": "object",
+  "required": ["evidence_id", "control_id", "source_id", "finding", "payload_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "description": "Evidence Request List identifier (e.g., 'EVID-BCM-16'). Primary routing key for the assessment pipeline."
+    },
+    "control_id": {
+      "type": "string",
+      "description": "Generic control identifier (e.g., 'BCD-11.4', 'ac-1'). Maps to the OSCAL control ID."
+    },
+    "source_id": {
+      "type": "string",
+      "description": "Resource source identifier (e.g., GCP project ID, AWS account ID)."
+    },
+    "finding": {
+      "$ref": "finding.schema.json"
+    },
+    "payload_hash": {
+      "type": "string",
+      "description": "SHA-256 hash of finding.raw_data, providing cryptographic proof of exact collected data.",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

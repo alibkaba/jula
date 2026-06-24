@@ -30,6 +30,8 @@ type ControlFinding struct {
 	CustomerControlID string            `json:"customer_control_id,omitempty"`
 	Verdict           ComplianceVerdict `json:"verdict"`
 	Details           string            `json:"details"`
+	Confidence        float64           `json:"confidence"`
+	AutomationStatus  string            `json:"automation_status,omitempty"`
 	EvaluatedAt       time.Time         `json:"evaluated_at"`
 	TargetService     string            `json:"-"`
 	RawBreakingData   interface{}       `json:"-"`
@@ -237,6 +239,8 @@ func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evide
 		dynamicDetails := ""
 		targetService := ""
 		driftDetected := false
+		confidence := 0.0
+		automationStatus := ""
 
 		if len(results) > 0 && len(results[0].Expressions) > 0 {
 			if packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok {
@@ -255,6 +259,16 @@ func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evide
 					}
 					if service, okServ := evalMap["service"].(string); okServ {
 						targetService = service
+					}
+					if conf, okConf := evalMap["confidence"].(json.Number); okConf {
+						if v, err := conf.Float64(); err == nil {
+							confidence = v
+						}
+					} else if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
+						confidence = confFloat
+					}
+					if status, okStatus := evalMap["automation_status"].(string); okStatus {
+						automationStatus = status
 					}
 				}
 			}
@@ -292,6 +306,8 @@ func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evide
 			CustomerControlID: custControlID,
 			Verdict:           verdict,
 			Details:           details,
+			Confidence:        confidence,
+			AutomationStatus:  automationStatus,
 			EvaluatedAt:       now,
 			TargetService:     targetService,
 			RawBreakingData:   rawBreakingData,

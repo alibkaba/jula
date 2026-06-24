@@ -453,6 +453,8 @@ func handleRun(args []string) error {
 				CustomerControlID: f.CustomerControlID,
 				Verdict:           string(f.Verdict),
 				Details:           f.Details,
+				Confidence:        f.Confidence,
+				AutomationStatus:  f.AutomationStatus,
 				EvaluatedAt:       f.EvaluatedAt,
 			}
 		}

@@ -1,0 +1,108 @@
+name: "CI/CD: Reporter"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'reporter/**'
+      - 'core/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'reporter/**'
+      - 'core/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  # ==========================================
+  # 1. TEST
+  # ==========================================
+  test:
+    name: Test Reporter
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: 'reporter/go.mod'
+          cache: false
+      - name: Run vet
+        run: go vet ./reporter/...
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out ./reporter/...
+
+  # ==========================================
+  # 2. BUILD CHECK
+  # ==========================================
+  build-check:
+    name: Verify CLI Compilation
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: 'reporter/go.mod'
+          cache: false
+      - name: Build jula-posture
+        run: cd reporter && go build -o ../bin/jula-posture ./cmd/posture
+      - name: Verify binary runs
+        run: ./bin/jula-posture help
+
+  # ==========================================
+  # 3. BUILD RELEASE BINARIES (Main only)
+  # ==========================================
+  build-release:
+    name: "Build: ${{ matrix.goos }}/${{ matrix.goarch }}"
+    needs: build-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: 'reporter/go.mod'
+          cache: false
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BINARY="jula-posture-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" == "windows" ]; then
+            BINARY="${BINARY}.exe"
+          fi
+          cd reporter && go build -ldflags="-s -w" -o "../bin/${BINARY}" ./cmd/posture
+          echo "binary=${BINARY}" >> $GITHUB_OUTPUT
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: bin/jula-posture-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+      - name: Upload binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jula-posture-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/jula-posture-*
+          retention-days: 90

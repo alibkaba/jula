@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 const (
 	workspaceFile    = "../../workspace.yaml"
 	requirementsFile = "../../requirements.csv"
+	provenanceFile   = "../../source_provenance.json"
 	promptFile       = "../../engine/prompts/setup_03_extract_requirements.md"
 	registryFile     = "../../framework_registry.yaml"
 )
@@ -122,6 +124,36 @@ func detectSourceFormat(path string, content []byte) string {
 		return "json"
 	}
 	return "csv"
+}
+
+// writeCSVProvenance computes SHA-256 of the CSV source and writes provenance metadata.
+// This file gets included in the signed policy bundle, so Key B transitively covers the source hash.
+func writeCSVProvenance(sourcePath string, content []byte, framework string, controlsCount int) {
+	hasher := sha256.New()
+	hasher.Write(content)
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
+	prov := map[string]interface{}{
+		"source_file":   filepath.Base(sourcePath),
+		"source_sha256": hash,
+		"framework":     framework,
+		"imported_at":   time.Now().UTC().Format(time.RFC3339),
+		"controls_count": controlsCount,
+	}
+
+	provJSON, err := json.MarshalIndent(prov, "", "  ")
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to marshal source provenance: %v\n", err)
+		return
+	}
+
+	if err := os.WriteFile(provenanceFile, provJSON, 0644); err != nil {
+		fmt.Printf("[WARNING] Failed to write source provenance to %s: %v\n", provenanceFile, err)
+		return
+	}
+
+	fmt.Printf("[PROVENANCE] CSV source hash: %s\n", hash)
+	fmt.Printf("[PROVENANCE] Written to %s\n", provenanceFile)
 }
 
 // CatalogEntry is the normalized representation of a control from any source.
@@ -905,6 +937,7 @@ func main() {
 		switch format {
 		case "csv":
 			entries = parseCSVCatalog(jsonBytes)
+			writeCSVProvenance(catalogPath, jsonBytes, framework, len(entries))
 		default:
 			entries = parseOSCALCatalog(jsonBytes)
 		}

@@ -3,4 +3,17 @@ provider: "gcp"
 auth_flow:
   type: "gcp_native_auth"
   token_env: "GCP_ACCESS_TOKEN"
-endpoints: {}
+
+# Egress manifest: required domains for evidence collection.
+# Deployment tooling derives firewall rules from this list.
+endpoints:
+  compute: "compute.googleapis.com"
+  storage: "storage.googleapis.com"
+  iam: "iam.googleapis.com"
+  cloudresourcemanager: "cloudresourcemanager.googleapis.com"
+  logging: "logging.googleapis.com"
+  secretmanager: "secretmanager.googleapis.com"
+  cloudasset: "cloudasset.googleapis.com"
+  dns: "dns.googleapis.com"
+  container: "container.googleapis.com"
+  sqladmin: "sqladmin.googleapis.com"

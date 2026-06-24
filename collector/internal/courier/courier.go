@@ -1,4 +1,4 @@
-package reporter
+package courier
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
-// Reporter delivers formatted evidence artifacts to a storage target.
-type Reporter interface {
-	// Name returns the reporter identifier (e.g., "local", "s3", "gcs").
+// Courier delivers formatted evidence artifacts to a storage target.
+type Courier interface {
+	// Name returns the courier identifier (e.g., "local", "s3", "gcs").
 	Name() string
 
 	// Validate checks that the target storage is accessible and writable.

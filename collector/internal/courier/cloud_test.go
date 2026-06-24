@@ -1,4 +1,4 @@
-package reporter
+package courier
 
 import (
 	"context"
@@ -30,14 +30,14 @@ func (m *mockStore) Put(ctx context.Context, key string, body io.Reader, content
 	return nil
 }
 
-func TestCloudReporter_Name(t *testing.T) {
-	r := &CloudReporter{}
+func TestCloudCourier_Name(t *testing.T) {
+	r := &CloudCourier{}
 	if r.Name() != "cloud" {
 		t.Errorf("expected cloud, got %s", r.Name())
 	}
 }
 
-func TestCloudReporter_Validate(t *testing.T) {
+func TestCloudCourier_Validate(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tests := []struct {
 		name    string
@@ -62,7 +62,7 @@ func TestCloudReporter_Validate(t *testing.T) {
 				storeInterface = tt.store
 			}
 
-			r := &CloudReporter{}
+			r := &CloudCourier{}
 			if storeInterface != nil {
 				r.Store = storeInterface
 			}
@@ -148,7 +148,7 @@ func TestParseOutputURL(t *testing.T) {
 	}
 }
 
-func TestCloudReporter_Deliver(t *testing.T) {
+func TestCloudCourier_Deliver(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	tests := []struct {
@@ -221,7 +221,7 @@ func TestCloudReporter_Deliver(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &CloudReporter{
+			r := &CloudCourier{
 				Store:      tt.store,
 				SigningKey: key,
 				PathPrefix: "test-prefix",
@@ -260,13 +260,13 @@ func TestCloudReporter_Deliver(t *testing.T) {
 	}
 }
 
-func TestCloudReporter_Deliver_ErrorPaths(t *testing.T) {
+func TestCloudCourier_Deliver_ErrorPaths(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	// Create a mock store that fails on the second Put (provenance upload)
 
 	t.Run("fails on second put (provenance)", func(t *testing.T) {
-		r := &CloudReporter{
+		r := &CloudCourier{
 			Store:      &mockStoreWithCounter{errOnPut: 2}, // We'll implement this below
 			SigningKey: key,
 			PathPrefix: "test-prefix",
@@ -295,10 +295,10 @@ func (m *mockStoreWithCounter) Put(ctx context.Context, key string, body io.Read
 	return nil
 }
 
-func TestCloudReporter_Deliver_ManifestPutFails(t *testing.T) {
+func TestCloudCourier_Deliver_ManifestPutFails(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
-	r := &CloudReporter{
+	r := &CloudCourier{
 		Store:      &mockStoreWithCounter{errOnPut: 3}, // fail on third put (manifest)
 		SigningKey: key,
 		PathPrefix: "test-prefix",
@@ -313,7 +313,7 @@ func TestCloudReporter_Deliver_ManifestPutFails(t *testing.T) {
 	}
 }
 
-func TestCloudReporter_Deliver_PutErrors(t *testing.T) {
+func TestCloudCourier_Deliver_PutErrors(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	tests := []struct {
@@ -326,7 +326,7 @@ func TestCloudReporter_Deliver_PutErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &CloudReporter{
+			r := &CloudCourier{
 				Store:      &mockStoreWithCounter{errOnPut: tt.errOnPut},
 				SigningKey: key,
 				PathPrefix: "test-prefix",
@@ -358,7 +358,7 @@ func (m *mockSigner) Sign(rand io.Reader, digest []byte, opts stdcrypto.SignerOp
 	return []byte("mock-signature"), nil
 }
 
-func TestCloudReporter_Deliver_SigningErrors(t *testing.T) {
+func TestCloudCourier_Deliver_SigningErrors(t *testing.T) {
 	tests := []struct {
 		name    string
 		signer  *mockSigner
@@ -369,7 +369,7 @@ func TestCloudReporter_Deliver_SigningErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &CloudReporter{
+			r := &CloudCourier{
 				Store:      &mockStore{puts: make(map[string][]byte)},
 				SigningKey: tt.signer,
 				PathPrefix: "test-prefix",
@@ -407,8 +407,8 @@ func (m *mockSignerManifestFail) Sign(rand io.Reader, digest []byte, opts stdcry
 	return []byte("mock-signature"), nil
 }
 
-func TestCloudReporter_Deliver_ManifestSignFail(t *testing.T) {
-	r := &CloudReporter{
+func TestCloudCourier_Deliver_ManifestSignFail(t *testing.T) {
+	r := &CloudCourier{
 		Store:      &mockStore{puts: make(map[string][]byte)},
 		SigningKey: &mockSignerManifestFail{err: io.EOF},
 		PathPrefix: "test-prefix",

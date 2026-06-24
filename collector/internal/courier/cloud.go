@@ -1,4 +1,4 @@
-package reporter
+package courier
 
 import (
 	"bytes"
@@ -18,11 +18,11 @@ import (
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
-// CloudReporter writes evidence artifacts to any cloud object store (GCS, S3, local).
+// CloudCourier writes evidence artifacts to any cloud object store (GCS, S3, local).
 // It replaces the former GCSReporter and LocalReporter by delegating storage
 // to an objstore.Writer while keeping all business logic (signing, provenance,
 // manifest generation) in this layer.
-type CloudReporter struct {
+type CloudCourier struct {
 	Store      objstore.Writer
 	SigningKey stdcrypto.Signer
 	// PathPrefix is prepended to all object keys (e.g. "deploy-abc/2026-01-15").
@@ -30,12 +30,12 @@ type CloudReporter struct {
 }
 
 // Name returns the reporter identifier.
-func (r *CloudReporter) Name() string {
+func (r *CloudCourier) Name() string {
 	return "cloud"
 }
 
 // Validate checks that the reporter is properly configured.
-func (r *CloudReporter) Validate(_ context.Context) error {
+func (r *CloudCourier) Validate(_ context.Context) error {
 	if r.Store == nil {
 		return fmt.Errorf("object store is required")
 	}
@@ -47,7 +47,7 @@ func (r *CloudReporter) Validate(_ context.Context) error {
 
 // Deliver formats, signs, and uploads evidence to the object store.
 // Object path structure: {pathPrefix}/evidence/{control_id}/{evidence_id}_{provider}_{source_id}.json
-func (r *CloudReporter) Deliver(ctx context.Context, evidence []types.Evidence, runID string) (*types.Manifest, error) {
+func (r *CloudCourier) Deliver(ctx context.Context, evidence []types.Evidence, runID string) (*types.Manifest, error) {
 	manifest := &types.Manifest{
 		RunID:     runID,
 		Timestamp: time.Now().UTC(),
@@ -115,7 +115,7 @@ func (r *CloudReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 			SHA256: crypto.HashFile(provData),
 		})
 
-		slog.Debug("reporter: uploaded evidence and provenance",
+		slog.Debug("courier: uploaded evidence and provenance",
 			"object", objectKey,
 			"prov_object", provObjectKey,
 			"control_id", sanitizedControlID,
@@ -167,7 +167,7 @@ func (r *CloudReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 		return nil, fmt.Errorf("uploading manifest: %w", err)
 	}
 
-	slog.Info("reporter: delivery complete",
+	slog.Info("courier: delivery complete",
 		"run_id", runID,
 		"evidence_files", len(manifest.EvidenceFiles),
 		"manifest_key", manifestKey,

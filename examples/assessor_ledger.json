@@ -1,0 +1,21 @@
+[
+  {"control_id": "AC-2", "verdict": "COMPLIANT", "details": "All accounts have MFA enabled", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "AC-3", "verdict": "COMPLIANT", "details": "Least privilege enforced", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "AC-6", "verdict": "COMPLIANT", "details": "No overprivileged roles", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "AC-7", "verdict": "NON_COMPLIANT", "details": "3 service accounts lack MFA", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "AU-2", "verdict": "COMPLIANT", "details": "Audit logging enabled", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "AU-3", "verdict": "COMPLIANT", "details": "Log content includes required fields", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "AU-6", "verdict": "COMPLIANT", "details": "Audit review process documented", "confidence": 0.85, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "CM-6", "verdict": "NON_COMPLIANT", "details": "2 storage buckets missing encryption-at-rest", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "CM-7", "verdict": "COMPLIANT", "details": "Least functionality enforced", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "IA-2", "verdict": "COMPLIANT", "details": "Multi-factor authentication enforced", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "IA-5", "verdict": "COMPLIANT", "details": "Password policies meet requirements", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "IR-4", "verdict": "COMPLIANT", "details": "Incident handling procedures exist", "confidence": 0.00, "automation_status": "MANUAL_AUDIT", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "PE-3", "verdict": "COMPLIANT", "details": "Physical access controls in place", "confidence": 0.00, "automation_status": "MANUAL_AUDIT", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "RA-5", "verdict": "NON_COMPLIANT", "details": "No vulnerability scan results in 30 days", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "SC-8", "verdict": "COMPLIANT", "details": "TLS 1.2+ enforced on all endpoints", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "SC-28", "verdict": "NON_COMPLIANT", "details": "1 SQL instance without encryption", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "SI-2", "verdict": "COMPLIANT", "details": "Patch management current", "confidence": 0.85, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "SI-4", "verdict": "COMPLIANT", "details": "Monitoring enabled", "confidence": 1.00, "automation_status": "APPROVED", "evaluated_at": "2026-06-24T19:00:00Z"},
+  {"control_id": "PS-6", "verdict": "COMPLIANT", "details": "Personnel agreements signed", "confidence": 0.00, "automation_status": "MANUAL_AUDIT", "evaluated_at": "2026-06-24T19:00:00Z"}
+]

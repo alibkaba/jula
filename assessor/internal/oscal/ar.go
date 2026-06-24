@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/alibkaba/jula-core/pkg/crypto"
@@ -96,6 +97,8 @@ type ControlFindingInput struct {
 	CustomerControlID string    `json:"customer_control_id,omitempty"`
 	Verdict           string    `json:"verdict"`
 	Details           string    `json:"details"`
+	Confidence        float64   `json:"confidence"`
+	AutomationStatus  string    `json:"automation_status,omitempty"`
 	EvaluatedAt       time.Time `json:"evaluated_at"`
 }
 
@@ -189,6 +192,20 @@ func MapToAssessmentResults(findings []ControlFindingInput, cfg MapConfig) *Asse
 			finding.Props = append(finding.Props, Property{
 				Name:  "evaluated-at",
 				Value: f.EvaluatedAt.UTC().Format(time.RFC3339),
+			})
+		}
+
+		if f.Confidence > 0 {
+			finding.Props = append(finding.Props, Property{
+				Name:  "confidence",
+				Value: fmt.Sprintf("%.2f", f.Confidence),
+			})
+		}
+
+		if f.AutomationStatus != "" {
+			finding.Props = append(finding.Props, Property{
+				Name:  "automation-status",
+				Value: f.AutomationStatus,
 			})
 		}
 

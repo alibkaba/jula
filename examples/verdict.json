@@ -1,0 +1,9 @@
+{
+  "run_id": "run-20260624-190000",
+  "ledger_hash": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+  "controls_passed": 15,
+  "controls_failed": 4,
+  "controls_total": 19,
+  "timestamp": "2026-06-24T19:05:00Z",
+  "signature": "304502210089abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345602207890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234"
+}

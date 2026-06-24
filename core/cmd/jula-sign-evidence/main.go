@@ -26,6 +26,7 @@ import (
 
 	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/objstore"
+	"github.com/alibkaba/jula-core/pkg/schema"
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
@@ -36,6 +37,7 @@ func main() {
 	deploymentID := flag.String("deployment-id", "", "Deployment identifier for path namespacing")
 	runID := flag.String("run-id", "", "Unique run identifier (auto-generated if empty)")
 	provider := flag.String("provider", "external", "Provider name for provenance metadata (e.g., steampipe, cloudquery)")
+	noSchema := flag.Bool("no-schema", false, "Skip schema validation (sign any file without checking structure)")
 	flag.Parse()
 
 	if *input == "" {
@@ -81,6 +83,7 @@ func main() {
 		runID:        effectiveRunID,
 		deploymentID: *deploymentID,
 		provider:     *provider,
+		noSchema:     *noSchema,
 	})
 	if err != nil {
 		log.Fatalf("signing failed: %v", err)
@@ -101,6 +104,7 @@ type signConfig struct {
 	runID        string
 	deploymentID string
 	provider     string
+	noSchema     bool
 }
 
 // signDirectory walks inputDir, hashes and signs every file, creates provenance
@@ -158,6 +162,21 @@ func signDirectory(ctx context.Context, cfg signConfig) (*types.Manifest, error)
 
 	fmt.Printf("[jula-sign-evidence] Found %d files in %s\n", len(files), cfg.inputDir)
 	fmt.Printf("[jula-sign-evidence] Run ID: %s\n", cfg.runID)
+
+	// Schema validation gate: validate JSON evidence files before signing.
+	if !cfg.noSchema {
+		for _, f := range files {
+			if !strings.HasSuffix(strings.ToLower(f.relPath), ".json") {
+				continue
+			}
+			if err := schema.ValidateEvidence(f.data); err != nil {
+				return nil, fmt.Errorf("schema validation failed for %q: %w", f.relPath, err)
+			}
+			fmt.Printf("  ✓ schema valid: %s\n", f.relPath)
+		}
+	} else {
+		fmt.Println("[jula-sign-evidence] Schema validation skipped (--no-schema)")
+	}
 
 	// Build the manifest.
 	manifest := &types.Manifest{
