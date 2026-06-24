@@ -12,10 +12,10 @@ import (
 	"strings"
 	time "time"
 
+	"github.com/alibkaba/jula-collector/pkg/logging"
 	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/objstore"
 	"github.com/alibkaba/jula-core/pkg/types"
-	"github.com/alibkaba/jula-collector/pkg/logging"
 )
 
 // CloudReporter writes evidence artifacts to any cloud object store (GCS, S3, local).
@@ -80,11 +80,11 @@ func (r *CloudReporter) Deliver(ctx context.Context, evidence []types.Evidence, 
 
 		// Generate, sign, and upload provenance sidecar.
 		prov := &crypto.Provenance{
-			EvidenceID: ev.EvidenceID,
-			Provider:   ev.Finding.Provider,
-			SourceID:   ev.SourceID,
+			EvidenceID:  ev.EvidenceID,
+			Provider:    ev.Finding.Provider,
+			SourceID:    ev.SourceID,
 			PayloadHash: ev.PayloadHash,
-			Timestamp:  time.Now().UTC(),
+			Timestamp:   time.Now().UTC(),
 			ExtractionMetadata: map[string]string{
 				"api_endpoint": ev.Finding.Provider,
 			},

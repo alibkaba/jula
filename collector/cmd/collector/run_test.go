@@ -226,8 +226,8 @@ func TestFetchIntegrationsMap(t *testing.T) {
 	files := map[string]string{
 		"repo-name-123/governor/engine/integrations/cloud/gcp.yaml": "gcp config content",
 		"repo-name-123/governor/engine/integrations/cloud/aws.yaml": "aws config content",
-		"repo-name-123/governor/engine/integrations/github.yaml":      "github config content",
-		"repo-name-123/other-folder/not-integration":                   "ignored file",
+		"repo-name-123/governor/engine/integrations/github.yaml":    "github config content",
+		"repo-name-123/other-folder/not-integration":                "ignored file",
 	}
 
 	for path, content := range files {
