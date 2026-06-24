@@ -49,13 +49,15 @@ var frameworkFileMap = map[string]string{
 
 // allowedOSCALVersions is the whitelist of known-good OSCAL specification versions.
 var allowedOSCALVersions = map[string]bool{
+	"1.0.4": true, // SCF OSCAL catalogs
 	"1.1.2": true,
 	"1.2.0": true,
 	"1.2.2": true,
 }
 
-// controlIDPattern validates NIST 800-53 control IDs (e.g., ac-1, sc-28).
-var controlIDPattern = regexp.MustCompile(`^[a-z]{2}-\d+$`)
+// controlIDPattern validates OSCAL control IDs from any supported framework.
+// Matches NIST 800-53 IDs (e.g., ac-1, sc-28) and SCF IDs (e.g., GOV-01, IAC-15.1).
+var controlIDPattern = regexp.MustCompile(`(?i)^[a-z]{2,5}-\d+(\.\d+)?$`)
 
 // CatalogEntry is the normalized representation of a control from any source.
 type CatalogEntry struct {
@@ -575,6 +577,8 @@ func main() {
 	// Parse CLI arguments
 	defaultProvider := ""
 	framework := ""
+	catalogPath := ""
+	catalogURL := ""
 	resetMode := false
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
@@ -590,17 +594,32 @@ func main() {
 			framework = strings.ToLower(strings.TrimSpace(os.Args[i]))
 		} else if strings.HasPrefix(arg, "--framework=") {
 			framework = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(arg, "--framework=")))
+		} else if arg == "--catalog" && i+1 < len(os.Args) {
+			i++
+			catalogPath = strings.TrimSpace(os.Args[i])
+		} else if strings.HasPrefix(arg, "--catalog=") {
+			catalogPath = strings.TrimSpace(strings.TrimPrefix(arg, "--catalog="))
+		} else if arg == "--catalog-url" && i+1 < len(os.Args) {
+			i++
+			catalogURL = strings.TrimSpace(os.Args[i])
+		} else if strings.HasPrefix(arg, "--catalog-url=") {
+			catalogURL = strings.TrimSpace(strings.TrimPrefix(arg, "--catalog-url="))
 		}
 	}
 
 	if framework == "" {
 		fmt.Println("[FATAL] --framework is required.")
 		fmt.Println("  Options: fedramp-low, fedramp-moderate, fedramp-high, soc2, iso27001, hipaa, full, privacy")
+		fmt.Println("  Or use --catalog <path> with any --framework name for custom OSCAL catalogs.")
 		fmt.Println("  Example: ./import --framework fedramp-moderate --provider gcp")
+		fmt.Println("  Example: ./import --framework scf-soc2 --catalog ./catalogs/scf-soc2.json --provider gcp")
 		os.Exit(1)
 	}
-	if _, ok := frameworkFileMap[framework]; !ok {
-		log.Fatalf("[FATAL] Unknown framework: %s. Valid options: fedramp-low, fedramp-moderate, fedramp-high, soc2, iso27001, hipaa, full, privacy", framework)
+	// Only enforce frameworkFileMap lookup when no custom catalog is provided.
+	if catalogPath == "" && catalogURL == "" {
+		if _, ok := frameworkFileMap[framework]; !ok {
+			log.Fatalf("[FATAL] Unknown framework: %s. Valid options: fedramp-low, fedramp-moderate, fedramp-high, soc2, iso27001, hipaa, full, privacy\n  Or use --catalog <path> for custom OSCAL catalogs.", framework)
+		}
 	}
 
 	if resetMode {
@@ -673,12 +692,43 @@ func main() {
 		}
 	}
 
-	// Download, verify, and parse OSCAL catalog.
-	tarPath := downloadOSCALRelease()
-	defer os.Remove(tarPath)
-	verifyIntegrity(tarPath)
-	jsonBytes := extractFromTarball(tarPath, frameworkFileMap[framework])
-	entries := parseOSCALCatalog(jsonBytes)
+	// Load OSCAL catalog: either from a custom catalog file, a URL, or the default tarball.
+	var entries []CatalogEntry
+	switch {
+	case catalogPath != "":
+		// User-provided local OSCAL JSON file.
+		fmt.Printf("[OSCAL] Loading catalog from local file: %s\n", catalogPath)
+		jsonBytes, err := os.ReadFile(catalogPath)
+		if err != nil {
+			log.Fatalf("[FATAL] Failed to read catalog file %s: %v", catalogPath, err)
+		}
+		entries = parseOSCALCatalog(jsonBytes)
+
+	case catalogURL != "":
+		// User-provided URL to an OSCAL JSON file.
+		fmt.Printf("[OSCAL] Downloading catalog from URL: %s\n", catalogURL)
+		resp, httpErr := http.Get(catalogURL) //nolint:gosec // URL is from user CLI input, validated by intent
+		if httpErr != nil {
+			log.Fatalf("[FATAL] Failed to download catalog from %s: %v", catalogURL, httpErr)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			log.Fatalf("[FATAL] Catalog download returned HTTP %d", resp.StatusCode)
+		}
+		jsonBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			log.Fatalf("[FATAL] Failed to read catalog response body: %v", readErr)
+		}
+		entries = parseOSCALCatalog(jsonBytes)
+
+	default:
+		// Default: download the pinned NIST tarball.
+		tarPath := downloadOSCALRelease()
+		defer os.Remove(tarPath)
+		verifyIntegrity(tarPath)
+		jsonBytes := extractFromTarball(tarPath, frameworkFileMap[framework])
+		entries = parseOSCALCatalog(jsonBytes)
+	}
 
 	// Process each control from the OSCAL catalog.
 	for _, entry := range entries {

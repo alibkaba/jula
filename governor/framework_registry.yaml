@@ -1,0 +1,76 @@
+# Framework Registry
+# Maps framework names to their OSCAL catalog source and integrity hash.
+#
+# LICENSING NOTICE:
+# Users are responsible for complying with the licensing terms of any
+# framework content they import. Some frameworks (e.g., SCF) require a
+# commercial license for AI-generated derivative content. See the framework
+# provider's terms for details.
+#
+# Fields:
+#   source:      "nist" | "scf" | "local"
+#   catalog_url: URL to download the OSCAL catalog (optional for "local")
+#   catalog_sha: SHA-256 of the catalog file for integrity verification
+#   tarball_path: Path inside the tarball (NIST tarballs only)
+#   description: Human-readable description
+
+# ─── NIST SP 800-53 Rev 5 (via oscal-content v1.5.0) ────────────────────────
+# Source: https://github.com/usnistgov/oscal-content/releases/tag/v1.5.0
+# License: US Government work, not subject to copyright.
+nist-tarball: &nist-tarball
+  source: nist
+  catalog_url: "https://github.com/usnistgov/oscal-content/releases/download/v1.5.0/oscal-content-1.5.0.tar.gz"
+  catalog_sha: "724a4dd665e0901dc314e3ee48bfd62fb361291e360a3e7c45bc56781a030365"
+
+frameworks:
+  fedramp-low:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 LOW baseline"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_LOW-baseline-resolved-profile_catalog.json"
+
+  fedramp-moderate:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 MODERATE baseline"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json"
+
+  fedramp-high:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 HIGH baseline"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_HIGH-baseline-resolved-profile_catalog.json"
+
+  soc2:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 MODERATE baseline (SOC 2 mapping)"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json"
+
+  iso27001:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 MODERATE baseline (ISO 27001 mapping)"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json"
+
+  hipaa:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 MODERATE baseline (HIPAA mapping)"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json"
+
+  full:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 full catalog (all controls)"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_catalog.json"
+
+  privacy:
+    <<: *nist-tarball
+    description: "NIST SP 800-53 Rev 5 PRIVACY baseline"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_PRIVACY-baseline-resolved-profile_catalog.json"
+
+  # ─── SCF (user-provided OSCAL catalogs) ──────────────────────────────────
+  # Source: https://tools.scfconnectlabs.com (SCF OSCAL Exporter)
+  # License: CC BY-ND 4.0 by Secure Controls Framework Council, LLC.
+  #          AI-generated derivative content requires a commercial license.
+  scf-full:
+    source: local
+    description: "Secure Controls Framework full catalog (user must provide via --catalog)"
+
+  scf-soc2:
+    source: local
+    description: "SCF SOC 2 controls (user must provide via --catalog)"
