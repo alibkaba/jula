@@ -62,8 +62,14 @@ governor/build
 governor/reset
 governor/translate
 governor/validate
+governor/cmd/build/generator
+governor/cmd/import/triage
+governor/cmd/reset/reset
 
 # Core compiled binaries
 /sign-evidence
 /jula-verify
 /import
+
+# Patch reject files
+*.rej
