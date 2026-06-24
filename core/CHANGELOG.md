@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.2.0](https://github.com/alibkaba/jula/compare/core-v2.1.0...core-v2.2.0) (2026-06-24)
+
+
+### Features
+
+* add sign-evidence and jula-verify CLI documentation and support NIST OSCAL 1.1.2 output in Assessor ([a0f86d0](https://github.com/alibkaba/jula/commit/a0f86d052cc73241b69c2dd36d8f3a023e62ed15))
+* **core:** add jula-sign-evidence CLI for BYOC evidence signing ([1b3d946](https://github.com/alibkaba/jula/commit/1b3d946ae2a814c6ba4bb1d7afe50b887c1f2ca9))
+* **core:** add jula-verify standalone binary for cryptographic chain verification ([3f04e48](https://github.com/alibkaba/jula/commit/3f04e48827575c8467cc2554277766db7449419f))
+
 ## [2.1.0](https://github.com/alibkaba/jula/compare/core-v2.0.1...core-v2.1.0) (2026-06-20)
 
 

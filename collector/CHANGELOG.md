@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/alibkaba/jula/compare/collector-v2.1.0...collector-v2.1.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **collector:** resolve AWS credentials from ECS container metadata endpoint ([8a29082](https://github.com/alibkaba/jula/commit/8a29082ee99aca8bb3734115175dc402e16f7f03))
+
 ## [2.1.0](https://github.com/alibkaba/jula/compare/collector-v2.0.0...collector-v2.1.0) (2026-06-20)
 
 

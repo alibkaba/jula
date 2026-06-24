@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.0.0](https://github.com/alibkaba/jula/compare/assessor-v2.1.0...assessor-v3.0.0) (2026-06-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* The collector CLI replaces --target/--path with --output. The JULA_OUTPUT_TARGET env var is removed. JULA_OUTPUT_PATH now accepts scheme-prefixed URLs directly (gs://, s3://, or local paths). The evaluator ingestion API changes from GCSReader to CloudReader.
+
+### Features
+
+* add sign-evidence and jula-verify CLI documentation and support NIST OSCAL 1.1.2 output in Assessor ([a0f86d0](https://github.com/alibkaba/jula/commit/a0f86d052cc73241b69c2dd36d8f3a023e62ed15))
+* **assessor:** add OSCAL Assessment Results output mapper ([802dffa](https://github.com/alibkaba/jula/commit/802dffa3a3065023d36123c6235e8070af32215e))
+* **assessor:** wire --output-format oscal into pipeline ([cc6a267](https://github.com/alibkaba/jula/commit/cc6a2677104f501aa8ec17f787c68fd985b1f752))
+
+
+### Miscellaneous Chores
+
+* mark objstore refactor as breaking change ([9e906d2](https://github.com/alibkaba/jula/commit/9e906d2d6bdbf90a4ad691637cb2f5c770d4d774))
+
 ## [2.1.0](https://github.com/alibkaba/jula/compare/evaluator-v2.0.0...evaluator-v2.1.0) (2026-06-20)
 
 
