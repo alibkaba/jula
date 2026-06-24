@@ -51,13 +51,21 @@ jobs:
 
       - name: Build Binary
         run: |
+          mkdir -p dist
           cd ${{ matrix.component }}
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../dist/${{ matrix.component }}-linux-amd64 ./cmd/...
+          if [ "${{ matrix.component }}" = "governor" ]; then
+            for cmd_dir in cmd/*/; do
+              cmd_name=$(basename "$cmd_dir")
+              CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../dist/governor-${cmd_name}-linux-amd64 ./${cmd_dir}
+            done
+          else
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../dist/${{ matrix.component }}-linux-amd64 ./cmd/...
+          fi
 
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject-path: dist/${{ matrix.component }}-linux-amd64
+          subject-path: dist/*-linux-amd64
 
       - name: Upload Binary to Release
         env:
@@ -65,5 +73,5 @@ jobs:
         run: |
           TAG=$(gh release list --limit 5 --json tagName,name -q ".[] | select(.name | contains(\"${{ matrix.component }}\")) | .tagName" | head -1)
           if [ -n "$TAG" ]; then
-            gh release upload "$TAG" dist/${{ matrix.component }}-linux-amd64 --clobber
+            gh release upload "$TAG" dist/*-linux-amd64 --clobber
           fi
