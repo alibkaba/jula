@@ -1,0 +1,31 @@
+# CloudQuery GCP Sync Configuration
+# Collects storage, IAM, and KMS evidence for compliance controls.
+#
+# Usage: cloudquery sync examples/cloudquery/gcp_sync.yml
+
+kind: source
+spec:
+  name: gcp
+  path: cloudquery/gcp
+  registry: cloudquery
+  version: "v16.7.0"
+  tables:
+    - gcp_storage_buckets
+    - gcp_iam_policy_bindings
+    - gcp_kms_crypto_keys
+    - gcp_compute_firewalls
+    - gcp_logging_sinks
+  destinations:
+    - file-json
+
+---
+kind: destination
+spec:
+  name: file-json
+  path: cloudquery/file
+  registry: cloudquery
+  version: "v5.1.0"
+  spec:
+    path: "./evidence"
+    format: json
+    no_rotate: true

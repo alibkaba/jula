@@ -294,6 +294,94 @@ func parseOSCALCatalog(data []byte) []CatalogEntry {
 	return entries
 }
 
+// parseCSVCatalog reads a CSV file with Control_ID and Description/Prose columns
+// and returns normalized CatalogEntry values. This supports frameworks that ship
+// as spreadsheets (e.g., SCF Excel exports converted to CSV).
+//
+// Expected CSV format (header row required, column order flexible):
+//   Control_ID, Title, Description
+//   GOV-01, "Security Program", "Mechanisms exist to facilitate..."
+//
+// The parser searches for columns named: Control_ID (or ID), Description (or Prose, Statement).
+func parseCSVCatalog(data []byte) []CatalogEntry {
+	reader := csv.NewReader(bytes.NewReader(data))
+	reader.LazyQuotes = true
+	reader.TrimLeadingSpace = true
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to parse CSV catalog: %v", err)
+	}
+
+	if len(records) < 2 {
+		log.Fatal("[FATAL] CSV catalog must have a header row and at least one data row.")
+	}
+
+	// Find column indices by header name (case-insensitive).
+	header := records[0]
+	idIdx := -1
+	proseIdx := -1
+
+	for i, col := range header {
+		normalized := strings.ToLower(strings.TrimSpace(col))
+		switch normalized {
+		case "control_id", "id", "control id", "controlid":
+			idIdx = i
+		case "description", "prose", "statement", "control_description":
+			if proseIdx == -1 {
+				proseIdx = i
+			}
+		}
+	}
+
+	if idIdx == -1 {
+		log.Fatal("[FATAL] CSV catalog missing required column: Control_ID (or ID)")
+	}
+	if proseIdx == -1 {
+		log.Fatal("[FATAL] CSV catalog missing required column: Description (or Prose, Statement)")
+	}
+
+	// Bounds check.
+	if len(records)-1 > 5000 {
+		log.Fatalf("[FATAL] CSV catalog has %d rows, exceeding the 5,000 limit.", len(records)-1)
+	}
+
+	var entries []CatalogEntry
+	for _, row := range records[1:] {
+		if len(row) <= idIdx || len(row) <= proseIdx {
+			continue
+		}
+
+		controlID := strings.TrimSpace(row[idIdx])
+		prose := strings.TrimSpace(row[proseIdx])
+
+		if controlID == "" || prose == "" {
+			continue
+		}
+
+		// Truncate overly long prose.
+		if len(prose) > 2000 {
+			prose = prose[:2000]
+		}
+
+		entries = append(entries, CatalogEntry{
+			ControlID: strings.ToUpper(controlID),
+			Prose:     prose,
+		})
+	}
+
+	if len(entries) == 0 {
+		log.Fatal("[FATAL] CSV catalog produced zero valid entries. Check column headers and data.")
+	}
+
+	if len(entries) > 1500 {
+		fmt.Printf("[WARNING] Large catalog: %d controls. This will generate many AI calls.\n", len(entries))
+	}
+
+	fmt.Printf("[CSV] Parsed %d controls from CSV catalog\n", len(entries))
+	return entries
+}
+
 type ProviderConfig struct {
 	DocRoot string `yaml:"doc_root"`
 }
@@ -579,6 +667,7 @@ func main() {
 	framework := ""
 	catalogPath := ""
 	catalogURL := ""
+	sourceFormat := "oscal" // Default source format: "oscal" or "csv"
 	resetMode := false
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
@@ -604,6 +693,11 @@ func main() {
 			catalogURL = strings.TrimSpace(os.Args[i])
 		} else if strings.HasPrefix(arg, "--catalog-url=") {
 			catalogURL = strings.TrimSpace(strings.TrimPrefix(arg, "--catalog-url="))
+		} else if arg == "--source" && i+1 < len(os.Args) {
+			i++
+			sourceFormat = strings.ToLower(strings.TrimSpace(os.Args[i]))
+		} else if strings.HasPrefix(arg, "--source=") {
+			sourceFormat = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(arg, "--source=")))
 		}
 	}
 
@@ -696,13 +790,18 @@ func main() {
 	var entries []CatalogEntry
 	switch {
 	case catalogPath != "":
-		// User-provided local OSCAL JSON file.
-		fmt.Printf("[OSCAL] Loading catalog from local file: %s\n", catalogPath)
+		// User-provided local catalog file.
+		fmt.Printf("[CATALOG] Loading from local file: %s (format: %s)\n", catalogPath, sourceFormat)
 		jsonBytes, err := os.ReadFile(catalogPath)
 		if err != nil {
 			log.Fatalf("[FATAL] Failed to read catalog file %s: %v", catalogPath, err)
 		}
-		entries = parseOSCALCatalog(jsonBytes)
+		switch sourceFormat {
+		case "csv":
+			entries = parseCSVCatalog(jsonBytes)
+		default:
+			entries = parseOSCALCatalog(jsonBytes)
+		}
 
 	case catalogURL != "":
 		// User-provided URL to an OSCAL JSON file.
