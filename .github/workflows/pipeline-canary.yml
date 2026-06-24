@@ -9,6 +9,8 @@ permissions: {}
 
 jobs:
   canary:
+    # actionlint-ignore: context access might be invalid
+    if: vars.CANARY_ENABLED != 'false'
     runs-on: ubuntu-latest
     permissions:
       contents: read
