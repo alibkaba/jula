@@ -22,6 +22,7 @@ import (
 	intCrypto "github.com/alibkaba/jula-assessor/internal/crypto"
 	"github.com/alibkaba/jula-assessor/internal/evaluation"
 	"github.com/alibkaba/jula-assessor/internal/ingestion"
+	"github.com/alibkaba/jula-assessor/internal/oscal"
 	pkgCrypto "github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 	"github.com/alibkaba/jula-core/pkg/types"
@@ -123,6 +124,7 @@ func handleRun(args []string) error {
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-governor/)")
 	metadataURLFlag := fs.String("metadata-url", "", "The client metadata file URL or path (e.g. ./client_metadata.json)")
+	outputFormatFlag := fs.String("output-format", "", "Output format: 'oscal' to emit NIST OSCAL Assessment Results JSON")
 
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("flag parse: %w", err)
@@ -165,6 +167,7 @@ func handleRun(args []string) error {
 		return fmt.Errorf("assessor: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
 	}
 
+	start := time.Now()
 	slog.Info("assessor: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
 
 	// Validate the JULA_PUBLIC_KEY env variable early.
@@ -391,6 +394,7 @@ func handleRun(args []string) error {
 	}
 
 	// 6. Sign the assessment verdict (Key C) if JULA_ASSESSOR_SIGNING_KEY is set.
+	var signedVerdict *pkgCrypto.Verdict
 	assessorSigningKeyPEM := os.Getenv("JULA_ASSESSOR_SIGNING_KEY")
 	if assessorSigningKeyPEM != "" {
 		slog.Info("assessor: signing assessment verdict with Key C")
@@ -401,7 +405,7 @@ func handleRun(args []string) error {
 		}
 
 		ledgerHash := pkgCrypto.HashFile(findingsJSON)
-		verdict := &pkgCrypto.Verdict{
+		signedVerdict = &pkgCrypto.Verdict{
 			RunID:          manifest.RunID,
 			LedgerHash:     ledgerHash,
 			ControlsPassed: controlsPassed,
@@ -410,11 +414,11 @@ func handleRun(args []string) error {
 			Timestamp:      time.Now().UTC(),
 		}
 
-		if err := pkgCrypto.SignVerdict(verdict, assessorSigningKey); err != nil {
+		if err := pkgCrypto.SignVerdict(signedVerdict, assessorSigningKey); err != nil {
 			return fmt.Errorf("assessor: failed to sign verdict: %w", err)
 		}
 
-		verdictJSON, err := json.MarshalIndent(verdict, "", "  ")
+		verdictJSON, err := json.MarshalIndent(signedVerdict, "", "  ")
 		if err != nil {
 			return fmt.Errorf("assessor: failed to marshal signed verdict: %w", err)
 		}
@@ -423,7 +427,7 @@ func handleRun(args []string) error {
 			slog.Error("assessor: failed to export signed verdict", "error", err)
 		} else {
 			slog.Info("assessor: signed verdict written successfully",
-				"run_id", verdict.RunID,
+				"run_id", signedVerdict.RunID,
 				"ledger_hash", ledgerHash,
 				"controls_passed", controlsPassed,
 				"controls_failed", controlsFailed,
@@ -431,6 +435,47 @@ func handleRun(args []string) error {
 		}
 	} else {
 		slog.Warn("assessor: JULA_ASSESSOR_SIGNING_KEY is not set, skipping verdict signing")
+	}
+
+	// 7. Emit OSCAL Assessment Results if requested.
+	outputFormat := *outputFormatFlag
+	if outputFormat == "" {
+		outputFormat = os.Getenv("JULA_OUTPUT_FORMAT")
+	}
+	if strings.EqualFold(outputFormat, "oscal") {
+		slog.Info("assessor: generating OSCAL Assessment Results output")
+
+		// Convert evaluation findings to OSCAL input type.
+		oscalFindings := make([]oscal.ControlFindingInput, len(allFindings))
+		for i, f := range allFindings {
+			oscalFindings[i] = oscal.ControlFindingInput{
+				ControlID:         f.ControlID,
+				CustomerControlID: f.CustomerControlID,
+				Verdict:           string(f.Verdict),
+				Details:           f.Details,
+				EvaluatedAt:       f.EvaluatedAt,
+			}
+		}
+
+		oscalCfg := oscal.MapConfig{
+			RunID:        manifest.RunID,
+			Organization: os.Getenv("JULA_ORGANIZATION"),
+			Framework:    os.Getenv("JULA_FRAMEWORK"),
+			Start:        start,
+			Verdict:      signedVerdict,
+		}
+
+		ar := oscal.MapToAssessmentResults(oscalFindings, oscalCfg)
+		oscalJSON, err := ar.MarshalJSON()
+		if err != nil {
+			slog.Error("assessor: failed to marshal OSCAL AR", "error", err)
+		} else {
+			if err := reader.WriteFile(ctx, "assessment-results.json", oscalJSON); err != nil {
+				slog.Error("assessor: failed to write OSCAL AR to bucket", "error", err)
+			} else {
+				slog.Info("assessor: OSCAL Assessment Results written to assessment-results.json")
+			}
+		}
 	}
 
 	fmt.Println("================================================================")
