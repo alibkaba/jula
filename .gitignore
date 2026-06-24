@@ -6,6 +6,7 @@ catalogs/
 docs/
 scripts/
 deploy/
+bin/
 TODO.md
 
 # Security & Secrets
@@ -68,14 +69,6 @@ governor/cmd/reset/reset
 
 # Governor build artifacts
 governor-policy-bundle.tar.gz
-
-# Core compiled binaries
-/jula-sign-evidence
-/jula-sign-evidence-test
-/jula-sign-bundle
-/jula-verify
-/import
-/assessor-test
 
 # Patch reject files
 *.rej

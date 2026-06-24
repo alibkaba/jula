@@ -29,10 +29,10 @@ jobs:
           version: latest
 
       - name: Build Collector
-        run: go build -o jula-collector ./collector/cmd/collector
+        run: mkdir -p bin && go build -o bin/jula-collector ./collector/cmd/collector
 
       - name: Build Assessor
-        run: go build -o jula-assessor ./assessor/cmd/assessor
+        run: go build -o bin/jula-assessor ./assessor/cmd/assessor
 
       - name: Generate Ephemeral Signing Key Pair
         run: |
@@ -55,7 +55,7 @@ jobs:
           JULA_ALLOWED_HOSTS: api.github.com,github.com
         run: |
           mkdir -p /tmp/canary-evidence
-          ./jula-collector run --output /tmp/canary-evidence
+          ./bin/jula-collector run --output /tmp/canary-evidence
         continue-on-error: true
 
       - name: Execute Assessor Policy Validation
@@ -65,7 +65,7 @@ jobs:
           JULA_BUCKET_URL: /tmp/canary-evidence
           JULA_POLICY_URL: governor/policies
         run: |
-          ./jula-assessor run \
+          ./bin/jula-assessor run \
             --bucket-url "$JULA_BUCKET_URL" \
             --policy-url "$JULA_POLICY_URL"
         continue-on-error: true
