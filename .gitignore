@@ -68,8 +68,10 @@ governor/cmd/reset/reset
 
 # Core compiled binaries
 /sign-evidence
+/sign-evidence-test
 /jula-verify
 /import
+/assessor-test
 
 # Patch reject files
 *.rej
