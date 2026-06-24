@@ -1,21 +1,13 @@
-# Jula Governor Workspace Configuration
-# Edit this file to configure your organization and active cloud providers.
-
-organization: ""
+organization: "Enterprise-X"
 current_environment: "production"
 
-# Uncomment and configure the providers your organization uses.
-# The doc_root is used by the import tool for requirement extraction.
 active_providers:
-  gcp:
-    doc_root: "https://cloud.google.com/docs"
-  aws:
-    doc_root: "https://docs.aws.amazon.com"
+  # Uncomment providers to activate during framework integration.
+  # gcp:
+  #   doc_root: "https://cloud.google.com/docs"
+  # aws:
+  #   doc_root: "https://docs.aws.amazon.com"
   # azure:
   #   doc_root: "https://learn.microsoft.com/azure"
-  # alicloud:
-  #   doc_root: "https://www.alibabacloud.com/help"
-  # oci:
-  #   doc_root: "https://docs.oracle.com/en-us/iaas/Content/home.htm"
-  # tencent:
-  #   doc_root: "https://www.tencentcloud.com/document"
+  # github:
+  #   doc_root: "https://docs.github.com"

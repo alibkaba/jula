@@ -1,10 +1,1 @@
 Control_ID,Control_Statement,Control_Description
-JC-001,Ensure data resources are not publicly exposed,Resources containing organizational data must not be accessible to unauthenticated or anonymous identities
-JC-002,Ensure data versioning and recovery is enabled,Data stores must maintain version history to support recovery from accidental deletion or corruption
-JC-003,Ensure uniform policy-based access control is enforced,Access to data resources must use centralized policy-based controls instead of per-object permissions
-JC-004,Ensure data in transit is encrypted,All managed services must enforce encrypted connections for client communication
-JC-005,Ensure automated backup and recovery is configured,Critical data services must have automated backup schedules to meet recovery point objectives
-JC-006,Ensure services are not exposed to the public internet,Managed services storing sensitive data must not be directly reachable from untrusted networks
-JC-007,Ensure workloads use least-privilege identities,Compute workloads must not operate under default or overprivileged platform identities
-JC-008,Ensure privileged credentials are not persistent,Root or master account identities must not have long-lived access credentials
-JC-009,Ensure credential rotation meets policy requirements,Service credentials must not exceed the maximum age defined by organizational policy

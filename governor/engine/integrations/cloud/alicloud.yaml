@@ -1,6 +1,6 @@
 vendor_name: "alicloud"
-provider: "alicloud"                    # Core routing discriminator token
+provider: "alicloud"
 auth_flow:
-  type: "alicloud_native_auth"        # Evaluates environment credential chains at runtime
-  token_env: "ALICLOUD_ACCESS_TOKEN"  # Local fallback environment override token
-endpoints: {}                      # To be populated during platform onboarding modeling
+  type: "alicloud_native_auth"
+  token_env: "ALICLOUD_ACCESS_TOKEN"
+endpoints: {}
