@@ -65,3 +65,5 @@ governor/validate
 
 # Core compiled binaries
 /sign-evidence
+/jula-verify
+/import
