@@ -23,7 +23,7 @@ governor/
 │   └── prompts/          # AI prompt templates
 ├── policies/
 │   └── rules/            # Generated OPA Rego policies
-└── cmd/                  # CLI tools (import, translate, build, validate, reset)
+└── cmd/                  # CLI tools (import, translate, build, validate)
 ```
 
 ## Configuration
