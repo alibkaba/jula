@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.0](https://github.com/alibkaba/jula/compare/governor-v2.1.0...governor-v2.2.0) (2026-06-24)
+
+
+### Features
+
+* add NIST OSCAL catalog ingestion with verified remote tarball extraction and framework filtering ([d89b515](https://github.com/alibkaba/jula/commit/d89b51540483611e928e8048baa233da57ec0e83))
+* **governor:** add CSV ingestion and BYOC example scripts ([f512e2f](https://github.com/alibkaba/jula/commit/f512e2fae4e624a5a91f63416ce4ae3cd288f538))
+* **governor:** add framework registry and custom catalog support ([b5ec57f](https://github.com/alibkaba/jula/commit/b5ec57f36996006beeb6c91a19b3372916e0b0f2))
+* implement JC-001 through JC-009 compliance rules and update requirements catalog ([8ce17ec](https://github.com/alibkaba/jula/commit/8ce17eccb3e2aa10b968fc85917aa7ddb1091223))
+
 ## [2.1.0](https://github.com/alibkaba/jula/compare/governor-v2.0.1...governor-v2.1.0) (2026-06-20)
 
 
