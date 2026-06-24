@@ -1,5 +1,5 @@
 // Package main provides a minimal CLI tool for signing policy bundles.
-// This is invoked by the Governor CI/CD workflow (ci-governor-sign.yml)
+// This is invoked by the Governor CI/CD workflow (ci-governor.yml)
 // to produce a signed bundle-manifest.json sidecar.
 package main
 

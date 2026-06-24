@@ -134,7 +134,7 @@ A multi-stage prompt pipeline that converts compliance catalog prose into execut
 ### Policy Bundle Signing
 
 - **Tarball bundling** of policies and engine configuration into a distributable `governor-policy-bundle.tar.gz`
-- **SHA-256 bundle hashing** with ECDSA signing via `core/cmd/sign-bundle`
+- **SHA-256 bundle hashing** with ECDSA signing via `core/cmd/jula-sign-bundle`
 - **Signed manifest** (`bundle-manifest.json`) for downstream verification of policy integrity
 
 ---

@@ -1,6 +1,6 @@
 // Package main provides a CLI tool for signing pre-collected evidence artifacts.
 // This enables the "bring your own collector" workflow: users collect evidence
-// using any tool (Steampipe, CloudQuery, manual exports), then run sign-evidence
+// using any tool (Steampipe, CloudQuery, manual exports), then run jula-sign-evidence
 // to cryptographically hash, sign, and upload the artifacts to an object store.
 //
 // The tool is schema-agnostic: it signs any files in the input directory without
@@ -86,7 +86,7 @@ func main() {
 		log.Fatalf("signing failed: %v", err)
 	}
 
-	fmt.Printf("\n[sign-evidence] Delivery complete\n")
+	fmt.Printf("\n[jula-sign-evidence] Delivery complete\n")
 	fmt.Printf("  Run ID:         %s\n", manifest.RunID)
 	fmt.Printf("  Evidence files: %d\n", len(manifest.EvidenceFiles)/2) // Each file has an evidence + provenance entry.
 	fmt.Printf("  Manifest files: %d (evidence + provenance sidecars)\n", len(manifest.EvidenceFiles))
@@ -156,8 +156,8 @@ func signDirectory(ctx context.Context, cfg signConfig) (*types.Manifest, error)
 		return nil, fmt.Errorf("input directory %q contains no files", cfg.inputDir)
 	}
 
-	fmt.Printf("[sign-evidence] Found %d files in %s\n", len(files), cfg.inputDir)
-	fmt.Printf("[sign-evidence] Run ID: %s\n", cfg.runID)
+	fmt.Printf("[jula-sign-evidence] Found %d files in %s\n", len(files), cfg.inputDir)
+	fmt.Printf("[jula-sign-evidence] Run ID: %s\n", cfg.runID)
 
 	// Build the manifest.
 	manifest := &types.Manifest{

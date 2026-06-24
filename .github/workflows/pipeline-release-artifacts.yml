@@ -127,7 +127,7 @@ jobs:
             build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe
 
   # ==========================================
-  # Build core CLI binaries (sign-evidence, jula-verify)
+  # Build core CLI binaries (jula-sign-evidence, jula-verify)
   # ==========================================
   release-core-clis:
     name: "Release: Core CLI Tools"
@@ -145,15 +145,15 @@ jobs:
           go-version-file: "core/go.mod"
           cache: false
 
-      # --- sign-evidence ---
-      - name: Build sign-evidence (macOS ARM64)
-        run: GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o build/jula-sign-evidence-darwin-arm64 ./core/cmd/sign-evidence
+      # --- jula-sign-evidence ---
+      - name: Build jula-sign-evidence (macOS ARM64)
+        run: GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o build/jula-sign-evidence-darwin-arm64 ./core/cmd/jula-sign-evidence
 
-      - name: Build sign-evidence (Linux AMD64)
-        run: GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-sign-evidence-linux-amd64 ./core/cmd/sign-evidence
+      - name: Build jula-sign-evidence (Linux AMD64)
+        run: GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-sign-evidence-linux-amd64 ./core/cmd/jula-sign-evidence
 
-      - name: Build sign-evidence (Windows AMD64)
-        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-sign-evidence-windows-amd64.exe ./core/cmd/sign-evidence
+      - name: Build jula-sign-evidence (Windows AMD64)
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-sign-evidence-windows-amd64.exe ./core/cmd/jula-sign-evidence
 
       # --- jula-verify ---
       - name: Build jula-verify (macOS ARM64)

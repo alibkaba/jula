@@ -66,9 +66,13 @@ governor/cmd/build/generator
 governor/cmd/import/triage
 governor/cmd/reset/reset
 
+# Governor build artifacts
+governor-policy-bundle.tar.gz
+
 # Core compiled binaries
-/sign-evidence
-/sign-evidence-test
+/jula-sign-evidence
+/jula-sign-evidence-test
+/jula-sign-bundle
 /jula-verify
 /import
 /assessor-test

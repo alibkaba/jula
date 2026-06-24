@@ -89,7 +89,7 @@ jobs:
 
           # Build and run the signing tool inline via Go.
           # This uses the same crypto.SignBundle function from core/pkg/crypto/bundle.go.
-          go run -C core ./cmd/sign-bundle \
+          go run -C core ./cmd/jula-sign-bundle \
             --bundle-hash "${{ steps.bundle.outputs.bundle_hash }}" \
             --key-env "JULA_POLICY_SIGNING_KEY" \
             --output "../bundle-manifest.json"
