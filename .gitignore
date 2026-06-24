@@ -2,6 +2,7 @@
 .DS_Store
 
 # Local
+catalogs/
 docs/
 scripts/
 deploy/
@@ -61,3 +62,6 @@ governor/build
 governor/reset
 governor/translate
 governor/validate
+
+# Core compiled binaries
+/sign-evidence
