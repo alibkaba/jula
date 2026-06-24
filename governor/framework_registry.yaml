@@ -8,19 +8,29 @@
 # provider's terms for details.
 #
 # Fields:
-#   source:      "nist" | "scf" | "local"
-#   catalog_url: URL to download the OSCAL catalog (optional for "local")
-#   catalog_sha: SHA-256 of the catalog file for integrity verification
+#   source:       "nist" | "scf" | "local"
+#   catalog_url:  URL to download the OSCAL catalog (optional for "local")
+#   catalog_sha:  SHA-256 of the catalog file for integrity verification
 #   tarball_path: Path inside the tarball (NIST tarballs only)
-#   description: Human-readable description
+#   license:      Licensing terms (triggers notice during import if non-empty)
+#   description:  Human-readable description
 
 # ─── NIST SP 800-53 Rev 5 (via oscal-content v1.5.0) ────────────────────────
 # Source: https://github.com/usnistgov/oscal-content/releases/tag/v1.5.0
 # License: US Government work, not subject to copyright.
 nist-tarball: &nist-tarball
   source: nist
+  license: "US Government work, not subject to copyright. Public domain."
   catalog_url: "https://github.com/usnistgov/oscal-content/releases/download/v1.5.0/oscal-content-1.5.0.tar.gz"
   catalog_sha: "724a4dd665e0901dc314e3ee48bfd62fb361291e360a3e7c45bc56781a030365"
+
+# ─── SCF (user-provided OSCAL catalogs) ──────────────────────────────────
+# Source: https://tools.scfconnectlabs.com (SCF OSCAL Exporter)
+# Export: oscal-catalog-2026.1.json (SCF 2025.3, 1,468 controls, OSCAL 1.0.4)
+scf-common: &scf-common
+  source: local
+  license: "CC BY-ND 4.0 (Secure Controls Framework Council, LLC). AI-generated derivative content may require a commercial license. See: https://www.securecontrolsframework.com/licensing"
+  catalog_sha: "8f1e6c3477696c32d8a2bb6b1542ed282a67c3f6e9f575f09654413719166925"
 
 frameworks:
   fedramp-low:
@@ -63,14 +73,47 @@ frameworks:
     description: "NIST SP 800-53 Rev 5 PRIVACY baseline"
     tarball_path: "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_PRIVACY-baseline-resolved-profile_catalog.json"
 
+  # ─── NIST CSF and SP 800-171 (also in oscal-content v1.5.0) ──────────────
+  nist-csf:
+    <<: *nist-tarball
+    description: "NIST Cybersecurity Framework v2.0"
+    tarball_path: "oscal-content-1.5.0/nist.gov/CSF/v2.0/json/NIST_CSF_v2.0_catalog.json"
+
+  800-171:
+    <<: *nist-tarball
+    description: "NIST SP 800-171 Rev 3 (CUI Protection)"
+    tarball_path: "oscal-content-1.5.0/nist.gov/SP800-171/rev3/json/NIST_SP800-171_rev3_catalog.json"
+
   # ─── SCF (user-provided OSCAL catalogs) ──────────────────────────────────
-  # Source: https://tools.scfconnectlabs.com (SCF OSCAL Exporter)
-  # License: CC BY-ND 4.0 by Secure Controls Framework Council, LLC.
-  #          AI-generated derivative content requires a commercial license.
   scf-full:
-    source: local
-    description: "Secure Controls Framework full catalog (user must provide via --catalog)"
+    <<: *scf-common
+    description: "SCF 2025.3 full catalog (1,468 controls)"
 
   scf-soc2:
-    source: local
-    description: "SCF SOC 2 controls (user must provide via --catalog)"
+    <<: *scf-common
+    description: "SCF 2025.3 (SOC 2 Trust Service Criteria scope)"
+
+  scf-iso27001:
+    <<: *scf-common
+    description: "SCF 2025.3 (ISO 27001 Annex A scope)"
+
+  scf-hipaa:
+    <<: *scf-common
+    description: "SCF 2025.3 (HIPAA Security Rule scope)"
+
+  scf-pci-dss:
+    <<: *scf-common
+    description: "SCF 2025.3 (PCI-DSS scope)"
+
+  scf-gdpr:
+    <<: *scf-common
+    description: "SCF 2025.3 (GDPR scope)"
+
+  scf-ffiec:
+    <<: *scf-common
+    description: "SCF 2025.3 (FFIEC CAT scope)"
+
+  scf-cmmc:
+    <<: *scf-common
+    description: "SCF 2025.3 (CMMC scope)"
+

@@ -17,34 +17,76 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 )
 
 const (
 	workspaceFile    = "../../workspace.yaml"
 	requirementsFile = "../../requirements.csv"
 	promptFile       = "../../engine/prompts/setup_03_extract_requirements.md"
-
-	// OSCAL Content Release — pinned version with integrity verification.
-	// Source: https://github.com/usnistgov/oscal-content/releases/tag/v1.5.0
-	// Commit: 78650f02ad9321bb7b817846f8fbd4f2bcd620de
-	oscalReleaseURL = "https://github.com/usnistgov/oscal-content/releases/download/v1.5.0/oscal-content-1.5.0.tar.gz"
-	oscalReleaseSHA = "724a4dd665e0901dc314e3ee48bfd62fb361291e360a3e7c45bc56781a030365"
-	oscalVersion    = "1.5.0"
+	registryFile     = "../../framework_registry.yaml"
 )
 
-// frameworkFileMap maps user-facing framework names to the OSCAL JSON file path inside the tarball.
-var frameworkFileMap = map[string]string{
-	"fedramp-low":      "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_LOW-baseline-resolved-profile_catalog.json",
-	"fedramp-moderate": "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json",
-	"fedramp-high":     "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_HIGH-baseline-resolved-profile_catalog.json",
-	"soc2":             "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json",
-	"iso27001":         "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json",
-	"hipaa":            "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline-resolved-profile_catalog.json",
-	"full":             "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_catalog.json",
-	"privacy":          "oscal-content-1.5.0/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_PRIVACY-baseline-resolved-profile_catalog.json",
+// FrameworkEntry represents a single framework in the registry.
+type FrameworkEntry struct {
+	Source      string `yaml:"source"`
+	CatalogURL  string `yaml:"catalog_url"`
+	CatalogSHA  string `yaml:"catalog_sha"`
+	TarballPath string `yaml:"tarball_path"`
+	Description string `yaml:"description"`
+	License     string `yaml:"license"`
+}
+
+// FrameworkRegistry is the top-level structure of framework_registry.yaml.
+type FrameworkRegistry struct {
+	Frameworks map[string]FrameworkEntry `yaml:"frameworks"`
+}
+
+// parseFrameworkRegistry reads and parses the framework registry YAML.
+func parseFrameworkRegistry(path string) (FrameworkRegistry, error) {
+	var reg FrameworkRegistry
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return reg, fmt.Errorf("failed to read framework registry: %w", err)
+	}
+	if err := yaml.Unmarshal(data, &reg); err != nil {
+		return reg, fmt.Errorf("failed to parse framework registry: %w", err)
+	}
+	if reg.Frameworks == nil {
+		reg.Frameworks = make(map[string]FrameworkEntry)
+	}
+	return reg, nil
+}
+
+// printLicenseNotice prints a licensing notice if the framework entry has a license field.
+// For restrictive licenses, it adds a responsibility warning.
+func printLicenseNotice(entry FrameworkEntry) {
+	if entry.License == "" {
+		return
+	}
+	fmt.Println("")
+	fmt.Println("[LICENSE] " + entry.License)
+	// Only show the responsibility warning for restrictive licenses.
+	lower := strings.ToLower(entry.License)
+	if strings.Contains(lower, "commercial") || strings.Contains(lower, "require") || strings.Contains(lower, "restricted") {
+		fmt.Println("[LICENSE] By proceeding, you accept responsibility for licensing compliance.")
+	}
+	fmt.Println("")
+}
+
+// availableFrameworks returns a sorted list of framework names from the registry.
+func availableFrameworks(reg FrameworkRegistry) []string {
+	names := make([]string, 0, len(reg.Frameworks))
+	for name := range reg.Frameworks {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // allowedOSCALVersions is the whitelist of known-good OSCAL specification versions.
@@ -56,8 +98,31 @@ var allowedOSCALVersions = map[string]bool{
 }
 
 // controlIDPattern validates OSCAL control IDs from any supported framework.
-// Matches NIST 800-53 IDs (e.g., ac-1, sc-28) and SCF IDs (e.g., GOV-01, IAC-15.1).
-var controlIDPattern = regexp.MustCompile(`(?i)^[a-z]{2,5}-\d+(\.\d+)?$`)
+// Matches:
+//   - NIST 800-53: ac-1, sc-28
+//   - SCF: GOV-01, IAC-15.1
+//   - NIST CSF v2.0: GV.OC-01, PR.DS-01
+//   - NIST 800-171: 03.01.01
+var controlIDPattern = regexp.MustCompile(`(?i)^(?:[a-z]{2,5}(?:\.[a-z]{2,5})?-\d+(?:\.\d+)?|\d{2}\.\d{2}\.\d{2})$`)
+
+// detectSourceFormat determines the catalog format from a file path.
+// Returns "csv" for .csv files, "json" for .json files.
+// If the extension is unrecognized, it peeks at the content.
+func detectSourceFormat(path string, content []byte) string {
+	lower := strings.ToLower(path)
+	if strings.HasSuffix(lower, ".csv") {
+		return "csv"
+	}
+	if strings.HasSuffix(lower, ".json") {
+		return "json"
+	}
+	// Fallback: peek at the first non-whitespace byte.
+	trimmed := bytes.TrimSpace(content)
+	if len(trimmed) > 0 && trimmed[0] == '{' {
+		return "json"
+	}
+	return "csv"
+}
 
 // CatalogEntry is the normalized representation of a control from any source.
 type CatalogEntry struct {
@@ -101,12 +166,12 @@ type OSCALPart struct {
 	Parts []OSCALPart `json:"parts"` // nested sub-parts
 }
 
-// downloadOSCALRelease downloads the pinned OSCAL release tarball to a temp file.
-func downloadOSCALRelease() string {
-	fmt.Println("[OSCAL] Downloading NIST SP 800-53 catalog from pinned release...")
-	fmt.Printf("         URL: %s\n", oscalReleaseURL)
+// downloadOSCALRelease downloads an OSCAL release tarball to a temp file.
+func downloadOSCALRelease(catalogURL string) string {
+	fmt.Println("[OSCAL] Downloading catalog from pinned release...")
+	fmt.Printf("         URL: %s\n", catalogURL)
 
-	resp, err := http.Get(oscalReleaseURL) //nolint:gosec // URL is a hardcoded constant, not user input
+	resp, err := http.Get(catalogURL) //nolint:gosec // URL is from framework registry, not arbitrary user input
 	if err != nil {
 		log.Fatalf("[FATAL] Failed to download OSCAL release: %v", err)
 	}
@@ -139,13 +204,13 @@ func downloadOSCALRelease() string {
 	return tmpFile.Name()
 }
 
-// verifyIntegrity computes the SHA-256 hash of the file and compares it against the pinned hash.
-func verifyIntegrity(path string) {
+// verifyIntegrity computes the SHA-256 hash of the file and compares it against the expected hash.
+func verifyIntegrity(path string, expectedSHA string) {
 	fmt.Println("[OSCAL] Verifying SHA-256 integrity...")
 
 	f, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to open tarball for hashing: %v", err)
+		log.Fatalf("[FATAL] Failed to open file for hashing: %v", err)
 	}
 	defer f.Close()
 
@@ -155,8 +220,8 @@ func verifyIntegrity(path string) {
 	}
 
 	computed := hex.EncodeToString(hasher.Sum(nil))
-	if computed != oscalReleaseSHA {
-		log.Fatalf("[FATAL] SHA-256 MISMATCH. Expected: %s Got: %s. The OSCAL tarball may have been tampered with.", oscalReleaseSHA, computed)
+	if computed != expectedSHA {
+		log.Fatalf("[FATAL] SHA-256 MISMATCH. Expected: %s Got: %s. The file may have been tampered with.", expectedSHA, computed)
 	}
 
 	fmt.Printf("         SHA-256: %s ✓\n", computed)
@@ -667,7 +732,8 @@ func main() {
 	framework := ""
 	catalogPath := ""
 	catalogURL := ""
-	sourceFormat := "oscal" // Default source format: "oscal" or "csv"
+	sourceFormat := ""      // Auto-detect from file extension; "json" or "csv". Override with --source.
+	filterGroups := ""      // Comma-separated group prefixes to filter controls
 	resetMode := false
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
@@ -698,22 +764,48 @@ func main() {
 			sourceFormat = strings.ToLower(strings.TrimSpace(os.Args[i]))
 		} else if strings.HasPrefix(arg, "--source=") {
 			sourceFormat = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(arg, "--source=")))
+		} else if arg == "--filter-group" && i+1 < len(os.Args) {
+			i++
+			filterGroups = strings.TrimSpace(os.Args[i])
+		} else if strings.HasPrefix(arg, "--filter-group=") {
+			filterGroups = strings.TrimSpace(strings.TrimPrefix(arg, "--filter-group="))
 		}
+	}
+
+	// Load Framework Registry
+	registry, regErr := parseFrameworkRegistry(registryFile)
+	if regErr != nil {
+		log.Printf("[WARNING] Could not load framework registry: %v. Proceeding without registry.", regErr)
+		registry = FrameworkRegistry{Frameworks: make(map[string]FrameworkEntry)}
+	} else {
+		fmt.Printf("[REGISTRY] Loaded %d frameworks from registry\n", len(registry.Frameworks))
 	}
 
 	if framework == "" {
 		fmt.Println("[FATAL] --framework is required.")
-		fmt.Println("  Options: fedramp-low, fedramp-moderate, fedramp-high, soc2, iso27001, hipaa, full, privacy")
+		fmt.Printf("  Available frameworks: %s\n", strings.Join(availableFrameworks(registry), ", "))
 		fmt.Println("  Or use --catalog <path> with any --framework name for custom OSCAL catalogs.")
 		fmt.Println("  Example: ./import --framework fedramp-moderate --provider gcp")
-		fmt.Println("  Example: ./import --framework scf-soc2 --catalog ./catalogs/scf-soc2.json --provider gcp")
+		fmt.Println("  Example: ./import --framework scf-full --catalog ./catalogs/scf-oscal.json --provider gcp")
 		os.Exit(1)
 	}
-	// Only enforce frameworkFileMap lookup when no custom catalog is provided.
+
+	// Look up framework in registry.
+	registryEntry, inRegistry := registry.Frameworks[framework]
+
+	// Only enforce registry lookup when no custom catalog is provided.
 	if catalogPath == "" && catalogURL == "" {
-		if _, ok := frameworkFileMap[framework]; !ok {
-			log.Fatalf("[FATAL] Unknown framework: %s. Valid options: fedramp-low, fedramp-moderate, fedramp-high, soc2, iso27001, hipaa, full, privacy\n  Or use --catalog <path> for custom OSCAL catalogs.", framework)
+		if !inRegistry {
+			log.Fatalf("[FATAL] Unknown framework: %s.\n  Available: %s\n  Or use --catalog <path> for custom OSCAL catalogs.", framework, strings.Join(availableFrameworks(registry), ", "))
 		}
+		if registryEntry.Source == "local" {
+			log.Fatalf("[FATAL] Framework '%s' requires a local catalog file. Use --catalog <path>.\n  %s", framework, registryEntry.Description)
+		}
+	}
+
+	// Print license notice if the framework has licensing terms.
+	if inRegistry {
+		printLicenseNotice(registryEntry)
 	}
 
 	if resetMode {
@@ -791,12 +883,26 @@ func main() {
 	switch {
 	case catalogPath != "":
 		// User-provided local catalog file.
-		fmt.Printf("[CATALOG] Loading from local file: %s (format: %s)\n", catalogPath, sourceFormat)
 		jsonBytes, err := os.ReadFile(catalogPath)
 		if err != nil {
 			log.Fatalf("[FATAL] Failed to read catalog file %s: %v", catalogPath, err)
 		}
-		switch sourceFormat {
+
+		// Auto-detect format if not explicitly set via --source.
+		format := sourceFormat
+		if format == "" {
+			format = detectSourceFormat(catalogPath, jsonBytes)
+		} else if format == "oscal" {
+			format = "json" // Normalize legacy "oscal" to "json"
+		}
+		fmt.Printf("[CATALOG] Loading from local file: %s (format: %s)\n", catalogPath, format)
+
+		// Verify integrity against registry hash if available.
+		if inRegistry && registryEntry.CatalogSHA != "" {
+			verifyIntegrity(catalogPath, registryEntry.CatalogSHA)
+		}
+
+		switch format {
 		case "csv":
 			entries = parseCSVCatalog(jsonBytes)
 		default:
@@ -804,8 +910,8 @@ func main() {
 		}
 
 	case catalogURL != "":
-		// User-provided URL to an OSCAL JSON file.
-		fmt.Printf("[OSCAL] Downloading catalog from URL: %s\n", catalogURL)
+		// User-provided URL to a catalog file.
+		fmt.Printf("[CATALOG] Downloading catalog from URL: %s\n", catalogURL)
 		resp, httpErr := http.Get(catalogURL) //nolint:gosec // URL is from user CLI input, validated by intent
 		if httpErr != nil {
 			log.Fatalf("[FATAL] Failed to download catalog from %s: %v", catalogURL, httpErr)
@@ -818,15 +924,60 @@ func main() {
 		if readErr != nil {
 			log.Fatalf("[FATAL] Failed to read catalog response body: %v", readErr)
 		}
-		entries = parseOSCALCatalog(jsonBytes)
+
+		// Auto-detect format from URL path or content.
+		format := sourceFormat
+		if format == "" {
+			format = detectSourceFormat(catalogURL, jsonBytes)
+		} else if format == "oscal" {
+			format = "json" // Normalize legacy "oscal" to "json"
+		}
+		fmt.Printf("         Detected format: %s\n", format)
+
+		switch format {
+		case "csv":
+			entries = parseCSVCatalog(jsonBytes)
+		default:
+			entries = parseOSCALCatalog(jsonBytes)
+		}
 
 	default:
-		// Default: download the pinned NIST tarball.
-		tarPath := downloadOSCALRelease()
+		// Default: download from registry-configured source.
+		if !inRegistry || registryEntry.CatalogURL == "" {
+			log.Fatalf("[FATAL] Framework '%s' has no catalog_url in registry and no --catalog was provided.", framework)
+		}
+		tarPath := downloadOSCALRelease(registryEntry.CatalogURL)
 		defer os.Remove(tarPath)
-		verifyIntegrity(tarPath)
-		jsonBytes := extractFromTarball(tarPath, frameworkFileMap[framework])
+		if registryEntry.CatalogSHA != "" {
+			verifyIntegrity(tarPath, registryEntry.CatalogSHA)
+		} else {
+			fmt.Println("[WARNING] No SHA-256 hash in registry for this framework. Skipping integrity check.")
+		}
+		if registryEntry.TarballPath == "" {
+			log.Fatalf("[FATAL] Framework '%s' has no tarball_path in registry.", framework)
+		}
+		jsonBytes := extractFromTarball(tarPath, registryEntry.TarballPath)
 		entries = parseOSCALCatalog(jsonBytes)
+	}
+
+	// Apply --filter-group if specified.
+	if filterGroups != "" {
+		prefixes := strings.Split(strings.ToLower(filterGroups), ",")
+		for i := range prefixes {
+			prefixes[i] = strings.TrimSpace(prefixes[i])
+		}
+		var filtered []CatalogEntry
+		for _, entry := range entries {
+			lowerID := strings.ToLower(entry.ControlID)
+			for _, prefix := range prefixes {
+				if strings.HasPrefix(lowerID, prefix) {
+					filtered = append(filtered, entry)
+					break
+				}
+			}
+		}
+		fmt.Printf("[FILTER] --filter-group %s: %d of %d controls matched\n", filterGroups, len(filtered), len(entries))
+		entries = filtered
 	}
 
 	// Process each control from the OSCAL catalog.
