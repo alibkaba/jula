@@ -152,16 +152,16 @@ func TestCloudReporter_Deliver(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	tests := []struct {
-		name       string
-		store      *mockStore
-		evidence   []types.Evidence
-		runID      string
-		cancelCtx  bool
-		wantErr    bool
-		wantFiles  int // Number of evidence/provenance files expected in manifest
+		name      string
+		store     *mockStore
+		evidence  []types.Evidence
+		runID     string
+		cancelCtx bool
+		wantErr   bool
+		wantFiles int // Number of evidence/provenance files expected in manifest
 	}{
 		{
-			name: "success with evidence",
+			name:  "success with evidence",
 			store: &mockStore{puts: make(map[string][]byte)},
 			evidence: []types.Evidence{
 				{
@@ -180,7 +180,7 @@ func TestCloudReporter_Deliver(t *testing.T) {
 			wantFiles: 2, // 1 evidence + 1 prov
 		},
 		{
-			name: "store put error",
+			name:  "store put error",
 			store: &mockStore{err: io.EOF, puts: make(map[string][]byte)},
 			evidence: []types.Evidence{
 				{
@@ -199,7 +199,7 @@ func TestCloudReporter_Deliver(t *testing.T) {
 			wantFiles: 0,
 		},
 		{
-			name: "context cancelled",
+			name:  "context cancelled",
 			store: &mockStore{puts: make(map[string][]byte)},
 			evidence: []types.Evidence{
 				{
@@ -267,7 +267,7 @@ func TestCloudReporter_Deliver_ErrorPaths(t *testing.T) {
 
 	t.Run("fails on second put (provenance)", func(t *testing.T) {
 		r := &CloudReporter{
-			Store: &mockStoreWithCounter{errOnPut: 2}, // We'll implement this below
+			Store:      &mockStoreWithCounter{errOnPut: 2}, // We'll implement this below
 			SigningKey: key,
 			PathPrefix: "test-prefix",
 		}
@@ -295,12 +295,11 @@ func (m *mockStoreWithCounter) Put(ctx context.Context, key string, body io.Read
 	return nil
 }
 
-
 func TestCloudReporter_Deliver_ManifestPutFails(t *testing.T) {
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	r := &CloudReporter{
-		Store: &mockStoreWithCounter{errOnPut: 3}, // fail on third put (manifest)
+		Store:      &mockStoreWithCounter{errOnPut: 3}, // fail on third put (manifest)
 		SigningKey: key,
 		PathPrefix: "test-prefix",
 	}
@@ -328,7 +327,7 @@ func TestCloudReporter_Deliver_PutErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &CloudReporter{
-				Store: &mockStoreWithCounter{errOnPut: tt.errOnPut},
+				Store:      &mockStoreWithCounter{errOnPut: tt.errOnPut},
 				SigningKey: key,
 				PathPrefix: "test-prefix",
 			}
@@ -343,7 +342,6 @@ func TestCloudReporter_Deliver_PutErrors(t *testing.T) {
 		})
 	}
 }
-
 
 type mockSigner struct {
 	err error
@@ -372,7 +370,7 @@ func TestCloudReporter_Deliver_SigningErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &CloudReporter{
-				Store: &mockStore{puts: make(map[string][]byte)},
+				Store:      &mockStore{puts: make(map[string][]byte)},
 				SigningKey: tt.signer,
 				PathPrefix: "test-prefix",
 			}
@@ -411,7 +409,7 @@ func (m *mockSignerManifestFail) Sign(rand io.Reader, digest []byte, opts stdcry
 
 func TestCloudReporter_Deliver_ManifestSignFail(t *testing.T) {
 	r := &CloudReporter{
-		Store: &mockStore{puts: make(map[string][]byte)},
+		Store:      &mockStore{puts: make(map[string][]byte)},
 		SigningKey: &mockSignerManifestFail{err: io.EOF},
 		PathPrefix: "test-prefix",
 	}
