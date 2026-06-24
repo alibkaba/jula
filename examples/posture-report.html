@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compliance Posture - Jula Posture Report</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #0ea5e9;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --pink: #ec4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 2rem; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; color: var(--accent); margin-bottom: 0.25rem; }
+  h2 { font-size: 1.1rem; color: var(--pink); margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; }
+  .big-rate { font-size: 2.5rem; font-weight: 700; }
+  .rate-good { color: var(--green); }
+  .rate-warn { color: var(--yellow); }
+  .rate-bad { color: var(--red); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  .bar-track { background: var(--bg); border-radius: 4px; height: 8px; width: 100px; display: inline-block; }
+  .bar-fill { height: 8px; border-radius: 4px; display: inline-block; }
+  .bar-fill.good { background: var(--green); }
+  .bar-fill.warn { background: var(--yellow); }
+  .bar-fill.bad { background: var(--red); }
+  .failed-list { list-style: none; }
+  .failed-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+  .failed-list .ctrl-id { color: var(--red); font-weight: 600; font-family: monospace; margin-right: 1rem; }
+  .signed { color: var(--green); font-weight: 600; }
+  .hash { color: var(--muted); font-family: monospace; font-size: 0.8rem; }
+  footer { color: var(--muted); font-size: 0.75rem; margin-top: 3rem; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Jula Controls - Compliance Posture Report</h1>
+<p class="meta">Generated: 2026-06-24 20:19 UTC</p>
+
+
+<h2>Executive Summary</h2>
+<div class="card">
+  <p class="meta">Run: run-20260624-190000 | 2026-06-24 19:05 UTC</p>
+  <p><span class="big-rate rate-warn">79%</span> compliant (15/19 controls passed)</p>
+</div>
+
+<table>
+<thead><tr><th>Control Family</th><th>Passed</th><th>Failed</th><th>Pass Rate</th><th></th></tr></thead>
+<tbody>
+
+<tr>
+  <td>Access Control</td>
+  <td>3</td>
+  <td>1</td>
+  <td>75%</td>
+  <td><span class="bar-track"><span class="bar-fill warn" style="width: 75%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Audit &amp; Accountability</td>
+  <td>3</td>
+  <td>0</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Configuration Mgmt</td>
+  <td>1</td>
+  <td>1</td>
+  <td>50%</td>
+  <td><span class="bar-track"><span class="bar-fill bad" style="width: 50%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Identification &amp; Auth</td>
+  <td>2</td>
+  <td>0</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Incident Response</td>
+  <td>1</td>
+  <td>0</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Physical Protection</td>
+  <td>1</td>
+  <td>0</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Personnel Security</td>
+  <td>1</td>
+  <td>0</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+</tr>
+
+<tr>
+  <td>Risk Assessment</td>
+  <td>0</td>
+  <td>1</td>
+  <td>0%</td>
+  <td><span class="bar-track"><span class="bar-fill bad" style="width: 0%"></span></span></td>
+</tr>
+
+<tr>
+  <td>System &amp; Comms</td>
+  <td>1</td>
+  <td>1</td>
+  <td>50%</td>
+  <td><span class="bar-track"><span class="bar-fill bad" style="width: 50%"></span></span></td>
+</tr>
+
+<tr>
+  <td>System Integrity</td>
+  <td>2</td>
+  <td>0</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+</tr>
+
+</tbody>
+</table>
+
+
+<h2>Failed Controls</h2>
+<ul class="failed-list">
+
+<li><span class="ctrl-id">AC-7</span> 3 service accounts lack MFA</li>
+
+<li><span class="ctrl-id">CM-6</span> 2 storage buckets missing encryption-at-rest</li>
+
+<li><span class="ctrl-id">RA-5</span> No vulnerability scan results in 30 days</li>
+
+<li><span class="ctrl-id">SC-28</span> 1 SQL instance without encryption</li>
+
+</ul>
+
+
+
+<p style="margin-top:1rem"><span class="signed">SIGNED ✓ (Key C)</span> <span class="hash">Ledger Hash: a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456</span></p>
+
+
+
+
+<h2>Automation Coverage</h2>
+<table>
+<thead><tr><th>Status</th><th>Controls</th><th>Share</th></tr></thead>
+<tbody>
+<tr><td style="color:var(--green)">Fully Automated</td><td>14</td><td>74%</td></tr>
+<tr><td style="color:var(--yellow)">Partially Auto</td><td>2</td><td>11%</td></tr>
+<tr><td style="color:var(--red)">Manual Audit</td><td>3</td><td>16%</td></tr>
+</tbody>
+</table>
+
+
+
+<h2>CSF Maturity</h2>
+<table>
+<thead><tr><th>Function</th><th>Score</th><th></th><th>Controls</th></tr></thead>
+<tbody>
+
+<tr>
+  <td>ID - Identify</td>
+  <td>0%</td>
+  <td><span class="bar-track"><span class="bar-fill bad" style="width: 0%"></span></span></td>
+  <td>1</td>
+</tr>
+
+<tr>
+  <td>PR - Protect</td>
+  <td>75%</td>
+  <td><span class="bar-track"><span class="bar-fill warn" style="width: 75%"></span></span></td>
+  <td>12</td>
+</tr>
+
+<tr>
+  <td>DE - Detect</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+  <td>5</td>
+</tr>
+
+<tr>
+  <td>RS - Respond</td>
+  <td>100%</td>
+  <td><span class="bar-track"><span class="bar-fill good" style="width: 100%"></span></span></td>
+  <td>1</td>
+</tr>
+
+<tr>
+  <td>RC - Recover</td>
+  <td>0%</td>
+  <td><span class="bar-track"><span class="bar-fill bad" style="width: 0%"></span></span></td>
+  <td>0</td>
+</tr>
+
+</tbody>
+</table>
+<p style="margin-top:0.5rem">Overall Maturity: <strong class="rate-bad">69%</strong></p>
+
+
+
+<h2>FAIR Risk Analysis</h2>
+<table>
+<thead><tr><th>Family</th><th>Failed</th><th>Annual Loss (Mean)</th><th>95th Pct Loss</th><th>Mitigation Cost</th><th>ROI</th></tr></thead>
+<tbody>
+
+<tr>
+  <td>Access Control</td>
+  <td>1</td>
+  <td>$764K</td>
+  <td>$1.5M</td>
+  <td>$25K</td>
+  <td>2956%</td>
+</tr>
+
+<tr>
+  <td>Configuration Mgmt</td>
+  <td>1</td>
+  <td>$385K</td>
+  <td>$718K</td>
+  <td>$20K</td>
+  <td>1823%</td>
+</tr>
+
+<tr>
+  <td>Risk Assessment</td>
+  <td>1</td>
+  <td>$358K</td>
+  <td>$695K</td>
+  <td>$18K</td>
+  <td>1891%</td>
+</tr>
+
+<tr>
+  <td>System &amp; Comms</td>
+  <td>1</td>
+  <td>$1.4M</td>
+  <td>$2.8M</td>
+  <td>$35K</td>
+  <td>3970%</td>
+</tr>
+
+</tbody>
+</table>
+<div class="card" style="margin-top:1rem">
+  <p>Total Annual Loss Expectancy: <strong>$2.9M</strong></p>
+  <p>Total 95th Percentile Loss: <strong>$5.7M</strong></p>
+  <p>Total Mitigation Investment: <strong>$98K</strong></p>
+</div>
+
+
+<footer>Generated by jula-posture | Jula Controls</footer>
+</body>
+</html>

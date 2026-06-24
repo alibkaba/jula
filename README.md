@@ -120,28 +120,28 @@ flowchart TB
 
     subgraph Phase5 ["5. Quantitative Risk & Posture Insights (reporter/)"]
         direction TB
-        DB["📊 Insight Engine <br> (jula-posture CLI)"]
+        DB["📊 Posture Reporter <br> (Stateless Go CLI)"]
         
-        subgraph Shipped ["Shipped Modules"]
+        subgraph Modules ["Modules"]
             direction LR
             Summary["📋 Executive Summary <br> (Control Family Pass/Fail)"]
             Coverage["🔧 Automation Coverage <br> (Auto vs Manual Analysis)"]
             TrendMod["📈 Compliance Trend <br> (Historical Sparklines)"]
-        end
-
-        subgraph Planned ["Planned Modules"]
-            direction LR
-            LEC["📈 Loss Exceedance Curve <br> (FAIR Financial Simulation)"]
-            Radar["🕸️ Maturity Radar Chart <br> (NIST CSF Spider Chart)"]
-            ROI["📊 Risk ROI Bar Chart <br> (Mitigation Cost vs Residual Loss)"]
+            Maturity["🕸️ CSF Maturity <br> (NIST CSF Function Scores)"]
+            FAIR["📈 FAIR Risk Analysis <br> (Monte Carlo Simulation)"]
+            ROI["📊 Risk ROI <br> (Loss vs Mitigation)"]
+            Export["📄 HTML/PDF Export <br> (Executive Report)"]
+            MCP["🔌 MCP Server <br> (AI Assistant Integration)"]
         end
         
         DB --> Summary
         DB --> Coverage
         DB --> TrendMod
-        DB -.-> LEC
-        DB -.-> Radar
-        DB -.-> ROI
+        DB --> Maturity
+        DB --> FAIR
+        DB --> ROI
+        DB --> Export
+        DB --> MCP
     end
 
     JC["📦 Jula Core <br> (Shared Go Module)"]
@@ -172,7 +172,7 @@ flowchart TB
     class EE,SigCheck,HashCheck,ProvCheck,PolicyCheck,OPA assessor;
     class KMS,KeyB,KeyC security;
     class Findings,SignedVerdict output;
-    class DB,Summary,Coverage,TrendMod,LEC,Radar,ROI insights;
+    class DB,Summary,Coverage,TrendMod,Maturity,FAIR,Export,ROI,MCP insights;
     class JC core;
 ```
 

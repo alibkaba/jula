@@ -6,6 +6,9 @@
 //	jula-posture summary  --ledger ./output/assessor_ledger.json [--verdict ./output/verdict.json]
 //	jula-posture coverage --ledger ./output/assessor_ledger.json
 //	jula-posture trend    --history ./runs/ [--months 6]
+//	jula-posture maturity --ledger ./output/assessor_ledger.json
+//	jula-posture risk     --ledger ./output/assessor_ledger.json [--risk-config ./risk.json]
+//	jula-posture export   --ledger ./output/assessor_ledger.json --format html --output report.html
 package main
 
 import (
@@ -34,6 +37,16 @@ func main() {
 		err = runCoverage(args)
 	case "trend":
 		err = runTrend(args)
+	case "maturity":
+		err = runMaturity(args)
+	case "risk":
+		err = runRisk(args)
+	case "roi":
+		err = runROI(args)
+	case "export":
+		err = runExport(args)
+	case "serve":
+		err = runServe(args)
 	case "help", "--help", "-h":
 		printUsage()
 		return
@@ -56,11 +69,21 @@ func printUsage() {
 	fmt.Println("  jula-posture summary  --ledger <path> [--verdict <path>]")
 	fmt.Println("  jula-posture coverage --ledger <path>")
 	fmt.Println("  jula-posture trend    --history <dir> [--months <n>]")
+	fmt.Println("  jula-posture maturity --ledger <path>")
+	fmt.Println("  jula-posture risk     --ledger <path> [--risk-config <path>]")
+	fmt.Println("  jula-posture roi      --ledger <path> [--risk-config <path>]")
+	fmt.Println("  jula-posture export   --ledger <path> [--verdict <path>] --format <html|pdf> --output <path>")
+	fmt.Println("  jula-posture serve    --ledger <path> [--verdict <path>] [--history <dir>]")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  summary   Executive compliance posture summary")
 	fmt.Println("  coverage  Automation coverage analysis")
 	fmt.Println("  trend     Historical compliance trend")
+	fmt.Println("  maturity  NIST CSF maturity assessment")
+	fmt.Println("  risk      FAIR quantitative risk analysis")
+	fmt.Println("  roi       Risk ROI visualization (loss vs mitigation)")
+	fmt.Println("  export    Generate HTML/PDF posture report")
+	fmt.Println("  serve     Start MCP server for AI assistant integration")
 }
 
 // parseFlags does minimal flag parsing (no flag package, to support subcommands cleanly).
@@ -336,4 +359,422 @@ func renderTrend(trend *insights.TrendSummary, months int) {
 
 		fmt.Printf("  Delta: %s over %d months%s\n\n", deltaStr, months, render.Dim(fixedStr))
 	}
+}
+
+// --- Maturity ---
+
+func runMaturity(args []string) error {
+	flags := parseFlags(args)
+
+	ledgerPath := flags["ledger"]
+	if ledgerPath == "" {
+		return fmt.Errorf("--ledger is required")
+	}
+
+	entries, err := insights.LoadLedger(ledgerPath)
+	if err != nil {
+		return err
+	}
+
+	mat := insights.ComputeMaturity(entries)
+	renderMaturity(mat)
+	return nil
+}
+
+func renderMaturity(mat *insights.MaturitySummary) {
+	fmt.Println()
+	fmt.Println("  " + render.Bold("NIST CSF MATURITY"))
+	fmt.Println()
+
+	table := &render.Table{
+		Columns: []render.Column{
+			{Header: "Function", Width: 14, Align: render.AlignLeft},
+			{Header: "Score", Width: 6, Align: render.AlignRight},
+			{Header: "Passed", Width: 6, Align: render.AlignRight},
+			{Header: "Failed", Width: 6, Align: render.AlignRight},
+			{Header: "", Width: 20, Align: render.AlignLeft},
+		},
+	}
+
+	for _, f := range mat.Functions {
+		scoreStr := fmt.Sprintf("%.0f%%", f.Score*100)
+		if f.Score >= 0.9 {
+			scoreStr = render.Green(scoreStr)
+		} else if f.Score >= 0.7 {
+			scoreStr = render.Yellow(scoreStr)
+		} else if f.Total > 0 {
+			scoreStr = render.Red(scoreStr)
+		} else {
+			scoreStr = render.Dim("N/A")
+		}
+
+		passedStr := render.Green(fmt.Sprintf("%d", f.Passed))
+		failedStr := fmt.Sprintf("%d", f.Failed)
+		if f.Failed > 0 {
+			failedStr = render.Red(failedStr)
+		}
+
+		label := fmt.Sprintf("%s %s", render.BoldCyan(f.ID), f.Name)
+		bar := render.Bar(f.Score, 1.0, 20)
+
+		table.Rows = append(table.Rows, []string{label, scoreStr, passedStr, failedStr, bar})
+	}
+
+	table.Print()
+	fmt.Println()
+
+	overallStr := fmt.Sprintf("%.0f%%", mat.OverallScore*100)
+	if mat.OverallScore >= 0.9 {
+		overallStr = render.BoldGreen(overallStr)
+	} else if mat.OverallScore >= 0.7 {
+		overallStr = render.BoldYellow(overallStr)
+	} else {
+		overallStr = render.BoldRed(overallStr)
+	}
+	fmt.Printf("  Overall Maturity: %s\n\n", overallStr)
+}
+
+// --- Risk ---
+
+func runRisk(args []string) error {
+	flags := parseFlags(args)
+
+	ledgerPath := flags["ledger"]
+	if ledgerPath == "" {
+		return fmt.Errorf("--ledger is required")
+	}
+
+	entries, err := insights.LoadLedger(ledgerPath)
+	if err != nil {
+		return err
+	}
+
+	var config *insights.RiskConfig
+	if cfgPath := flags["risk-config"]; cfgPath != "" {
+		config, err = insights.LoadRiskConfig(cfgPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		config = insights.DefaultRiskConfig()
+	}
+
+	sims := 10000
+	if s := flags["simulations"]; s != "" {
+		parsed, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("invalid --simulations value: %s", s)
+		}
+		sims = parsed
+	}
+
+	risk := insights.ComputeRisk(entries, config, sims)
+	renderRisk(risk)
+	return nil
+}
+
+func renderRisk(risk *insights.RiskSummary) {
+	fmt.Println()
+	fmt.Printf("  %s (%d simulations)\n\n", render.Bold("FAIR RISK ANALYSIS"), risk.Simulations)
+
+	if len(risk.Results) == 0 {
+		fmt.Println("  " + render.Green("No failed controls. No risk to simulate."))
+		fmt.Println()
+		return
+	}
+
+	table := &render.Table{
+		Columns: []render.Column{
+			{Header: "Family", Width: 22, Align: render.AlignLeft},
+			{Header: "Failed", Width: 6, Align: render.AlignRight},
+			{Header: "ALE (Mean)", Width: 12, Align: render.AlignRight},
+			{Header: "95th Pct", Width: 12, Align: render.AlignRight},
+			{Header: "Mit. Cost", Width: 10, Align: render.AlignRight},
+			{Header: "ROI", Width: 7, Align: render.AlignRight},
+		},
+	}
+
+	for _, r := range risk.Results {
+		roiStr := fmt.Sprintf("%.0f%%", r.ROI)
+		if r.ROI > 100 {
+			roiStr = render.BoldGreen(roiStr)
+		} else if r.ROI > 0 {
+			roiStr = render.Yellow(roiStr)
+		}
+
+		table.Rows = append(table.Rows, []string{
+			r.Family,
+			render.Red(fmt.Sprintf("%d", r.ControlsFailed)),
+			render.BoldYellow(formatMoney(r.AnnualLossExp)),
+			render.BoldRed(formatMoney(r.Loss95th)),
+			render.Dim(formatMoney(r.MitigationCost)),
+			roiStr,
+		})
+	}
+
+	table.Print()
+	fmt.Println()
+
+	fmt.Printf("  Total Annual Loss Expectancy:  %s\n", render.BoldYellow(formatMoney(risk.TotalALE)))
+	fmt.Printf("  Total 95th Percentile Loss:    %s\n", render.BoldRed(formatMoney(risk.TotalLoss95th)))
+	fmt.Printf("  Total Mitigation Investment:   %s\n", render.Dim(formatMoney(risk.TotalMitCost)))
+	fmt.Println()
+}
+
+func formatMoney(v float64) string {
+	if v >= 1000000 {
+		return fmt.Sprintf("$%.1fM", v/1000000)
+	}
+	if v >= 1000 {
+		return fmt.Sprintf("$%.0fK", v/1000)
+	}
+	return fmt.Sprintf("$%.0f", v)
+}
+
+// --- ROI ---
+
+func runROI(args []string) error {
+	flags := parseFlags(args)
+
+	ledgerPath := flags["ledger"]
+	if ledgerPath == "" {
+		return fmt.Errorf("--ledger is required")
+	}
+
+	entries, err := insights.LoadLedger(ledgerPath)
+	if err != nil {
+		return err
+	}
+
+	var config *insights.RiskConfig
+	if cfgPath := flags["risk-config"]; cfgPath != "" {
+		config, err = insights.LoadRiskConfig(cfgPath)
+		if err != nil {
+			return err
+		}
+	} else {
+		config = insights.DefaultRiskConfig()
+	}
+
+	risk := insights.ComputeRisk(entries, config, 10000)
+	renderROI(risk)
+	return nil
+}
+
+func renderROI(risk *insights.RiskSummary) {
+	fmt.Println()
+	fmt.Println("  " + render.Bold("RISK ROI: ANNUAL LOSS vs MITIGATION COST"))
+	fmt.Println()
+
+	if len(risk.Results) == 0 {
+		fmt.Println("  " + render.Green("No failed controls. No risk to visualize."))
+		fmt.Println()
+		return
+	}
+
+	// Find max value for scaling bars.
+	maxVal := 0.0
+	for _, r := range risk.Results {
+		if r.AnnualLossExp > maxVal {
+			maxVal = r.AnnualLossExp
+		}
+		if r.Loss95th > maxVal {
+			maxVal = r.Loss95th
+		}
+	}
+
+	barWidth := 30
+
+	for _, r := range risk.Results {
+		fmt.Printf("  %s\n", render.Bold(r.Family))
+
+		// ALE bar (yellow).
+		aleRatio := r.AnnualLossExp / maxVal
+		aleFilled := int(aleRatio * float64(barWidth))
+		aleEmpty := barWidth - aleFilled
+		aleBar := render.Yellow(repeatStr("█", aleFilled)) + repeatStr("░", aleEmpty)
+		fmt.Printf("    ALE        %s %s\n", aleBar, render.BoldYellow(formatMoney(r.AnnualLossExp)))
+
+		// 95th pct bar (red).
+		p95Ratio := r.Loss95th / maxVal
+		p95Filled := int(p95Ratio * float64(barWidth))
+		p95Empty := barWidth - p95Filled
+		p95Bar := render.Red(repeatStr("█", p95Filled)) + repeatStr("░", p95Empty)
+		fmt.Printf("    95th Pct   %s %s\n", p95Bar, render.BoldRed(formatMoney(r.Loss95th)))
+
+		// Mitigation cost bar (green).
+		mitRatio := r.MitigationCost / maxVal
+		mitFilled := int(mitRatio * float64(barWidth))
+		if mitFilled < 1 && r.MitigationCost > 0 {
+			mitFilled = 1
+		}
+		mitEmpty := barWidth - mitFilled
+		mitBar := render.Green(repeatStr("█", mitFilled)) + repeatStr("░", mitEmpty)
+
+		roiLabel := ""
+		if r.ROI > 0 {
+			roiLabel = render.Dim(fmt.Sprintf(" (ROI: %.0f%%)", r.ROI))
+		}
+		fmt.Printf("    Mit. Cost  %s %s%s\n", mitBar, render.Dim(formatMoney(r.MitigationCost)), roiLabel)
+		fmt.Println()
+	}
+
+	// Legend.
+	fmt.Printf("  %s  Annual Loss    %s  95th Pct Loss    %s  Mitigation Cost\n\n",
+		render.Yellow("██"), render.Red("██"), render.Green("██"))
+
+	// Summary.
+	netSavings := risk.TotalALE - risk.TotalMitCost
+	netStr := render.BoldGreen(formatMoney(netSavings))
+	if netSavings <= 0 {
+		netStr = render.BoldRed(formatMoney(netSavings))
+	}
+	fmt.Printf("  Net Savings (ALE - Mitigation): %s\n", netStr)
+	fmt.Printf("  Total ALE: %s  |  Total Mitigation: %s\n\n",
+		render.BoldYellow(formatMoney(risk.TotalALE)),
+		render.Dim(formatMoney(risk.TotalMitCost)))
+}
+
+func repeatStr(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	result := ""
+	for i := 0; i < n; i++ {
+		result += s
+	}
+	return result
+}
+
+// --- Export ---
+
+func runExport(args []string) error {
+	flags := parseFlags(args)
+
+	ledgerPath := flags["ledger"]
+	if ledgerPath == "" {
+		return fmt.Errorf("--ledger is required")
+	}
+
+	format := flags["format"]
+	if format == "" {
+		format = "html"
+	}
+	if format != "html" && format != "pdf" {
+		return fmt.Errorf("unsupported format %q (supported: html, pdf)", format)
+	}
+
+	outputPath := flags["output"]
+	if outputPath == "" {
+		return fmt.Errorf("--output is required")
+	}
+
+	entries, err := insights.LoadLedger(ledgerPath)
+	if err != nil {
+		return err
+	}
+
+	var verdict *insights.Verdict
+	if vPath := flags["verdict"]; vPath != "" {
+		verdict, err = insights.LoadVerdict(vPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Compute all sections.
+	summary := insights.ComputeSummary(entries, verdict)
+	cov := insights.ComputeCoverage(entries)
+	mat := insights.ComputeMaturity(entries)
+	config := insights.DefaultRiskConfig()
+	risk := insights.ComputeRisk(entries, config, 10000)
+
+	// Build HTML data.
+	htmlData := &render.HTMLData{
+		Title: "Compliance Posture",
+		Summary: &render.HTMLSummary{
+			RunID:         summary.RunID,
+			Timestamp:     summary.Timestamp,
+			TotalControls: summary.TotalControls,
+			Passed:        summary.Passed,
+			Failed:        summary.Failed,
+			PassRate:      summary.PassRate,
+			VerdictSigned: summary.VerdictSigned,
+			LedgerHash:    summary.LedgerHash,
+		},
+		Coverage: &render.HTMLCoverage{
+			FullyAutomated: cov.FullyAutomated,
+			PartiallyAuto:  cov.PartiallyAuto,
+			ManualAudit:    cov.ManualAudit,
+			Total:          cov.Total,
+		},
+		Maturity: &render.HTMLMaturity{
+			OverallScore: mat.OverallScore,
+		},
+	}
+
+	// Populate family rows.
+	for _, f := range summary.Families {
+		htmlData.Summary.Families = append(htmlData.Summary.Families, render.HTMLFamily{
+			Name: f.Family, Passed: f.Passed, Failed: f.Failed, Total: f.Total, PassRate: f.PassRate,
+		})
+	}
+
+	// Populate failed controls.
+	for _, fc := range summary.FailedControls {
+		htmlData.Summary.FailedControls = append(htmlData.Summary.FailedControls, render.HTMLFailedControl{
+			ControlID: fc.ControlID, Details: fc.Details,
+		})
+	}
+
+	// Populate coverage percentages.
+	if cov.Total > 0 {
+		htmlData.Coverage.PctFull = float64(cov.FullyAutomated) / float64(cov.Total) * 100
+		htmlData.Coverage.PctPartial = float64(cov.PartiallyAuto) / float64(cov.Total) * 100
+		htmlData.Coverage.PctManual = float64(cov.ManualAudit) / float64(cov.Total) * 100
+	}
+
+	// Populate maturity functions.
+	for _, f := range mat.Functions {
+		htmlData.Maturity.Functions = append(htmlData.Maturity.Functions, render.HTMLCSFFunction{
+			ID: f.ID, Name: f.Name, Score: f.Score, Total: f.Total,
+		})
+	}
+
+	// Populate risk results.
+	if len(risk.Results) > 0 {
+		htmlData.Risk = &render.HTMLRisk{
+			TotalALE:     risk.TotalALE,
+			TotalLoss95:  risk.TotalLoss95th,
+			TotalMitCost: risk.TotalMitCost,
+		}
+		for _, r := range risk.Results {
+			htmlData.Risk.Results = append(htmlData.Risk.Results, render.HTMLRiskResult{
+				Family: r.Family, ControlsFailed: r.ControlsFailed,
+				ALE: r.AnnualLossExp, Loss95th: r.Loss95th,
+				MitigationCost: r.MitigationCost, ROI: r.ROI,
+			})
+		}
+	}
+
+	// Write file.
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("creating output file: %w", err)
+	}
+	defer f.Close()
+
+	switch format {
+	case "html":
+		if err := render.RenderHTML(f, htmlData); err != nil {
+			return fmt.Errorf("rendering HTML: %w", err)
+		}
+	case "pdf":
+		if err := render.RenderPDF(f, htmlData); err != nil {
+			return fmt.Errorf("rendering PDF: %w", err)
+		}
+	}
+
+	fmt.Printf("✓ Report written to %s\n", outputPath)
+	return nil
 }

@@ -1,0 +1,500 @@
+%PDF-1.4
+1 0 obj
+
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Kids [6 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 5646
+>>
+stream
+BT
+/F1 18 Tf
+50 780 Td
+(Jula Controls - Compliance Posture Report) Tj
+ET
+BT
+/F1 9 Tf
+0.5 0.5 0.5 rg
+50 760 Td
+(Generated: 2026-06-24 20:56 UTC) Tj
+0 0 0 rg
+ET
+0.6 0.6 0.6 RG
+0.5 w
+50 730.0 m 550 730.0 l S
+BT
+/F1 12 Tf
+50 715.0 Td
+(Executive Summary) Tj
+ET
+BT
+/F1 12 Tf
+0 0 0 rg
+50 700.0 Td
+(79% compliant \(15/19 controls passed\)) Tj
+ET
+BT
+/F1 9 Tf
+0.4 0.4 0.4 rg
+50 685.0 Td
+(Run: run-20260624-190000  |  2026-06-24 19:05 UTC) Tj
+ET
+BT
+/F1 9 Tf
+0.4 0.4 0.4 rg
+50 673.0 Td
+(Verdict: SIGNED \(Key C\)  |  Ledger Hash: a1b2c3d4e5f678901234567890123...) Tj
+ET
+BT
+/F1 8 Tf
+0.3 0.3 0.3 rg
+50.0 656.0 Td
+(Control Family) Tj
+-50.0 -656.0 Td
+250.0 656.0 Td
+(Passed) Tj
+-250.0 -656.0 Td
+320.0 656.0 Td
+(Failed) Tj
+-320.0 -656.0 Td
+390.0 656.0 Td
+(Pass Rate) Tj
+0 0 0 rg
+ET
+0.7 0.7 0.7 RG
+0.3 w
+50 654.0 m 540 654.0 l S
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 642.0 Td
+(Access Control) Tj
+-50.0 -642.0 Td
+250.0 642.0 Td
+(3) Tj
+-250.0 -642.0 Td
+320.0 642.0 Td
+(1) Tj
+-320.0 -642.0 Td
+390.0 642.0 Td
+(75%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 630.0 Td
+(Audit & Accountability) Tj
+-50.0 -630.0 Td
+250.0 630.0 Td
+(3) Tj
+-250.0 -630.0 Td
+320.0 630.0 Td
+(0) Tj
+-320.0 -630.0 Td
+390.0 630.0 Td
+(100%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 618.0 Td
+(Configuration Mgmt) Tj
+-50.0 -618.0 Td
+250.0 618.0 Td
+(1) Tj
+-250.0 -618.0 Td
+320.0 618.0 Td
+(1) Tj
+-320.0 -618.0 Td
+390.0 618.0 Td
+(50%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 606.0 Td
+(Identification & Auth) Tj
+-50.0 -606.0 Td
+250.0 606.0 Td
+(2) Tj
+-250.0 -606.0 Td
+320.0 606.0 Td
+(0) Tj
+-320.0 -606.0 Td
+390.0 606.0 Td
+(100%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 594.0 Td
+(Incident Response) Tj
+-50.0 -594.0 Td
+250.0 594.0 Td
+(1) Tj
+-250.0 -594.0 Td
+320.0 594.0 Td
+(0) Tj
+-320.0 -594.0 Td
+390.0 594.0 Td
+(100%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 582.0 Td
+(Physical Protection) Tj
+-50.0 -582.0 Td
+250.0 582.0 Td
+(1) Tj
+-250.0 -582.0 Td
+320.0 582.0 Td
+(0) Tj
+-320.0 -582.0 Td
+390.0 582.0 Td
+(100%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 570.0 Td
+(Personnel Security) Tj
+-50.0 -570.0 Td
+250.0 570.0 Td
+(1) Tj
+-250.0 -570.0 Td
+320.0 570.0 Td
+(0) Tj
+-320.0 -570.0 Td
+390.0 570.0 Td
+(100%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 558.0 Td
+(Risk Assessment) Tj
+-50.0 -558.0 Td
+250.0 558.0 Td
+(0) Tj
+-250.0 -558.0 Td
+320.0 558.0 Td
+(1) Tj
+-320.0 -558.0 Td
+390.0 558.0 Td
+(0%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 546.0 Td
+(System & Comms) Tj
+-50.0 -546.0 Td
+250.0 546.0 Td
+(1) Tj
+-250.0 -546.0 Td
+320.0 546.0 Td
+(1) Tj
+-320.0 -546.0 Td
+390.0 546.0 Td
+(50%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 534.0 Td
+(System Integrity) Tj
+-50.0 -534.0 Td
+250.0 534.0 Td
+(2) Tj
+-250.0 -534.0 Td
+320.0 534.0 Td
+(0) Tj
+-320.0 -534.0 Td
+390.0 534.0 Td
+(100%) Tj
+ET
+0.6 0.6 0.6 RG
+0.5 w
+50 507.0 m 550 507.0 l S
+BT
+/F1 12 Tf
+50 492.0 Td
+(Failed Controls) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 477.0 Td
+(AC-7       3 service accounts lack MFA) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 465.0 Td
+(CM-6       2 storage buckets missing encryption-at-rest) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 453.0 Td
+(RA-5       No vulnerability scan results in 30 days) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 441.0 Td
+(SC-28      1 SQL instance without encryption) Tj
+ET
+0.6 0.6 0.6 RG
+0.5 w
+50 414.0 m 550 414.0 l S
+BT
+/F1 12 Tf
+50 399.0 Td
+(Automation Coverage) Tj
+ET
+BT
+/F1 10 Tf
+0 0 0 rg
+50 384.0 Td
+(Fully Automated: 14 \(74%\)) Tj
+ET
+BT
+/F1 10 Tf
+0 0 0 rg
+50 371.0 Td
+(Partially Auto:  2 \(11%\)) Tj
+ET
+BT
+/F1 10 Tf
+0 0 0 rg
+50 358.0 Td
+(Manual Audit:    3 \(16%\)) Tj
+ET
+0.6 0.6 0.6 RG
+0.5 w
+50 330.0 m 550 330.0 l S
+BT
+/F1 12 Tf
+50 315.0 Td
+(NIST CSF Maturity) Tj
+ET
+BT
+/F1 11 Tf
+0 0 0 rg
+50 300.0 Td
+(Overall Maturity: 69%) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 283.0 Td
+(ID - Identify         0%  \(1 controls\)) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 271.0 Td
+(PR - Protect          75%  \(12 controls\)) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 259.0 Td
+(DE - Detect           100%  \(5 controls\)) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 247.0 Td
+(RS - Respond          100%  \(1 controls\)) Tj
+ET
+BT
+/F1 9 Tf
+0 0 0 rg
+50 235.0 Td
+(RC - Recover          0%  \(0 controls\)) Tj
+ET
+0.6 0.6 0.6 RG
+0.5 w
+50 208.0 m 550 208.0 l S
+BT
+/F1 12 Tf
+50 193.0 Td
+(FAIR Risk Analysis) Tj
+ET
+BT
+/F1 8 Tf
+0.3 0.3 0.3 rg
+50.0 178.0 Td
+(Family) Tj
+-50.0 -178.0 Td
+200.0 178.0 Td
+(Failed) Tj
+-200.0 -178.0 Td
+260.0 178.0 Td
+(ALE) Tj
+-260.0 -178.0 Td
+330.0 178.0 Td
+(95th Pct) Tj
+-330.0 -178.0 Td
+400.0 178.0 Td
+(Mit. Cost) Tj
+-400.0 -178.0 Td
+470.0 178.0 Td
+(ROI) Tj
+0 0 0 rg
+ET
+0.7 0.7 0.7 RG
+0.3 w
+50 176.0 m 540 176.0 l S
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 164.0 Td
+(Access Control) Tj
+-50.0 -164.0 Td
+200.0 164.0 Td
+(1) Tj
+-200.0 -164.0 Td
+260.0 164.0 Td
+($764K) Tj
+-260.0 -164.0 Td
+330.0 164.0 Td
+($1.5M) Tj
+-330.0 -164.0 Td
+400.0 164.0 Td
+($25K) Tj
+-400.0 -164.0 Td
+470.0 164.0 Td
+(2956%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 152.0 Td
+(Configuration Mgmt) Tj
+-50.0 -152.0 Td
+200.0 152.0 Td
+(1) Tj
+-200.0 -152.0 Td
+260.0 152.0 Td
+($385K) Tj
+-260.0 -152.0 Td
+330.0 152.0 Td
+($718K) Tj
+-330.0 -152.0 Td
+400.0 152.0 Td
+($20K) Tj
+-400.0 -152.0 Td
+470.0 152.0 Td
+(1823%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 140.0 Td
+(Risk Assessment) Tj
+-50.0 -140.0 Td
+200.0 140.0 Td
+(1) Tj
+-200.0 -140.0 Td
+260.0 140.0 Td
+($358K) Tj
+-260.0 -140.0 Td
+330.0 140.0 Td
+($695K) Tj
+-330.0 -140.0 Td
+400.0 140.0 Td
+($18K) Tj
+-400.0 -140.0 Td
+470.0 140.0 Td
+(1891%) Tj
+ET
+BT
+/F1 8 Tf
+0 0 0 rg
+50.0 128.0 Td
+(System & Comms) Tj
+-50.0 -128.0 Td
+200.0 128.0 Td
+(1) Tj
+-200.0 -128.0 Td
+260.0 128.0 Td
+($1.4M) Tj
+-260.0 -128.0 Td
+330.0 128.0 Td
+($2.8M) Tj
+-330.0 -128.0 Td
+400.0 128.0 Td
+($35K) Tj
+-400.0 -128.0 Td
+470.0 128.0 Td
+(3970%) Tj
+ET
+BT
+/F1 9 Tf
+0.4 0.4 0.4 rg
+50 111.0 Td
+(Total ALE: $2.9M  |  95th Pct: $5.7M  |  Mitigation: $98K) Tj
+ET
+BT
+/F1 7 Tf
+0.5 0.5 0.5 rg
+200 30 Td
+(Generated by jula-posture | Jula Controls) Tj
+0 0 0 rg
+ET
+endstream
+endobj
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+6 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+>>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000025 00000 n 
+0000000082 00000 n 
+0000000131 00000 n 
+0000005828 00000 n 
+0000005898 00000 n 
+trailer
+<<
+/Size 7
+/Root 1 0 R
+>>
+startxref
+6024
+%%EOF
