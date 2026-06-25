@@ -48,8 +48,10 @@ func RenderPDF(w io.Writer, data *HTMLData) error {
 		if data.Summary.RunID != "" {
 			y = pdfLine(&content, y, fmt.Sprintf("Run: %s  |  %s", data.Summary.RunID, data.Summary.Timestamp), 9, true)
 		}
-		if data.Summary.VerdictSigned {
-			y = pdfLine(&content, y, "Verdict: SIGNED (Key C)  |  Ledger Hash: "+truncate(data.Summary.LedgerHash, 32), 9, true)
+		if data.Summary.VerdictVerified {
+			y = pdfLine(&content, y, "Verdict: VERIFIED (Key C)  |  Ledger Hash: "+truncate(data.Summary.LedgerHash, 32), 9, true)
+		} else if data.Summary.VerdictSigned {
+			y = pdfLine(&content, y, "Verdict: SIGNED (unverified)  |  Ledger Hash: "+truncate(data.Summary.LedgerHash, 32), 9, true)
 		}
 
 		y -= 5

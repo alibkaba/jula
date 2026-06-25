@@ -24,18 +24,24 @@ import (
 
 // serveConfig holds paths loaded from CLI flags.
 type serveConfig struct {
-	ledgerPath  string
-	verdictPath string
-	historyDir  string
+	ledgerPath     string
+	verdictPath    string
+	historyDir     string
+	verdictKeyPEM  string
 }
 
 func runServe(args []string) error {
 	flags := parseFlags(args)
 
 	cfg := &serveConfig{
-		ledgerPath:  flags["ledger"],
-		verdictPath: flags["verdict"],
-		historyDir:  flags["history"],
+		ledgerPath:    flags["ledger"],
+		verdictPath:   flags["verdict"],
+		historyDir:    flags["history"],
+		verdictKeyPEM: flags["verdict-key"],
+	}
+
+	if cfg.verdictKeyPEM == "" {
+		cfg.verdictKeyPEM = os.Getenv("JULA_VERDICT_PUBLIC_KEY")
 	}
 
 	if cfg.ledgerPath == "" {
@@ -101,6 +107,17 @@ func registerGetSummary(server *mcp.Server, cfg *serveConfig) {
 
 			summary := insights.ComputeSummary(entries, verdict)
 
+			// Verify verdict signature if key is available.
+			if verdict != nil && cfg.verdictKeyPEM != "" {
+				ok, verifyErr := insights.VerifyVerdictSignature(verdict, cfg.verdictKeyPEM)
+				if verifyErr != nil {
+					return toolError(verifyErr)
+				}
+				if ok {
+					summary.VerdictVerified = true
+				}
+			}
+
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "# Compliance Posture Summary\n\n")
 			fmt.Fprintf(&sb, "**Overall: %.0f%% compliant** (%d/%d controls passed)\n\n", summary.PassRate, summary.Passed, summary.TotalControls)
@@ -109,8 +126,11 @@ func registerGetSummary(server *mcp.Server, cfg *serveConfig) {
 				fmt.Fprintf(&sb, "- Run ID: %s\n", summary.RunID)
 				fmt.Fprintf(&sb, "- Timestamp: %s\n", summary.Timestamp)
 			}
-			if summary.VerdictSigned {
-				fmt.Fprintf(&sb, "- Verdict: SIGNED ✓ (Key C)\n")
+			if summary.VerdictVerified {
+				fmt.Fprintf(&sb, "- Verdict: VERIFIED ✓ (Key C)\n")
+				fmt.Fprintf(&sb, "- Ledger Hash: %s\n", summary.LedgerHash)
+			} else if summary.VerdictSigned {
+				fmt.Fprintf(&sb, "- Verdict: SIGNED (unverified)\n")
 				fmt.Fprintf(&sb, "- Ledger Hash: %s\n", summary.LedgerHash)
 			}
 

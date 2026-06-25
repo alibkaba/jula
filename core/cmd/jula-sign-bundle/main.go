@@ -4,10 +4,7 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"log"
@@ -32,7 +29,7 @@ func main() {
 		log.Fatalf("environment variable %s is not set or empty", *keyEnv)
 	}
 
-	privKey, err := parseECDSAPrivateKey(keyPEM)
+	privKey, err := crypto.ParseECDSAPrivateKey(keyPEM)
 	if err != nil {
 		log.Fatalf("failed to parse private key from %s: %v", *keyEnv, err)
 	}
@@ -58,25 +55,3 @@ func main() {
 	fmt.Printf("bundle-manifest.json written successfully (hash: %s)\n", *bundleHash)
 }
 
-func parseECDSAPrivateKey(pemStr string) (*ecdsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(pemStr))
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	key, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		// Try PKCS8 format as fallback.
-		pkcs8Key, pkcs8Err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if pkcs8Err != nil {
-			return nil, fmt.Errorf("failed to parse EC private key (tried SEC1 and PKCS8): SEC1=%w, PKCS8=%v", err, pkcs8Err)
-		}
-		ecKey, ok := pkcs8Key.(*ecdsa.PrivateKey)
-		if !ok {
-			return nil, fmt.Errorf("PKCS8 key is not an ECDSA key")
-		}
-		return ecKey, nil
-	}
-
-	return key, nil
-}

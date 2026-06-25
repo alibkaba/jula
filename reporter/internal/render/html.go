@@ -21,14 +21,15 @@ type HTMLData struct {
 type HTMLSummary struct {
 	RunID          string
 	Timestamp      string
-	TotalControls  int
-	Passed         int
-	Failed         int
-	PassRate       float64
-	Families       []HTMLFamily
-	FailedControls []HTMLFailedControl
-	VerdictSigned  bool
-	LedgerHash     string
+	TotalControls   int
+	Passed          int
+	Failed          int
+	PassRate        float64
+	Families        []HTMLFamily
+	FailedControls  []HTMLFailedControl
+	VerdictSigned   bool
+	VerdictVerified bool
+	LedgerHash      string
 }
 
 // HTMLFamily is a single control family row.
@@ -201,8 +202,10 @@ const htmlTemplate = `<!DOCTYPE html>
 </ul>
 {{end}}
 
-{{if .Summary.VerdictSigned}}
-<p style="margin-top:1rem"><span class="signed">SIGNED ✓ (Key C)</span> <span class="hash">Ledger Hash: {{.Summary.LedgerHash}}</span></p>
+{{if .Summary.VerdictVerified}}
+<p style="margin-top:1rem"><span class="signed" style="background:#166534">VERIFIED ✓ (Key C)</span> <span class="hash">Ledger Hash: {{.Summary.LedgerHash}}</span></p>
+{{else if .Summary.VerdictSigned}}
+<p style="margin-top:1rem"><span class="signed" style="background:#854d0e">SIGNED (unverified)</span> <span class="hash">Ledger Hash: {{.Summary.LedgerHash}}</span></p>
 {{end}}
 {{end}}
 

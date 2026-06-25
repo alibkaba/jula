@@ -16,10 +16,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"io"
@@ -50,7 +48,7 @@ func main() {
 	if evidenceKeyPEM == "" {
 		log.Fatalf("environment variable %s is not set or empty", *evidenceKeyEnv)
 	}
-	evidenceKey, err := parseECDSAPublicKey(evidenceKeyPEM)
+	evidenceKey, err := crypto.ParseECDSAPublicKey(evidenceKeyPEM)
 	if err != nil {
 		log.Fatalf("failed to parse evidence public key: %v", err)
 	}
@@ -199,7 +197,7 @@ func verifyChain(ctx context.Context, cfg verifyConfig) (*verifyResult, error) {
 		if cfg.policyKeyPEM == "" {
 			return nil, fmt.Errorf("--bundle provided but policy public key env var is empty")
 		}
-		policyKey, err := parseECDSAPublicKey(cfg.policyKeyPEM)
+		policyKey, err := crypto.ParseECDSAPublicKey(cfg.policyKeyPEM)
 		if err != nil {
 			return nil, fmt.Errorf("parsing policy public key: %w", err)
 		}
@@ -237,7 +235,7 @@ func verifyChain(ctx context.Context, cfg verifyConfig) (*verifyResult, error) {
 		if cfg.verdictKeyPEM == "" {
 			return nil, fmt.Errorf("--verdict provided but verdict public key env var is empty")
 		}
-		verdictKey, err := parseECDSAPublicKey(cfg.verdictKeyPEM)
+		verdictKey, err := crypto.ParseECDSAPublicKey(cfg.verdictKeyPEM)
 		if err != nil {
 			return nil, fmt.Errorf("parsing verdict public key: %w", err)
 		}
@@ -341,22 +339,4 @@ func resolveRelativeTo(baseDir, evidencePath string) string {
 	return filepath.Join(baseDir, evidencePath)
 }
 
-// parseECDSAPublicKey parses an ECDSA public key from a PEM-encoded string.
-func parseECDSAPublicKey(pemStr string) (*ecdsa.PublicKey, error) {
-	block, _ := pem.Decode([]byte(pemStr))
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
 
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse PKIX public key: %w", err)
-	}
-
-	ecdsaPub, ok := pub.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("parsed key is not an ECDSA public key")
-	}
-
-	return ecdsaPub, nil
-}

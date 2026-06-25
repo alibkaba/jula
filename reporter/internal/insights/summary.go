@@ -45,16 +45,17 @@ type FamilySummary struct {
 
 // PostureSummary holds the overall compliance posture for a single assessment run.
 type PostureSummary struct {
-	RunID          string
-	TotalControls  int
-	Passed         int
-	Failed         int
-	PassRate       float64
-	Families       []FamilySummary
-	FailedControls []LedgerEntry
-	VerdictSigned  bool
-	LedgerHash     string
-	Timestamp      string
+	RunID           string
+	TotalControls   int
+	Passed          int
+	Failed          int
+	PassRate        float64
+	Families        []FamilySummary
+	FailedControls  []LedgerEntry
+	VerdictSigned   bool
+	VerdictVerified bool
+	LedgerHash      string
+	Timestamp       string
 }
 
 // ComputeSummary groups findings by control family and computes pass rates.

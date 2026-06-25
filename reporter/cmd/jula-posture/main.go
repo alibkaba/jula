@@ -128,6 +128,25 @@ func runSummary(args []string) error {
 	}
 
 	summary := insights.ComputeSummary(entries, verdict)
+
+	// Verify verdict signature if key is available.
+	verdictKeyPEM := flags["verdict-key"]
+	if verdictKeyPEM == "" {
+		verdictKeyPEM = os.Getenv("JULA_VERDICT_PUBLIC_KEY")
+	}
+	if verdict != nil && verdictKeyPEM != "" {
+		ok, err := insights.VerifyVerdictSignature(verdict, verdictKeyPEM)
+		if err != nil {
+			return fmt.Errorf("verdict verification error: %v", err)
+		}
+		if !ok {
+			renderSummary(summary)
+			fmt.Fprintf(os.Stderr, "\n  %s\n\n", render.BoldRed("✗ VERDICT SIGNATURE INVALID - the verdict has been tampered with or signed by an unknown key"))
+			os.Exit(1)
+		}
+		summary.VerdictVerified = true
+	}
+
 	renderSummary(summary)
 	return nil
 }
@@ -196,12 +215,18 @@ func renderSummary(s *insights.PostureSummary) {
 	}
 
 	// Verdict signature status.
-	if s.VerdictSigned {
+	if s.VerdictVerified {
 		hash := s.LedgerHash
 		if len(hash) > 16 {
 			hash = hash[:16] + "..."
 		}
-		fmt.Printf("  Verdict: %s    Ledger Hash: %s\n", render.BoldGreen("SIGNED ✓ (Key C)"), render.Dim(hash))
+		fmt.Printf("  Verdict: %s    Ledger Hash: %s\n", render.BoldGreen("VERIFIED ✓ (Key C)"), render.Dim(hash))
+	} else if s.VerdictSigned {
+		hash := s.LedgerHash
+		if len(hash) > 16 {
+			hash = hash[:16] + "..."
+		}
+		fmt.Printf("  Verdict: %s    Ledger Hash: %s\n", render.BoldYellow("SIGNED (unverified)"), render.Dim(hash))
 	}
 	fmt.Println()
 }
@@ -719,6 +744,21 @@ func runExport(args []string) error {
 
 	// Compute all sections.
 	summary := insights.ComputeSummary(entries, verdict)
+
+	// Verify verdict signature if key is available.
+	verdictKeyPEM := flags["verdict-key"]
+	if verdictKeyPEM == "" {
+		verdictKeyPEM = os.Getenv("JULA_VERDICT_PUBLIC_KEY")
+	}
+	if verdict != nil && verdictKeyPEM != "" {
+		ok, verifyErr := insights.VerifyVerdictSignature(verdict, verdictKeyPEM)
+		if verifyErr != nil {
+			return fmt.Errorf("verdict verification error: %v", verifyErr)
+		}
+		if ok {
+			summary.VerdictVerified = true
+		}
+	}
 	cov := insights.ComputeCoverage(entries)
 	mat := insights.ComputeMaturity(entries)
 	config := insights.DefaultRiskConfig()
@@ -728,14 +768,15 @@ func runExport(args []string) error {
 	htmlData := &render.HTMLData{
 		Title: "Compliance Posture",
 		Summary: &render.HTMLSummary{
-			RunID:         summary.RunID,
-			Timestamp:     summary.Timestamp,
-			TotalControls: summary.TotalControls,
-			Passed:        summary.Passed,
-			Failed:        summary.Failed,
-			PassRate:      summary.PassRate,
-			VerdictSigned: summary.VerdictSigned,
-			LedgerHash:    summary.LedgerHash,
+			RunID:           summary.RunID,
+			Timestamp:       summary.Timestamp,
+			TotalControls:   summary.TotalControls,
+			Passed:          summary.Passed,
+			Failed:          summary.Failed,
+			PassRate:        summary.PassRate,
+			VerdictSigned:   summary.VerdictSigned,
+			VerdictVerified: summary.VerdictVerified,
+			LedgerHash:      summary.LedgerHash,
 		},
 		Coverage: &render.HTMLCoverage{
 			FullyAutomated: cov.FullyAutomated,
