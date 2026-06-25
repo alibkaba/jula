@@ -74,9 +74,9 @@ flowchart TB
     classDef core fill:#374151,stroke:#9ca3af,stroke-width:1px,color:#fff;
 
     %% Key classes (noticeably lighter than parent, ~400/500-level, cross-repo identifiers)
-    classDef keyA fill:#3b82f6,stroke:#93c5fd,stroke-width:2px,color:#fff;
-    classDef keyB fill:#f59e0b,stroke:#fcd34d,stroke-width:2px,color:#fff;
-    classDef keyC fill:#22c55e,stroke:#86efac,stroke-width:2px,color:#fff;
+    classDef keyA fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#fff;
+    classDef keyB fill:#d97706,stroke:#fcd34d,stroke-width:2px,color:#fff;
+    classDef keyC fill:#16a34a,stroke:#86efac,stroke-width:2px,color:#fff;
 
     %% Verify node classes (between key and module shades)
     classDef verifyA fill:#2563eb,stroke:#93c5fd,stroke-width:1px,color:#fff;

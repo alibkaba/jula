@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"testing"
+
+	"jula-governor/internal/aiutil"
 )
 
 func TestGetEnvStr(t *testing.T) {
@@ -41,8 +43,8 @@ func TestGetEnvStr(t *testing.T) {
 				os.Unsetenv(tt.envKey) // Ensure it's unset
 			}
 
-			if got := getEnvStr(tt.envKey); got != tt.want {
-				t.Errorf("getEnvStr() = %v, want %v", got, tt.want)
+			if got := aiutil.GetEnvStr(tt.envKey); got != tt.want {
+				t.Errorf("GetEnvStr() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -88,15 +90,14 @@ func TestGetEnvInt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup environment variable
 			if tt.name != "non-existent integer" {
 				t.Setenv(tt.envKey, tt.envValue)
 			} else {
-				os.Unsetenv(tt.envKey) // Ensure it's unset
+				os.Unsetenv(tt.envKey)
 			}
 
-			if got := getEnvInt(tt.envKey, tt.defaultVal); got != tt.want {
-				t.Errorf("getEnvInt() = %v, want %v", got, tt.want)
+			if got := aiutil.GetEnvInt(tt.envKey, tt.defaultVal); got != tt.want {
+				t.Errorf("GetEnvInt() = %v, want %v", got, tt.want)
 			}
 		})
 	}

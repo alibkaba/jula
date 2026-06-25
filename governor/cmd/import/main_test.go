@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"jula-governor/internal/aiutil"
 )
 
 func TestGetEnvStr(t *testing.T) {
@@ -43,16 +45,15 @@ func TestGetEnvStr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.envKey, tt.envValue)
-			if got := getEnvStr(tt.envKey); got != tt.want {
-				t.Errorf("getEnvStr() = %v, want %v", got, tt.want)
+			if got := aiutil.GetEnvStr(tt.envKey); got != tt.want {
+				t.Errorf("GetEnvStr() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 
 	t.Run("unset env var", func(t *testing.T) {
-		// Do not setenv, meaning it is empty
-		if got := getEnvStr("TEST_ENV_UNSET"); got != "" {
-			t.Errorf("getEnvStr() = %v, want empty string", got)
+		if got := aiutil.GetEnvStr("TEST_ENV_UNSET"); got != "" {
+			t.Errorf("GetEnvStr() = %v, want empty string", got)
 		}
 	})
 }
@@ -112,8 +113,8 @@ func TestGetEnvInt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.envKey, tt.envValue)
-			if got := getEnvInt(tt.envKey, tt.defaultVal); got != tt.want {
-				t.Errorf("getEnvInt() = %v, want %v", got, tt.want)
+			if got := aiutil.GetEnvInt(tt.envKey, tt.defaultVal); got != tt.want {
+				t.Errorf("GetEnvInt() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -124,22 +125,22 @@ func TestParseWorkspace(t *testing.T) {
 		name        string
 		fileContent string
 		wantErr     bool
-		want        Workspace
+		want        aiutil.Workspace
 	}{
 		{
 			name:        "empty file",
 			fileContent: "",
 			wantErr:     false,
-			want: Workspace{
-				ActiveProviders: make(map[string]ProviderConfig),
+			want: aiutil.Workspace{
+				ActiveProviders: make(map[string]aiutil.ProviderConfig),
 			},
 		},
 		{
 			name:        "only comments",
 			fileContent: "# This is a comment\n\n# Another comment\n",
 			wantErr:     false,
-			want: Workspace{
-				ActiveProviders: make(map[string]ProviderConfig),
+			want: aiutil.Workspace{
+				ActiveProviders: make(map[string]aiutil.ProviderConfig),
 			},
 		},
 		{
@@ -148,9 +149,9 @@ func TestParseWorkspace(t *testing.T) {
 organization: "Acme Corp"
 `,
 			wantErr: false,
-			want: Workspace{
+			want: aiutil.Workspace{
 				Organization:    "Acme Corp",
-				ActiveProviders: make(map[string]ProviderConfig),
+				ActiveProviders: make(map[string]aiutil.ProviderConfig),
 			},
 		},
 		{
@@ -162,9 +163,9 @@ active_providers:
     doc_root: "https://aws.amazon.com/docs"
 `,
 			wantErr: false,
-			want: Workspace{
+			want: aiutil.Workspace{
 				Organization: "Test Org",
-				ActiveProviders: map[string]ProviderConfig{
+				ActiveProviders: map[string]aiutil.ProviderConfig{
 					"aws": {DocRoot: "https://aws.amazon.com/docs"},
 				},
 			},
@@ -180,9 +181,9 @@ active_providers:
     doc_root: "https://cloud.google.com"
 `,
 			wantErr: false,
-			want: Workspace{
+			want: aiutil.Workspace{
 				Organization: "Multi Org",
-				ActiveProviders: map[string]ProviderConfig{
+				ActiveProviders: map[string]aiutil.ProviderConfig{
 					"aws": {DocRoot: "https://aws.amazon.com"},
 					"gcp": {DocRoot: "https://cloud.google.com"},
 				},
@@ -196,9 +197,9 @@ active_providers:
   aws:
 `,
 			wantErr: false,
-			want: Workspace{
+			want: aiutil.Workspace{
 				Organization:    "Test",
-				ActiveProviders: map[string]ProviderConfig{},
+				ActiveProviders: map[string]aiutil.ProviderConfig{},
 			},
 		},
 		{
@@ -212,9 +213,9 @@ other_section:
   foo: "bar"
 `,
 			wantErr: false,
-			want: Workspace{
+			want: aiutil.Workspace{
 				Organization: "Test Org",
-				ActiveProviders: map[string]ProviderConfig{
+				ActiveProviders: map[string]aiutil.ProviderConfig{
 					"aws": {DocRoot: "https://aws.amazon.com/docs"},
 				},
 			},
@@ -225,16 +226,15 @@ other_section:
 organization: Test Org Unquoted
 `,
 			wantErr: false,
-			want: Workspace{
+			want: aiutil.Workspace{
 				Organization:    "Test Org Unquoted",
-				ActiveProviders: make(map[string]ProviderConfig),
+				ActiveProviders: make(map[string]aiutil.ProviderConfig),
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Write temp file
 			tmpDir := t.TempDir()
 			tmpFile := filepath.Join(tmpDir, "workspace.yaml")
 			err := os.WriteFile(tmpFile, []byte(tt.fileContent), 0644)
@@ -242,21 +242,21 @@ organization: Test Org Unquoted
 				t.Fatalf("Failed to write temp file: %v", err)
 			}
 
-			got, err := parseWorkspace(tmpFile)
+			got, err := aiutil.ParseWorkspace(tmpFile)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseWorkspace() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseWorkspace() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseWorkspace() = %v, want %v", got, tt.want)
+				t.Errorf("ParseWorkspace() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 
 	t.Run("missing file", func(t *testing.T) {
-		_, err := parseWorkspace("non_existent_file.yaml")
+		_, err := aiutil.ParseWorkspace("non_existent_file.yaml")
 		if err == nil {
-			t.Errorf("parseWorkspace() expected error for missing file, got nil")
+			t.Errorf("ParseWorkspace() expected error for missing file, got nil")
 		}
 	})
 }
