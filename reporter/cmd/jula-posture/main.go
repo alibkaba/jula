@@ -9,6 +9,7 @@
 //	jula-posture maturity --ledger ./output/assessor_ledger.json
 //	jula-posture risk     --ledger ./output/assessor_ledger.json [--risk-config ./risk.json]
 //	jula-posture export   --ledger ./output/assessor_ledger.json --format html --output report.html
+//	jula-posture export   --ledger ./output/assessor_ledger.json --format csv --output controls.csv
 package main
 
 import (
@@ -72,7 +73,7 @@ func printUsage() {
 	fmt.Println("  jula-posture maturity --ledger <path>")
 	fmt.Println("  jula-posture risk     --ledger <path> [--risk-config <path>]")
 	fmt.Println("  jula-posture roi      --ledger <path> [--risk-config <path>]")
-	fmt.Println("  jula-posture export   --ledger <path> [--verdict <path>] --format <html|pdf> --output <path>")
+	fmt.Println("  jula-posture export   --ledger <path> [--verdict <path>] --format <html|pdf|csv> --output <path>")
 	fmt.Println("  jula-posture serve    --ledger <path> [--verdict <path>] [--history <dir>]")
 	fmt.Println()
 	fmt.Println("Commands:")
@@ -82,7 +83,7 @@ func printUsage() {
 	fmt.Println("  maturity  NIST CSF maturity assessment")
 	fmt.Println("  risk      FAIR quantitative risk analysis")
 	fmt.Println("  roi       Risk ROI visualization (loss vs mitigation)")
-	fmt.Println("  export    Generate HTML/PDF posture report")
+	fmt.Println("  export    Generate HTML/PDF/CSV posture report")
 	fmt.Println("  serve     Start MCP server for AI assistant integration")
 }
 
@@ -660,13 +661,47 @@ func runExport(args []string) error {
 	if format == "" {
 		format = "html"
 	}
-	if format != "html" && format != "pdf" {
-		return fmt.Errorf("unsupported format %q (supported: html, pdf)", format)
+	if format != "html" && format != "pdf" && format != "csv" {
+		return fmt.Errorf("unsupported format %q (supported: html, pdf, csv)", format)
 	}
 
 	outputPath := flags["output"]
 	if outputPath == "" {
 		return fmt.Errorf("--output is required")
+	}
+
+	// CSV export is a direct ledger dump; it doesn't need verdict or computed insights.
+	if format == "csv" {
+		entries, err := insights.LoadLedger(ledgerPath)
+		if err != nil {
+			return err
+		}
+
+		// Convert to render.CSVEntry to avoid circular imports.
+		csvRows := make([]render.CSVEntry, len(entries))
+		for i, e := range entries {
+			csvRows[i] = render.CSVEntry{
+				ControlID:        e.ControlID,
+				Verdict:          e.Verdict,
+				Details:          e.Details,
+				Confidence:       e.Confidence,
+				AutomationStatus: e.AutomationStatus,
+				EvaluatedAt:      e.EvaluatedAt,
+			}
+		}
+
+		f, err := os.Create(outputPath)
+		if err != nil {
+			return fmt.Errorf("creating output file: %w", err)
+		}
+		defer f.Close()
+
+		if err := render.RenderCSV(f, csvRows); err != nil {
+			return fmt.Errorf("rendering CSV: %w", err)
+		}
+
+		fmt.Printf("✓ Report written to %s\n", outputPath)
+		return nil
 	}
 
 	entries, err := insights.LoadLedger(ledgerPath)

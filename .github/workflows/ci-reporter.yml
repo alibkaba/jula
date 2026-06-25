@@ -51,7 +51,7 @@ jobs:
           go-version-file: 'reporter/go.mod'
           cache: false
       - name: Build jula-posture
-        run: cd reporter && go build -o ../bin/jula-posture ./cmd/posture
+        run: cd reporter && go build -o ../bin/jula-posture ./cmd/jula-posture
       - name: Verify binary runs
         run: ./bin/jula-posture help
 
@@ -92,7 +92,7 @@ jobs:
           if [ "${{ matrix.goos }}" == "windows" ]; then
             BINARY="${BINARY}.exe"
           fi
-          cd reporter && go build -ldflags="-s -w" -o "../bin/${BINARY}" ./cmd/posture
+          cd reporter && go build -ldflags="-s -w" -o "../bin/${BINARY}" ./cmd/jula-posture
           echo "binary=${BINARY}" >> $GITHUB_OUTPUT
 
       - name: Attest Build Provenance
