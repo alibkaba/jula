@@ -228,7 +228,7 @@ flowchart TB
 
 ## Component Readiness
 
-All modules build and pass unit tests against synthetic fixtures. No module has been validated against live cloud output.
+All modules build and pass unit tests. Reporter (🚧) has not been validated against live assessment output.
 
 ---
 
