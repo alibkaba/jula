@@ -261,9 +261,9 @@ func TestParseBucketURL(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		bucket, prefix := ParseBucketURL(tt.url)
+		bucket, prefix := parseBucketURL(tt.url)
 		if bucket != tt.bucket || prefix != tt.prefix {
-			t.Fatalf("ParseBucketURL(%q) = (%q, %q), want (%q, %q)", tt.url, bucket, prefix, tt.bucket, tt.prefix)
+			t.Fatalf("parseBucketURL(%q) = (%q, %q), want (%q, %q)", tt.url, bucket, prefix, tt.bucket, tt.prefix)
 		}
 	}
 }

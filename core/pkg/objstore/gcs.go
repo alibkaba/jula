@@ -290,8 +290,8 @@ func (s *gcsStore) apiURL() string {
 	return gcsAPIURL
 }
 
-// ParseBucketURL extracts the bucket name and optional prefix from a gs:// URI.
-func ParseBucketURL(bucketURL string) (bucket, prefix string) {
+// parseBucketURL extracts the bucket name and optional prefix from a gs:// or s3:// URI.
+func parseBucketURL(bucketURL string) (bucket, prefix string) {
 	bucketURL = strings.TrimPrefix(bucketURL, "gs://")
 	bucketURL = strings.TrimPrefix(bucketURL, "s3://")
 	parts := strings.SplitN(bucketURL, "/", 2)

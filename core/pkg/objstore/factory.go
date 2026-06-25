@@ -25,14 +25,14 @@ func FromURL(bucketURL string, httpClient *http.Client) (Store, string, error) {
 
 	switch {
 	case strings.HasPrefix(bucketURL, "gs://"):
-		bucket, prefix := ParseBucketURL(bucketURL)
+		bucket, prefix := parseBucketURL(bucketURL)
 		if bucket == "" {
 			return nil, "", fmt.Errorf("invalid GCS URL: bucket name is empty")
 		}
 		return newgcsStore(bucket, httpClient), prefix, nil
 
 	case strings.HasPrefix(bucketURL, "s3://"):
-		bucket, prefix := ParseBucketURL(bucketURL)
+		bucket, prefix := parseBucketURL(bucketURL)
 		if bucket == "" {
 			return nil, "", fmt.Errorf("invalid S3 URL: bucket name is empty")
 		}

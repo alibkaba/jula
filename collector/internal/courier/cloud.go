@@ -187,8 +187,9 @@ func ParseOutputURL(outputURL string) (bucketURL string, pathPrefix string, err 
 	runDate := time.Now().UTC().Format("2006-01-02")
 
 	if strings.HasPrefix(outputURL, "gs://") || strings.HasPrefix(outputURL, "s3://") {
-		// Cloud storage: bucket URL is just the scheme + bucket name.
-		bucket, _ := objstore.ParseBucketURL(outputURL)
+		// Cloud storage: extract bucket name from URL.
+		trimmed := strings.TrimPrefix(strings.TrimPrefix(outputURL, "gs://"), "s3://")
+		bucket := strings.SplitN(trimmed, "/", 2)[0]
 		scheme := outputURL[:5] // "gs://" or "s3://"
 		bucketURL = scheme + bucket
 		pathPrefix = fmt.Sprintf("deploy-%s/%s", deployID, runDate)

@@ -67,6 +67,11 @@ governor/cmd/build/generator
 governor/cmd/import/triage
 governor/cmd/reset/reset
 
+# Module-root stray binaries (from go build without -o)
+collector/collector
+assessor/assessor
+reporter/jula-posture
+
 # Governor build artifacts
 governor-policy-bundle.tar.gz
 

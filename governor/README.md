@@ -21,6 +21,8 @@ governor/
 │   ├── integrations/     # Provider API endpoint definitions
 │   ├── translators/      # Rego normalization modules
 │   └── prompts/          # AI prompt templates
+├── internal/
+│   └── aiutil/           # Shared AI config, HTTP client, retry/failover
 ├── policies/
 │   └── rules/            # Generated OPA Rego policies
 └── cmd/                  # CLI tools (import, translate, build, validate)

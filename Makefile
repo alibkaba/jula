@@ -62,3 +62,4 @@ clean:
 	rm -f core/jula-verify core/jula-sign-bundle core/jula-sign-evidence
 	rm -f assessor/assessor collector/collector
 	rm -f reporter/jula-posture
+	rm -f governor/import governor/translate governor/validate governor/build

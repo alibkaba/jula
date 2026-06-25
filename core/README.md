@@ -9,6 +9,7 @@ It defines shared models, cryptographic validation utilities, and core data type
 1. **Shared Schemas:** Centralized definitions for `Finding`, `Evidence`, `Manifest`, and other cross-module data structures.
 2. **Cryptographic Primitives:** ECDSA-P256 payload hashing, manifest signing, and signature verification.
 3. **Safe HTTP:** SSRF-hardened HTTP client with optional egress allowlisting.
+4. **Object Store Factory:** Unified `objstore.FromURL` factory that resolves `gs://`, `s3://`, and local paths to internal store implementations. Concrete store types are unexported; consumers interact through the `Store` interface.
 
 ## CLI Tools
 
