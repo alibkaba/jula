@@ -4,8 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"io"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/alibkaba/jula-collector/internal/engine"
 	"github.com/alibkaba/jula-collector/internal/courier"
+	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/objstore"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
@@ -50,14 +49,12 @@ func handleRun(args []string) error {
 
 	// Validate signing key early.
 	signingKeyStr := os.Getenv("JULA_SIGNING_KEY")
-	block, _ := pem.Decode([]byte(signingKeyStr))
-	if block == nil {
-		return fmt.Errorf("failed to decode PEM block containing the signing key")
+	if signingKeyStr == "" {
+		return fmt.Errorf("JULA_SIGNING_KEY environment variable is required")
 	}
-
-	signingKey, err := x509.ParseECPrivateKey(block.Bytes)
+	signingKey, err := crypto.ParseECDSAPrivateKey(signingKeyStr)
 	if err != nil {
-		return fmt.Errorf("parsing JULA_SIGNING_KEY (expected ECPrivateKey PEM): %w", err)
+		return fmt.Errorf("parsing JULA_SIGNING_KEY: %w", err)
 	}
 
 	var integrationMap map[string][]byte
@@ -182,7 +179,7 @@ func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, er
 		}
 		allowedHosts := getAllowedHosts()
 		host := strings.ToLower(u.Hostname())
-		if !isAllowedHost(host, allowedHosts) {
+		if !safehttp.IsHostAllowed(host, allowedHosts) {
 			return nil, fmt.Errorf("integrations URL host %q is not in the allowed hosts list: %v", host, allowedHosts)
 		}
 	}
@@ -289,12 +286,3 @@ func getAllowedHosts() []string {
 	return []string{"api.github.com", "github.com"}
 }
 
-// isAllowedHost checks whether a hostname is in the allowed hosts list.
-func isAllowedHost(host string, allowed []string) bool {
-	for _, h := range allowed {
-		if host == h {
-			return true
-		}
-	}
-	return false
-}

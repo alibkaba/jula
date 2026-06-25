@@ -31,7 +31,7 @@ func TestParseECDSAPublicKey(t *testing.T) {
 	})
 
 	// Parse the PEM back.
-	parsedPub, err := ParseECDSAPublicKey(string(pemBlock))
+	parsedPub, err := eeCrypto.ParseECDSAPublicKey(string(pemBlock))
 	if err != nil {
 		t.Fatalf("failed to parse public key PEM: %v", err)
 	}
@@ -41,13 +41,13 @@ func TestParseECDSAPublicKey(t *testing.T) {
 	}
 
 	// Test invalid PEM
-	_, err = ParseECDSAPublicKey("invalid-pem")
+	_, err = eeCrypto.ParseECDSAPublicKey("invalid-pem")
 	if err == nil {
 		t.Errorf("expected error for invalid PEM")
 	}
 
 	// Test invalid PEM
-	_, err = ParseECDSAPublicKey("invalid-pem")
+	_, err = eeCrypto.ParseECDSAPublicKey("invalid-pem")
 	if err == nil {
 		t.Errorf("expected error for invalid PEM")
 	}
@@ -276,7 +276,7 @@ func TestParseECDSAPrivateKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pemStr := tt.setup()
-			parsedPriv, err := ParseECDSAPrivateKey(pemStr)
+			parsedPriv, err := eeCrypto.ParseECDSAPrivateKey(pemStr)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseECDSAPrivateKey() error = %v, wantErr %v", err, tt.wantErr)

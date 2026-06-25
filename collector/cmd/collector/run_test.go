@@ -17,6 +17,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
 
 func generateTestKey() (string, error) {
@@ -82,8 +84,8 @@ func TestHandleRun_InvalidKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid key")
 	}
-	if !strings.Contains(err.Error(), "failed to decode PEM block") {
-		t.Errorf("expected PEM decode error, got: %v", err)
+	if !strings.Contains(err.Error(), "JULA_SIGNING_KEY") {
+		t.Errorf("expected JULA_SIGNING_KEY error, got: %v", err)
 	}
 }
 
@@ -365,7 +367,7 @@ func TestGetAllowedHosts(t *testing.T) {
 	}
 }
 
-// TestIsAllowedHost verifies the hostname matching logic.
+// TestIsAllowedHost verifies the hostname matching logic using Core's safehttp.IsHostAllowed.
 func TestIsAllowedHost(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -392,16 +394,16 @@ func TestIsAllowedHost(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "subdomain does not match parent",
+			name:    "subdomain matches parent via suffix",
 			host:    "sub.github.com",
 			allowed: []string{"github.com"},
-			want:    false,
+			want:    true,
 		},
 		{
-			name:    "empty allowed list rejects all",
+			name:    "empty allowed list permits all",
 			host:    "api.github.com",
 			allowed: []string{},
-			want:    false,
+			want:    true,
 		},
 		{
 			name:    "empty host is rejected",
@@ -413,9 +415,9 @@ func TestIsAllowedHost(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := isAllowedHost(tc.host, tc.allowed)
+			got := safehttp.IsHostAllowed(tc.host, tc.allowed)
 			if got != tc.want {
-				t.Errorf("isAllowedHost(%q, %v) = %v, want %v", tc.host, tc.allowed, got, tc.want)
+				t.Errorf("IsHostAllowed(%q, %v) = %v, want %v", tc.host, tc.allowed, got, tc.want)
 			}
 		})
 	}

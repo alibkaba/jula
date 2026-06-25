@@ -64,25 +64,25 @@ flowchart TB
     %% Verify nodes = lighter shade of the key they check
     %% ══════════════════════════════════════════════════
 
-    %% Module classes
-    classDef governor fill:#431407,stroke:#fb923c,stroke-width:2px,color:#fed7aa;
-    classDef collector fill:#172554,stroke:#60a5fa,stroke-width:2px,color:#bfdbfe;
-    classDef assessor fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#bbf7d0;
-    classDef reporter fill:#3b0764,stroke:#c084fc,stroke-width:2px,color:#e9d5ff;
-    classDef ledger fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#e2e8f0;
-    classDef output fill:#4c0519,stroke:#fb7185,stroke-width:2px,color:#ffe4e6;
-    classDef core fill:#1f2937,stroke:#9ca3af,stroke-width:1px,color:#e5e7eb;
+    %% Module classes (lightened fills ~700-level)
+    classDef governor fill:#7c2d12,stroke:#fb923c,stroke-width:2px,color:#fff7ed;
+    classDef collector fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#dbeafe;
+    classDef assessor fill:#166534,stroke:#4ade80,stroke-width:2px,color:#dcfce7;
+    classDef reporter fill:#581c87,stroke:#c084fc,stroke-width:2px,color:#f3e8ff;
+    classDef ledger fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9;
+    classDef output fill:#881337,stroke:#fb7185,stroke-width:2px,color:#fff1f2;
+    classDef core fill:#374151,stroke:#9ca3af,stroke-width:1px,color:#f3f4f6;
 
-    %% Key classes (lighter shade of parent module)
-    classDef keyA fill:#1e3a5f,stroke:#93c5fd,stroke-width:2px,color:#dbeafe;
-    classDef keyB fill:#78350f,stroke:#fdba74,stroke-width:2px,color:#ffedd5;
-    classDef keyC fill:#166534,stroke:#86efac,stroke-width:2px,color:#dcfce7;
+    %% Key classes (noticeably lighter than parent, ~400/500-level, cross-repo identifiers)
+    classDef keyA fill:#3b82f6,stroke:#93c5fd,stroke-width:2px,color:#eff6ff;
+    classDef keyB fill:#f59e0b,stroke:#fcd34d,stroke-width:2px,color:#451a03;
+    classDef keyC fill:#22c55e,stroke:#86efac,stroke-width:2px,color:#052e16;
 
-    %% Verify node classes (lighter shade of the key they verify)
-    classDef verifyA fill:#1e3a5f,stroke:#93c5fd,stroke-width:1px,color:#dbeafe;
-    classDef verifyB fill:#78350f,stroke:#fdba74,stroke-width:1px,color:#ffedd5;
-    classDef verifyC fill:#3b0764,stroke:#d8b4fe,stroke-width:1px,color:#f3e8ff;
-    classDef verifyInteg fill:#1e293b,stroke:#94a3b8,stroke-width:1px,color:#e2e8f0;
+    %% Verify node classes (between key and module shades)
+    classDef verifyA fill:#2563eb,stroke:#93c5fd,stroke-width:1px,color:#eff6ff;
+    classDef verifyB fill:#d97706,stroke:#fcd34d,stroke-width:1px,color:#451a03;
+    classDef verifyC fill:#7c3aed,stroke:#d8b4fe,stroke-width:1px,color:#f5f3ff;
+    classDef verifyInteg fill:#475569,stroke:#94a3b8,stroke-width:1px,color:#f1f5f9;
 
     subgraph Phase1 ["1. Governor Registry (governor/)"]
         direction LR

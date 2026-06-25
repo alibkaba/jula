@@ -11,17 +11,6 @@ import (
 	"github.com/alibkaba/jula-core/pkg/types"
 )
 
-// ParseECDSAPublicKey delegates to the canonical implementation in jula-core.
-func ParseECDSAPublicKey(pemStr string) (*ecdsa.PublicKey, error) {
-	return eeCrypto.ParseECDSAPublicKey(pemStr)
-}
-
-// ParseECDSAPrivateKey delegates to the canonical implementation in jula-core.
-func ParseECDSAPrivateKey(pemStr string) (*ecdsa.PrivateKey, error) {
-	return eeCrypto.ParseECDSAPrivateKey(pemStr)
-}
-
-
 // VerifyManifestSignature leverages the native local crypto verification
 // to validate the signature of the Manifest against the given public key.
 func VerifyManifestSignature(manifest *types.Manifest, publicKey *ecdsa.PublicKey) error {

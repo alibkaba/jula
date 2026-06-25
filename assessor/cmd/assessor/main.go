@@ -176,7 +176,7 @@ func handleRun(args []string) error {
 		return fmt.Errorf("assessor: missing public key: JULA_PUBLIC_KEY environment variable is required for gatekeeper signature verification")
 	}
 
-	pubKey, err := intCrypto.ParseECDSAPublicKey(pubKeyPEM)
+	pubKey, err := pkgCrypto.ParseECDSAPublicKey(pubKeyPEM)
 	if err != nil {
 		return fmt.Errorf("assessor: failed to parse public key PEM: %w", err)
 	}
@@ -244,7 +244,7 @@ func handleRun(args []string) error {
 	if policyPubKeyPEM != "" {
 		slog.Info("assessor: JULA_POLICY_PUBLIC_KEY is set, verifying policy bundle signature")
 
-		policyPubKey, err := intCrypto.ParseECDSAPublicKey(policyPubKeyPEM)
+		policyPubKey, err := pkgCrypto.ParseECDSAPublicKey(policyPubKeyPEM)
 		if err != nil {
 			return fmt.Errorf("assessor: failed to parse policy public key PEM: %w", err)
 		}
@@ -399,7 +399,7 @@ func handleRun(args []string) error {
 	if assessorSigningKeyPEM != "" {
 		slog.Info("assessor: signing assessment verdict with Key C")
 
-		assessorSigningKey, err := intCrypto.ParseECDSAPrivateKey(assessorSigningKeyPEM)
+		assessorSigningKey, err := pkgCrypto.ParseECDSAPrivateKey(assessorSigningKeyPEM)
 		if err != nil {
 			return fmt.Errorf("assessor: failed to parse assessor signing key: %w", err)
 		}
