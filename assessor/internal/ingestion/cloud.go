@@ -1,6 +1,7 @@
 package ingestion
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -124,26 +125,7 @@ func (r *CloudReader) WriteFile(ctx context.Context, fileName string, data []byt
 	slog.Info("ingestion: writing file", "key", key)
 
 	return r.store.Put(ctx, key, io.NopCloser(
-		// Use bytes.NewReader via io import
-		readerFromBytes(data),
+		bytes.NewReader(data),
 	), "application/json")
 }
 
-// readerFromBytes wraps a byte slice in an io.Reader.
-func readerFromBytes(data []byte) io.Reader {
-	return &byteReader{data: data, pos: 0}
-}
-
-type byteReader struct {
-	data []byte
-	pos  int
-}
-
-func (r *byteReader) Read(p []byte) (int, error) {
-	if r.pos >= len(r.data) {
-		return 0, io.EOF
-	}
-	n := copy(p, r.data[r.pos:])
-	r.pos += n
-	return n, nil
-}

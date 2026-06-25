@@ -32,9 +32,7 @@ import (
 var version = "dev"
 
 var (
-	dispatchClient    = &http.Client{Timeout: 10 * time.Second}
 	newSafeHTTPClient = safehttp.NewClient
-	defaultHTTPClient = http.DefaultClient
 )
 
 func main() {
@@ -108,7 +106,7 @@ func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("Content-Type", "application/json")
 
-	client := dispatchClient
+	client := newSafeHTTPClient(10 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("gitops: failed to route webhook dispatch packet to remote origin", "error", err)
@@ -566,7 +564,8 @@ func downloadPolicies(ctx context.Context, url string) (string, error) {
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := defaultHTTPClient.Do(req)
+	client := newSafeHTTPClient(30 * time.Second)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("fetching policies: %w", err)
 	}

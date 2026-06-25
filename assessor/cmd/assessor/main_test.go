@@ -300,9 +300,11 @@ func TestDispatchDriftAlert_Success(t *testing.T) {
 	t.Setenv("JULA_GOVERNOR_REPO", "test/governor")
 	t.Setenv("JULA_DISPATCH_TOKEN", "test-token")
 
-	oldClient := dispatchClient
-	defer func() { dispatchClient = oldClient }()
-	dispatchClient = ts.Client()
+	oldNewSafe := newSafeHTTPClient
+	defer func() { newSafeHTTPClient = oldNewSafe }()
+	newSafeHTTPClient = func(timeout time.Duration) *http.Client {
+		return ts.Client()
+	}
 
 	dispatchDriftAlert("gcp", "storage", "raw-payload")
 }
@@ -370,9 +372,11 @@ evaluation := {"control_id": "TEST-1", "compliant": true}`
 	}))
 	defer ts.Close()
 
-	oldDefaultHTTPClient := defaultHTTPClient
-	defer func() { defaultHTTPClient = oldDefaultHTTPClient }()
-	defaultHTTPClient = ts.Client()
+	oldNewSafe := newSafeHTTPClient
+	defer func() { newSafeHTTPClient = oldNewSafe }()
+	newSafeHTTPClient = func(timeout time.Duration) *http.Client {
+		return ts.Client()
+	}
 
 	ctx := context.Background()
 	policiesDir, err := downloadPolicies(ctx, ts.URL)
