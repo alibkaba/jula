@@ -1,0 +1,20 @@
+control_id,verdict,details,confidence,automation_status,evaluated_at
+AC-2,COMPLIANT,All accounts have MFA enabled,1.00,APPROVED,2026-06-24T19:00:00Z
+AC-3,COMPLIANT,Least privilege enforced,1.00,APPROVED,2026-06-24T19:00:00Z
+AC-6,COMPLIANT,No overprivileged roles,1.00,APPROVED,2026-06-24T19:00:00Z
+AC-7,NON_COMPLIANT,3 service accounts lack MFA,1.00,APPROVED,2026-06-24T19:00:00Z
+AU-2,COMPLIANT,Audit logging enabled,1.00,APPROVED,2026-06-24T19:00:00Z
+AU-3,COMPLIANT,Log content includes required fields,1.00,APPROVED,2026-06-24T19:00:00Z
+AU-6,COMPLIANT,Audit review process documented,0.85,APPROVED,2026-06-24T19:00:00Z
+CM-6,NON_COMPLIANT,2 storage buckets missing encryption-at-rest,1.00,APPROVED,2026-06-24T19:00:00Z
+CM-7,COMPLIANT,Least functionality enforced,1.00,APPROVED,2026-06-24T19:00:00Z
+IA-2,COMPLIANT,Multi-factor authentication enforced,1.00,APPROVED,2026-06-24T19:00:00Z
+IA-5,COMPLIANT,Password policies meet requirements,1.00,APPROVED,2026-06-24T19:00:00Z
+IR-4,COMPLIANT,Incident handling procedures exist,0.00,MANUAL_AUDIT,2026-06-24T19:00:00Z
+PE-3,COMPLIANT,Physical access controls in place,0.00,MANUAL_AUDIT,2026-06-24T19:00:00Z
+RA-5,NON_COMPLIANT,No vulnerability scan results in 30 days,1.00,APPROVED,2026-06-24T19:00:00Z
+SC-8,COMPLIANT,TLS 1.2+ enforced on all endpoints,1.00,APPROVED,2026-06-24T19:00:00Z
+SC-28,NON_COMPLIANT,1 SQL instance without encryption,1.00,APPROVED,2026-06-24T19:00:00Z
+SI-2,COMPLIANT,Patch management current,0.85,APPROVED,2026-06-24T19:00:00Z
+SI-4,COMPLIANT,Monitoring enabled,1.00,APPROVED,2026-06-24T19:00:00Z
+PS-6,COMPLIANT,Personnel agreements signed,0.00,MANUAL_AUDIT,2026-06-24T19:00:00Z
