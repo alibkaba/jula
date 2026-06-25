@@ -139,7 +139,7 @@ flowchart TB
         PolicyCheck --> OPA
     end
 
-    subgraph Phase5 ["5. Posture Insights (reporter/)"]
+    subgraph Phase5 ["5. Posture Insights (reporter/) 🚧"]
         direction TB
         VerdictGate["🔑 Verdict Verify<br>(Key C Public)"]
         DB["📊 Posture Reporter<br>(jula-posture CLI)"]
@@ -223,6 +223,12 @@ flowchart TB
     style Phase4 fill:#f0fdf4,stroke:#86efac,stroke-width:2px;
     style Phase5 fill:#faf5ff,stroke:#d8b4fe,stroke-width:2px;
 ```
+
+---
+
+## Component Readiness
+
+All modules build and pass unit tests against synthetic fixtures. No module has been validated against live cloud output.
 
 ---
 
