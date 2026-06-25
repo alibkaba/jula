@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0](https://github.com/alibkaba/jula/compare/collector-v2.1.1...collector-v2.2.0) (2026-06-25)
+
+
+### Features
+
+* implement reporter module for compliance posture analysis and update project licensing terms ([bdb7199](https://github.com/alibkaba/jula/commit/bdb7199640abf4f4e829a579fe550816462f805d))
+* introduce reporter service, cloud-agnostic courier, and core schema validation while deprecating legacy cloud reporting ([5a7402a](https://github.com/alibkaba/jula/commit/5a7402a6adf0480ee2a4c12b0db196e786a1f0a6))
+
 ## [2.1.1](https://github.com/alibkaba/jula/compare/collector-v2.1.0...collector-v2.1.1) (2026-06-24)
 
 
