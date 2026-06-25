@@ -35,6 +35,8 @@ jobs:
             echo "service=assessor" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == core-* ]]; then
             echo "service=core" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == reporter-* ]]; then
+            echo "service=reporter" >> $GITHUB_OUTPUT
           else
             echo "service=unknown" >> $GITHUB_OUTPUT
             echo "::warning::Unknown release tag format: $TAG"
@@ -203,3 +205,56 @@ jobs:
             build/jula-verify-linux-amd64
             build/jula-verify-windows-amd64.exe
             build/jula-core-sbom.cdx.json
+
+  # ==========================================
+  # Build reporter CLI binary (jula-posture)
+  # ==========================================
+  release-reporter:
+    name: "Release: Reporter CLI"
+    needs: detect-release
+    if: needs.detect-release.outputs.service == 'reporter'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: "reporter/go.mod"
+          cache: false
+
+      - name: Build jula-posture (macOS ARM64)
+        run: GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o build/jula-posture-darwin-arm64 ./reporter/cmd/jula-posture
+
+      - name: Build jula-posture (Linux AMD64)
+        run: GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-posture-linux-amd64 ./reporter/cmd/jula-posture
+
+      - name: Build jula-posture (Windows AMD64)
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-posture-windows-amd64.exe ./reporter/cmd/jula-posture
+
+      - name: Generate SBOM (CycloneDX)
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: mod -licenses -json -output build/jula-reporter-sbom.cdx.json ./reporter/
+
+      - name: Upload Release Artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            build/jula-posture-darwin-arm64 \
+            build/jula-posture-linux-amd64 \
+            build/jula-posture-windows-amd64.exe \
+            build/jula-reporter-sbom.cdx.json
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            build/jula-posture-darwin-arm64
+            build/jula-posture-linux-amd64
+            build/jula-posture-windows-amd64.exe
+            build/jula-reporter-sbom.cdx.json
