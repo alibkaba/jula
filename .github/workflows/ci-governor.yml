@@ -31,7 +31,15 @@ jobs:
       - name: Vet
         run: cd governor && go vet ./...
       - name: Test
-        run: cd governor && go test -race -count=1 ./...
+        run: cd governor && go test -race -coverprofile=coverage.out -count=1 ./...
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
+        with:
+          files: governor/coverage.out
+          flags: governor
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Verify import CLI
         run: cd governor && go build -o /dev/null ./cmd/import/
       - name: Verify translate CLI

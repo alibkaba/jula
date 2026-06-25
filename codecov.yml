@@ -1,0 +1,39 @@
+# Codecov configuration for Jula Controls monorepo.
+# Each module reports coverage independently via flags.
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+
+flags:
+  core:
+    paths:
+      - core/
+    carryforward: true
+  collector:
+    paths:
+      - collector/
+    carryforward: true
+  assessor:
+    paths:
+      - assessor/
+    carryforward: true
+  reporter:
+    paths:
+      - reporter/
+    carryforward: true
+  governor:
+    paths:
+      - governor/
+    carryforward: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: true
