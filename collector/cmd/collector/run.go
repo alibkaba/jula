@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alibkaba/jula-collector/internal/engine"
 	"github.com/alibkaba/jula-collector/internal/courier"
+	"github.com/alibkaba/jula-collector/internal/engine"
 	"github.com/alibkaba/jula-core/pkg/objstore"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
 )
