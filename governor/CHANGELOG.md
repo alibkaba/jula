@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.0](https://github.com/alibkaba/jula/compare/governor-v2.3.0...governor-v2.4.0) (2026-06-25)
+
+
+### Features
+
+* add unit tests for rego parsing and update CI to include go vet and test steps ([358434b](https://github.com/alibkaba/jula/commit/358434b7518987466dd87ce5efc62880ceaf10a9))
+* standardize cloud integration endpoints for evidence collection and add GitHub provider support ([7cdd71f](https://github.com/alibkaba/jula/commit/7cdd71f3afe1e9ea5c3ca8d191be09344bab3b0a))
+
 ## [2.3.0](https://github.com/alibkaba/jula/compare/governor-v2.2.0...governor-v2.3.0) (2026-06-25)
 
 

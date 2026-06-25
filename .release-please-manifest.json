@@ -1,7 +1,7 @@
 {
   "collector": "2.2.0",
   "assessor": "3.1.0",
-  "governor": "2.3.0",
+  "governor": "2.4.0",
   "core": "2.3.0",
   "reporter": "2.0.0"
 }
