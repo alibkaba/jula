@@ -81,7 +81,7 @@ flowchart TB
     %% Verify node classes (between key and module shades)
     classDef verifyA fill:#2563eb,stroke:#93c5fd,stroke-width:1px,color:#eff6ff;
     classDef verifyB fill:#d97706,stroke:#fcd34d,stroke-width:1px,color:#451a03;
-    classDef verifyC fill:#7c3aed,stroke:#d8b4fe,stroke-width:1px,color:#f5f3ff;
+    classDef verifyC fill:#16a34a,stroke:#86efac,stroke-width:1px,color:#f0fdf4;
     classDef verifyInteg fill:#475569,stroke:#94a3b8,stroke-width:1px,color:#f1f5f9;
 
     subgraph Phase1 ["1. Governor Registry (governor/)"]
