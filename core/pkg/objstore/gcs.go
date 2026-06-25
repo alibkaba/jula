@@ -19,10 +19,10 @@ const (
 	gcsMetadataURL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 )
 
-// GCSStore implements Store for Google Cloud Storage using raw HTTP calls.
+// gcsStore implements Store for Google Cloud Storage using raw HTTP calls.
 // Authentication uses the GCP metadata server (Cloud Run / GCE) or falls back
 // to GOOGLE_APPLICATION_CREDENTIALS for local development.
-type GCSStore struct {
+type gcsStore struct {
 	bucket     string
 	httpClient *http.Client
 
@@ -37,29 +37,29 @@ type GCSStore struct {
 	tokenFetcher func(client *http.Client) (string, time.Duration, error)
 }
 
-// GCSOption configures GCSStore behavior.
-type GCSOption func(*GCSStore)
+// gcsOption configures gcsStore behavior.
+type gcsOption func(*gcsStore)
 
-// WithGCSBaseURL overrides the GCS API endpoint (for testing).
-func WithGCSBaseURL(baseURL string) GCSOption {
-	return func(s *GCSStore) {
+// withGCSBaseURL overrides the GCS API endpoint (for testing).
+func withGCSBaseURL(baseURL string) gcsOption {
+	return func(s *gcsStore) {
 		s.baseURL = baseURL
 	}
 }
 
-// WithGCSTokenFetcher overrides the default token fetcher (for testing).
-func WithGCSTokenFetcher(fn func(client *http.Client) (string, time.Duration, error)) GCSOption {
-	return func(s *GCSStore) {
+// withGCSTokenFetcher overrides the default token fetcher (for testing).
+func withGCSTokenFetcher(fn func(client *http.Client) (string, time.Duration, error)) gcsOption {
+	return func(s *gcsStore) {
 		s.tokenFetcher = fn
 	}
 }
 
-// newGCSStore creates a GCS-backed Store for the given bucket.
-func newGCSStore(bucket string, httpClient *http.Client, opts ...GCSOption) *GCSStore {
+// newgcsStore creates a GCS-backed Store for the given bucket.
+func newgcsStore(bucket string, httpClient *http.Client, opts ...gcsOption) *gcsStore {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	s := &GCSStore{
+	s := &gcsStore{
 		bucket:       bucket,
 		httpClient:   httpClient,
 		tokenFetcher: fetchGCSToken,
@@ -71,12 +71,12 @@ func newGCSStore(bucket string, httpClient *http.Client, opts ...GCSOption) *GCS
 }
 
 // Bucket returns the GCS bucket name.
-func (s *GCSStore) Bucket() string {
+func (s *gcsStore) Bucket() string {
 	return s.bucket
 }
 
 // Put uploads data to the given object key in the bucket.
-func (s *GCSStore) Put(ctx context.Context, key string, body io.Reader, contentType string) error {
+func (s *gcsStore) Put(ctx context.Context, key string, body io.Reader, contentType string) error {
 	token, err := s.resolveToken()
 	if err != nil {
 		return fmt.Errorf("gcs: obtaining token: %w", err)
@@ -116,7 +116,7 @@ func (s *GCSStore) Put(ctx context.Context, key string, body io.Reader, contentT
 }
 
 // Get retrieves the object identified by key from the bucket.
-func (s *GCSStore) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+func (s *gcsStore) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	token, err := s.resolveToken()
 	if err != nil {
 		return nil, fmt.Errorf("gcs: obtaining token: %w", err)
@@ -150,7 +150,7 @@ func (s *GCSStore) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 }
 
 // List returns all objects matching the given key prefix.
-func (s *GCSStore) List(ctx context.Context, prefix string) ([]Object, error) {
+func (s *gcsStore) List(ctx context.Context, prefix string) ([]Object, error) {
 	token, err := s.resolveToken()
 	if err != nil {
 		return nil, fmt.Errorf("gcs: obtaining token: %w", err)
@@ -218,7 +218,7 @@ func (s *GCSStore) List(ctx context.Context, prefix string) ([]Object, error) {
 }
 
 // resolveToken returns a valid GCS access token, refreshing if expired.
-func (s *GCSStore) resolveToken() (string, error) {
+func (s *gcsStore) resolveToken() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -275,7 +275,7 @@ func fetchGCSToken(client *http.Client) (string, time.Duration, error) {
 }
 
 // uploadURL returns the GCS upload API base.
-func (s *GCSStore) uploadURL() string {
+func (s *gcsStore) uploadURL() string {
 	if s.baseURL != "" {
 		return s.baseURL
 	}
@@ -283,7 +283,7 @@ func (s *GCSStore) uploadURL() string {
 }
 
 // apiURL returns the GCS metadata/list API base.
-func (s *GCSStore) apiURL() string {
+func (s *gcsStore) apiURL() string {
 	if s.baseURL != "" {
 		return s.baseURL
 	}

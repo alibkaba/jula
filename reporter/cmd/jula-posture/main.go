@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"jula-reporter/internal/insights"
 	"jula-reporter/internal/render"
@@ -618,14 +619,14 @@ func renderROI(risk *insights.RiskSummary) {
 		aleRatio := r.AnnualLossExp / maxVal
 		aleFilled := int(aleRatio * float64(barWidth))
 		aleEmpty := barWidth - aleFilled
-		aleBar := render.Yellow(repeatStr("█", aleFilled)) + repeatStr("░", aleEmpty)
+		aleBar := render.Yellow(strings.Repeat("█", aleFilled)) + strings.Repeat("░", aleEmpty)
 		fmt.Printf("    ALE        %s %s\n", aleBar, render.BoldYellow(formatMoney(r.AnnualLossExp)))
 
 		// 95th pct bar (red).
 		p95Ratio := r.Loss95th / maxVal
 		p95Filled := int(p95Ratio * float64(barWidth))
 		p95Empty := barWidth - p95Filled
-		p95Bar := render.Red(repeatStr("█", p95Filled)) + repeatStr("░", p95Empty)
+		p95Bar := render.Red(strings.Repeat("█", p95Filled)) + strings.Repeat("░", p95Empty)
 		fmt.Printf("    95th Pct   %s %s\n", p95Bar, render.BoldRed(formatMoney(r.Loss95th)))
 
 		// Mitigation cost bar (green).
@@ -635,7 +636,7 @@ func renderROI(risk *insights.RiskSummary) {
 			mitFilled = 1
 		}
 		mitEmpty := barWidth - mitFilled
-		mitBar := render.Green(repeatStr("█", mitFilled)) + repeatStr("░", mitEmpty)
+		mitBar := render.Green(strings.Repeat("█", mitFilled)) + strings.Repeat("░", mitEmpty)
 
 		roiLabel := ""
 		if r.ROI > 0 {
@@ -661,16 +662,7 @@ func renderROI(risk *insights.RiskSummary) {
 		render.Dim(formatMoney(risk.TotalMitCost)))
 }
 
-func repeatStr(s string, n int) string {
-	if n <= 0 {
-		return ""
-	}
-	result := ""
-	for i := 0; i < n; i++ {
-		result += s
-	}
-	return result
-}
+
 
 // --- Export ---
 

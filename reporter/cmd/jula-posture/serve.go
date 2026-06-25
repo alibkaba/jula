@@ -298,14 +298,14 @@ func registerGetRisk(server *mcp.Server, cfg *serveConfig) {
 			for _, r := range risk.Results {
 				fmt.Fprintf(&sb, "| %s | %d | %s | %s | %s | %.0f%% |\n",
 					r.Family, r.ControlsFailed,
-					fmtMoney(r.AnnualLossExp), fmtMoney(r.Loss95th),
-					fmtMoney(r.MitigationCost), r.ROI)
+					formatMoney(r.AnnualLossExp), formatMoney(r.Loss95th),
+					formatMoney(r.MitigationCost), r.ROI)
 			}
 
 			fmt.Fprintf(&sb, "\n**Totals:**\n")
-			fmt.Fprintf(&sb, "- Annual Loss Expectancy: %s\n", fmtMoney(risk.TotalALE))
-			fmt.Fprintf(&sb, "- 95th Percentile Loss: %s\n", fmtMoney(risk.TotalLoss95th))
-			fmt.Fprintf(&sb, "- Mitigation Investment: %s\n", fmtMoney(risk.TotalMitCost))
+			fmt.Fprintf(&sb, "- Annual Loss Expectancy: %s\n", formatMoney(risk.TotalALE))
+			fmt.Fprintf(&sb, "- 95th Percentile Loss: %s\n", formatMoney(risk.TotalLoss95th))
+			fmt.Fprintf(&sb, "- Mitigation Investment: %s\n", formatMoney(risk.TotalMitCost))
 
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
@@ -380,12 +380,3 @@ func toolError(err error) (*mcp.CallToolResult, error) {
 	}, nil
 }
 
-func fmtMoney(v float64) string {
-	if v >= 1000000 {
-		return fmt.Sprintf("$%.1fM", v/1000000)
-	}
-	if v >= 1000 {
-		return fmt.Sprintf("$%.0fK", v/1000)
-	}
-	return fmt.Sprintf("$%.0f", v)
-}

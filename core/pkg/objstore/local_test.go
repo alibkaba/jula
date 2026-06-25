@@ -11,7 +11,7 @@ import (
 
 func TestLocalStore_PutGetList(t *testing.T) {
 	dir := t.TempDir()
-	store := newLocalStore(dir)
+	store := newlocalStorage(dir)
 
 	if store.Bucket() != dir {
 		t.Fatalf("expected bucket %q, got %q", dir, store.Bucket())
@@ -73,7 +73,7 @@ func TestLocalStore_PutGetList(t *testing.T) {
 
 func TestLocalStore_GetNotFound(t *testing.T) {
 	dir := t.TempDir()
-	store := newLocalStore(dir)
+	store := newlocalStorage(dir)
 
 	_, err := store.Get(context.Background(), "nonexistent.json")
 	if err == nil {
@@ -83,7 +83,7 @@ func TestLocalStore_GetNotFound(t *testing.T) {
 
 func TestLocalStore_ListEmpty(t *testing.T) {
 	dir := t.TempDir()
-	store := newLocalStore(dir)
+	store := newlocalStorage(dir)
 
 	objects, err := store.List(context.Background(), "anything/")
 	if err != nil {
@@ -96,7 +96,7 @@ func TestLocalStore_ListEmpty(t *testing.T) {
 
 func TestLocalStore_PutCreatesDirectories(t *testing.T) {
 	dir := t.TempDir()
-	store := newLocalStore(dir)
+	store := newlocalStorage(dir)
 
 	err := store.Put(context.Background(), "deep/nested/path/file.json", bytes.NewReader([]byte("hi")), "text/plain")
 	if err != nil {
@@ -124,7 +124,7 @@ func TestLocalStore_Errors(t *testing.T) {
 	file.Close()
 	defer os.Remove(fileName)
 
-	store := newLocalStore(filepath.Join(fileName, "subdir"))
+	store := newlocalStorage(filepath.Join(fileName, "subdir"))
 	ctx := context.Background()
 
 	// Put error

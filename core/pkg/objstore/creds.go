@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// CredentialProvider resolves and caches cloud credentials.
-type CredentialProvider interface {
+// credentialProvider resolves and caches cloud credentials.
+type credentialProvider interface {
 	// Resolve returns valid credentials, refreshing if necessary.
 	Resolve() (Credentials, error)
 }

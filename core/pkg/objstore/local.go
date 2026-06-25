@@ -9,24 +9,24 @@ import (
 	"strings"
 )
 
-// LocalStore implements Store for the local filesystem.
+// localStorage implements Store for the local filesystem.
 // Used for development, testing, and local validation.
-type LocalStore struct {
+type localStorage struct {
 	rootDir string
 }
 
-// newLocalStore creates a filesystem-backed Store rooted at the given directory.
-func newLocalStore(rootDir string) *LocalStore {
-	return &LocalStore{rootDir: rootDir}
+// newlocalStorage creates a filesystem-backed Store rooted at the given directory.
+func newlocalStorage(rootDir string) *localStorage {
+	return &localStorage{rootDir: rootDir}
 }
 
 // Bucket returns the root directory path.
-func (s *LocalStore) Bucket() string {
+func (s *localStorage) Bucket() string {
 	return s.rootDir
 }
 
 // Put writes data to a file at rootDir/key.
-func (s *LocalStore) Put(_ context.Context, key string, body io.Reader, _ string) error {
+func (s *localStorage) Put(_ context.Context, key string, body io.Reader, _ string) error {
 	fullPath := filepath.Join(s.rootDir, key)
 
 	dir := filepath.Dir(fullPath)
@@ -47,7 +47,7 @@ func (s *LocalStore) Put(_ context.Context, key string, body io.Reader, _ string
 }
 
 // Get opens the file at rootDir/key for reading.
-func (s *LocalStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
+func (s *localStorage) Get(_ context.Context, key string) (io.ReadCloser, error) {
 	baseClean := filepath.Clean(s.rootDir)
 	targetClean := filepath.Clean(filepath.Join(baseClean, key))
 	rel, err := filepath.Rel(baseClean, targetClean)
@@ -62,7 +62,7 @@ func (s *LocalStore) Get(_ context.Context, key string) (io.ReadCloser, error) {
 }
 
 // List returns all files under rootDir matching the given prefix.
-func (s *LocalStore) List(_ context.Context, prefix string) ([]Object, error) {
+func (s *localStorage) List(_ context.Context, prefix string) ([]Object, error) {
 	var objects []Object
 	searchDir := s.rootDir
 

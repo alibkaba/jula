@@ -47,9 +47,9 @@ func TestGCSStore_PutGet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store := newGCSStore("test-bucket", server.Client(),
-		WithGCSBaseURL(server.URL),
-		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
+	store := newgcsStore("test-bucket", server.Client(),
+		withGCSBaseURL(server.URL),
+		withGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "mock-token", 1 * time.Hour, nil
 		}),
 	)
@@ -87,9 +87,9 @@ func TestGCSStore_List(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store := newGCSStore("test-bucket", server.Client(),
-		WithGCSBaseURL(server.URL),
-		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
+	store := newgcsStore("test-bucket", server.Client(),
+		withGCSBaseURL(server.URL),
+		withGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "mock-token", 1 * time.Hour, nil
 		}),
 	)
@@ -157,7 +157,7 @@ func TestS3Store_PutGet(t *testing.T) {
 		},
 	}
 
-	store := newS3Store("test-bucket", "us-east-1", server.Client(),
+	store := news3Store("test-bucket", "us-east-1", server.Client(),
 		withS3BaseURL(server.URL),
 		withS3Credentials(staticCreds),
 	)
@@ -284,9 +284,9 @@ func TestGCSStore_Errors(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store := newGCSStore("test-bucket", server.Client(),
-		WithGCSBaseURL(server.URL),
-		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
+	store := newgcsStore("test-bucket", server.Client(),
+		withGCSBaseURL(server.URL),
+		withGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "mock-token", 1 * time.Hour, nil
 		}),
 	)
@@ -313,8 +313,8 @@ func TestGCSStore_Errors(t *testing.T) {
 }
 
 func TestGCSStore_TokenError(t *testing.T) {
-	store := newGCSStore("test-bucket", nil,
-		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
+	store := newgcsStore("test-bucket", nil,
+		withGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "", 0, errors.New("token error")
 		}),
 	)
@@ -354,7 +354,7 @@ func TestS3Store_Errors(t *testing.T) {
 		},
 	}
 
-	store := newS3Store("test-bucket", "us-east-1", server.Client(),
+	store := news3Store("test-bucket", "us-east-1", server.Client(),
 		withS3BaseURL(server.URL),
 		withS3Credentials(staticCreds),
 	)
@@ -381,7 +381,7 @@ func TestS3Store_Errors(t *testing.T) {
 }
 
 func TestS3Store_CredError(t *testing.T) {
-	store := newS3Store("test-bucket", "us-east-1", nil,
+	store := news3Store("test-bucket", "us-east-1", nil,
 		withS3Credentials(&errorCredProvider{}),
 	)
 

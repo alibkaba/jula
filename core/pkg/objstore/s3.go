@@ -14,38 +14,38 @@ import (
 	"time"
 )
 
-// S3Store implements Store for AWS S3 using raw HTTP calls with SigV4 signing.
+// s3Store implements Store for AWS S3 using raw HTTP calls with SigV4 signing.
 // No AWS SDK dependency. Authentication uses the ECS task role on Fargate
 // or static environment variables for local development.
-type S3Store struct {
+type s3Store struct {
 	bucket string
 	region string
 	client *http.Client
-	creds  CredentialProvider
+	creds  credentialProvider
 
 	// baseURL allows overriding the S3 endpoint for testing or S3-compatible services.
 	baseURL string
 }
 
-// S3Option configures S3Store behavior.
-type S3Option func(*S3Store)
+// s3Option configures s3Store behavior.
+type s3Option func(*s3Store)
 
 // withS3BaseURL overrides the S3 endpoint (for testing or S3-compatible services).
-func withS3BaseURL(baseURL string) S3Option {
-	return func(s *S3Store) {
+func withS3BaseURL(baseURL string) s3Option {
+	return func(s *s3Store) {
 		s.baseURL = baseURL
 	}
 }
 
 // withS3Credentials overrides the default credential provider.
-func withS3Credentials(creds CredentialProvider) S3Option {
-	return func(s *S3Store) {
+func withS3Credentials(creds credentialProvider) s3Option {
+	return func(s *s3Store) {
 		s.creds = creds
 	}
 }
 
-// newS3Store creates an S3-backed Store for the given bucket and region.
-func newS3Store(bucket, region string, httpClient *http.Client, opts ...S3Option) *S3Store {
+// news3Store creates an S3-backed Store for the given bucket and region.
+func news3Store(bucket, region string, httpClient *http.Client, opts ...s3Option) *s3Store {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
@@ -59,7 +59,7 @@ func newS3Store(bucket, region string, httpClient *http.Client, opts ...S3Option
 		}
 	}
 
-	s := &S3Store{
+	s := &s3Store{
 		bucket: bucket,
 		region: region,
 		client: httpClient,
@@ -72,12 +72,12 @@ func newS3Store(bucket, region string, httpClient *http.Client, opts ...S3Option
 }
 
 // Bucket returns the S3 bucket name.
-func (s *S3Store) Bucket() string {
+func (s *s3Store) Bucket() string {
 	return s.bucket
 }
 
 // Put uploads data to the given object key in the bucket.
-func (s *S3Store) Put(ctx context.Context, key string, body io.Reader, contentType string) error {
+func (s *s3Store) Put(ctx context.Context, key string, body io.Reader, contentType string) error {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return fmt.Errorf("s3: reading body: %w", err)
@@ -112,7 +112,7 @@ func (s *S3Store) Put(ctx context.Context, key string, body io.Reader, contentTy
 }
 
 // Get retrieves the object identified by key from the bucket.
-func (s *S3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+func (s *s3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	endpoint := s.objectURL(key)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *S3Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 }
 
 // List returns all objects matching the given key prefix.
-func (s *S3Store) List(ctx context.Context, prefix string) ([]Object, error) {
+func (s *s3Store) List(ctx context.Context, prefix string) ([]Object, error) {
 	var objects []Object
 	continuationToken := ""
 
@@ -216,7 +216,7 @@ type s3ListObject struct {
 }
 
 // sign resolves credentials and signs the request with SigV4.
-func (s *S3Store) sign(req *http.Request, payloadHash string) error {
+func (s *s3Store) sign(req *http.Request, payloadHash string) error {
 	creds, err := s.creds.Resolve()
 	if err != nil {
 		return fmt.Errorf("s3: resolving credentials: %w", err)
@@ -226,14 +226,14 @@ func (s *S3Store) sign(req *http.Request, payloadHash string) error {
 }
 
 // objectURL returns the full URL for a specific object key.
-func (s *S3Store) objectURL(key string) string {
+func (s *s3Store) objectURL(key string) string {
 	base := s.bucketURL()
 	// S3 path-style: https://s3.region.amazonaws.com/bucket/key
 	return base + "/" + key
 }
 
 // bucketURL returns the base URL for the bucket.
-func (s *S3Store) bucketURL() string {
+func (s *s3Store) bucketURL() string {
 	if s.baseURL != "" {
 		return strings.TrimSuffix(s.baseURL, "/") + "/" + s.bucket
 	}
