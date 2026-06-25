@@ -28,10 +28,18 @@ jobs:
         with:
           go-version-file: 'governor/go.mod'
           cache: false
-      - name: Verify build generator
-        run: cd governor/cmd/build && go build -o /dev/null main.go
-      - name: Verify translate generator
-        run: cd governor/cmd/translate && go build -o /dev/null main.go
+      - name: Vet
+        run: cd governor && go vet ./...
+      - name: Test
+        run: cd governor && go test -race -count=1 ./...
+      - name: Verify import CLI
+        run: cd governor && go build -o /dev/null ./cmd/import/
+      - name: Verify translate CLI
+        run: cd governor && go build -o /dev/null ./cmd/translate/
+      - name: Verify build CLI
+        run: cd governor && go build -o /dev/null ./cmd/build/
+      - name: Verify validate CLI
+        run: cd governor && go build -o /dev/null ./cmd/validate/
 
   # ==========================================
   # 2. SIGN POLICY BUNDLE (Main only, policy/engine changes)
