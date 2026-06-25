@@ -18,7 +18,7 @@ func NewClient(timeout time.Duration) *http.Client {
 	return newClient(timeout, nil)
 }
 
-// NewClientWithEgressAllowlist returns an *http.Client with SSRF protection AND
+// newClientWithEgressAllowlist returns an *http.Client with SSRF protection AND
 // egress domain allowlisting. Only connections to hosts matching one of the
 // allowed domain suffixes are permitted. All other outbound connections are blocked.
 //
@@ -27,7 +27,7 @@ func NewClient(timeout time.Duration) *http.Client {
 // Jula-controlled domains are blocked unless explicitly allowlisted.
 //
 // Example allowlist: ["googleapis.com", "amazonaws.com", "github.com"]
-func NewClientWithEgressAllowlist(timeout time.Duration, allowedDomains []string) *http.Client {
+func newClientWithEgressAllowlist(timeout time.Duration, allowedDomains []string) *http.Client {
 	return newClient(timeout, allowedDomains)
 }
 

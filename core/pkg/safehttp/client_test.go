@@ -160,7 +160,7 @@ func TestIsHostAllowed_EmptyAllowlist(t *testing.T) {
 }
 
 func TestNewClientWithEgressAllowlist_BlocksNonAllowlisted(t *testing.T) {
-	client := NewClientWithEgressAllowlist(1*time.Millisecond, []string{"googleapis.com"})
+	client := newClientWithEgressAllowlist(1*time.Millisecond, []string{"googleapis.com"})
 
 	transport, ok := client.Transport.(*http.Transport)
 	if !ok {
@@ -183,7 +183,7 @@ func TestNewClientWithEgressAllowlist_BlocksNonAllowlisted(t *testing.T) {
 }
 
 func TestNewClientWithEgressAllowlist_AllowsListed(t *testing.T) {
-	client := NewClientWithEgressAllowlist(1*time.Millisecond, []string{"googleapis.com"})
+	client := newClientWithEgressAllowlist(1*time.Millisecond, []string{"googleapis.com"})
 
 	transport, ok := client.Transport.(*http.Transport)
 	if !ok {

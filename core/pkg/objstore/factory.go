@@ -29,21 +29,21 @@ func FromURL(bucketURL string, httpClient *http.Client) (Store, string, error) {
 		if bucket == "" {
 			return nil, "", fmt.Errorf("invalid GCS URL: bucket name is empty")
 		}
-		return NewGCSStore(bucket, httpClient), prefix, nil
+		return newGCSStore(bucket, httpClient), prefix, nil
 
 	case strings.HasPrefix(bucketURL, "s3://"):
 		bucket, prefix := ParseBucketURL(bucketURL)
 		if bucket == "" {
 			return nil, "", fmt.Errorf("invalid S3 URL: bucket name is empty")
 		}
-		return NewS3Store(bucket, "", httpClient), prefix, nil
+		return newS3Store(bucket, "", httpClient), prefix, nil
 
 	case strings.HasPrefix(bucketURL, "file://"):
 		path := strings.TrimPrefix(bucketURL, "file://")
-		return NewLocalStore(path), "", nil
+		return newLocalStore(path), "", nil
 
 	default:
 		// Treat as a local filesystem path.
-		return NewLocalStore(bucketURL), "", nil
+		return newLocalStore(bucketURL), "", nil
 	}
 }

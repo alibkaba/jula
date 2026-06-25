@@ -30,22 +30,22 @@ type S3Store struct {
 // S3Option configures S3Store behavior.
 type S3Option func(*S3Store)
 
-// WithS3BaseURL overrides the S3 endpoint (for testing or S3-compatible services).
-func WithS3BaseURL(baseURL string) S3Option {
+// withS3BaseURL overrides the S3 endpoint (for testing or S3-compatible services).
+func withS3BaseURL(baseURL string) S3Option {
 	return func(s *S3Store) {
 		s.baseURL = baseURL
 	}
 }
 
-// WithS3Credentials overrides the default credential provider.
-func WithS3Credentials(creds CredentialProvider) S3Option {
+// withS3Credentials overrides the default credential provider.
+func withS3Credentials(creds CredentialProvider) S3Option {
 	return func(s *S3Store) {
 		s.creds = creds
 	}
 }
 
-// NewS3Store creates an S3-backed Store for the given bucket and region.
-func NewS3Store(bucket, region string, httpClient *http.Client, opts ...S3Option) *S3Store {
+// newS3Store creates an S3-backed Store for the given bucket and region.
+func newS3Store(bucket, region string, httpClient *http.Client, opts ...S3Option) *S3Store {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}

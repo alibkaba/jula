@@ -54,8 +54,8 @@ func WithGCSTokenFetcher(fn func(client *http.Client) (string, time.Duration, er
 	}
 }
 
-// NewGCSStore creates a GCS-backed Store for the given bucket.
-func NewGCSStore(bucket string, httpClient *http.Client, opts ...GCSOption) *GCSStore {
+// newGCSStore creates a GCS-backed Store for the given bucket.
+func newGCSStore(bucket string, httpClient *http.Client, opts ...GCSOption) *GCSStore {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}

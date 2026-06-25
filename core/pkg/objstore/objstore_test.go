@@ -47,7 +47,7 @@ func TestGCSStore_PutGet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store := NewGCSStore("test-bucket", server.Client(),
+	store := newGCSStore("test-bucket", server.Client(),
 		WithGCSBaseURL(server.URL),
 		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "mock-token", 1 * time.Hour, nil
@@ -87,7 +87,7 @@ func TestGCSStore_List(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store := NewGCSStore("test-bucket", server.Client(),
+	store := newGCSStore("test-bucket", server.Client(),
 		WithGCSBaseURL(server.URL),
 		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "mock-token", 1 * time.Hour, nil
@@ -157,9 +157,9 @@ func TestS3Store_PutGet(t *testing.T) {
 		},
 	}
 
-	store := NewS3Store("test-bucket", "us-east-1", server.Client(),
-		WithS3BaseURL(server.URL),
-		WithS3Credentials(staticCreds),
+	store := newS3Store("test-bucket", "us-east-1", server.Client(),
+		withS3BaseURL(server.URL),
+		withS3Credentials(staticCreds),
 	)
 
 	ctx := context.Background()
@@ -284,7 +284,7 @@ func TestGCSStore_Errors(t *testing.T) {
 	}))
 	defer server.Close()
 
-	store := NewGCSStore("test-bucket", server.Client(),
+	store := newGCSStore("test-bucket", server.Client(),
 		WithGCSBaseURL(server.URL),
 		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "mock-token", 1 * time.Hour, nil
@@ -313,7 +313,7 @@ func TestGCSStore_Errors(t *testing.T) {
 }
 
 func TestGCSStore_TokenError(t *testing.T) {
-	store := NewGCSStore("test-bucket", nil,
+	store := newGCSStore("test-bucket", nil,
 		WithGCSTokenFetcher(func(client *http.Client) (string, time.Duration, error) {
 			return "", 0, errors.New("token error")
 		}),
@@ -354,9 +354,9 @@ func TestS3Store_Errors(t *testing.T) {
 		},
 	}
 
-	store := NewS3Store("test-bucket", "us-east-1", server.Client(),
-		WithS3BaseURL(server.URL),
-		WithS3Credentials(staticCreds),
+	store := newS3Store("test-bucket", "us-east-1", server.Client(),
+		withS3BaseURL(server.URL),
+		withS3Credentials(staticCreds),
 	)
 
 	ctx := context.Background()
@@ -381,8 +381,8 @@ func TestS3Store_Errors(t *testing.T) {
 }
 
 func TestS3Store_CredError(t *testing.T) {
-	store := NewS3Store("test-bucket", "us-east-1", nil,
-		WithS3Credentials(&errorCredProvider{}),
+	store := newS3Store("test-bucket", "us-east-1", nil,
+		withS3Credentials(&errorCredProvider{}),
 	)
 
 	ctx := context.Background()

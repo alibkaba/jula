@@ -15,8 +15,8 @@ type LocalStore struct {
 	rootDir string
 }
 
-// NewLocalStore creates a filesystem-backed Store rooted at the given directory.
-func NewLocalStore(rootDir string) *LocalStore {
+// newLocalStore creates a filesystem-backed Store rooted at the given directory.
+func newLocalStore(rootDir string) *LocalStore {
 	return &LocalStore{rootDir: rootDir}
 }
 
