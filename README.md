@@ -15,44 +15,39 @@
 | **Release** | [![Pipeline: Release](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-release.yml) | Multi-platform binary release with SLSA attestation |
 | **Self-Heal** | [![Pipeline: Self-Heal](https://github.com/alibkaba/jula/actions/workflows/pipeline-self-heal.yml/badge.svg)](https://github.com/alibkaba/jula/actions/workflows/pipeline-self-heal.yml) | AI-driven schema drift remediation |
 
-> For a detailed technical inventory of every feature, see [FEATURES.md](./FEATURES.md).
 
 ## The Jula Controls Ecosystem
 
-Jula Controls is designed as a decoupled, multi-repository architecture (now consolidated into a monorepo) where specialized tools cooperate to automate security assurance:
+Jula Controls is a Go workspace of five modules that cooperate to automate security assurance:
 
-* The **[Jula Core](./core) defines shared models and cryptographic validation** utilities used by all modules, ensuring consistent data schemas across the pipeline. Core also ships three CLI tools: **`jula-sign-evidence`** for signing external evidence payloads with ECDSA provenance sidecars, **`jula-sign-bundle`** for signing governor policy bundles (Key B), and **`jula-verify`** for independently auditing the cryptographic chain of any Jula evidence run.
-* The **[Jula Collector](./collector) extracts configurations** programmatically from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests and raw JSON evidence blobs. The Collector is an ultra-lightweight, stateless network engine running entirely on native Go standard network primitives (`net/http`). Both Cloud hyperscalers and SaaS targets are now defined as pure-text configurations, with cloud targets dynamically authenticated at the edge via the compiled **Frozen Signer Module**.
-* The **[Jula Assessor](./assessor) evaluates compliance** by consuming those raw artifacts, verifying manifest and provenance signatures, ingesting client configuration metadata, and executing dynamic OPA policies. The Assessor optionally produces **NIST OSCAL Assessment Results** JSON output via the `--output-format oscal` flag.
-* The **[Jula Reporter](./reporter) reports compliance posture** by reading assessment verdicts and rendering rich posture reports directly in the terminal via `jula-posture`. Provides executive summaries, automation coverage analysis, and historical compliance trending using the signed verdict chain.
-* The **[Jula Governor](./governor) stores Rego policies** in a version-controlled directory that serves as the single source of truth for both dynamic resource normalization and compliance scoping rules.
+* **[Core](./core)** defines shared data models, cryptographic primitives, and three CLI tools: `jula-sign-evidence`, `jula-sign-bundle`, and `jula-verify`.
+* **[Collector](./collector)** extracts configurations from cloud APIs and SaaS environments, producing cryptographically signed attestation manifests.
+* **[Assessor](./assessor)** verifies evidence signatures, executes OPA Rego policies, and produces signed compliance verdicts (with optional OSCAL output).
+* **[Reporter](./reporter)** reads assessment verdicts and renders posture reports via the `jula-posture` CLI: executive summaries, NIST CSF maturity, FAIR risk analysis, ROI visualization, HTML/PDF export, and MCP server integration.
+* **[Governor](./governor)** stores Rego policies and uses an AI pipeline to transform compliance catalog prose into machine-executable policy.
 
-Traditional compliance platforms charge massive premiums for monolithic dashboards, forcing you to adopt heavy, misaligned workflows and endpoint agents. **Jula Controls** is designed to disrupt that model by treating compliance as an engineering problem rather than a dashboard problem.
+Jula treats compliance as an engineering problem rather than a dashboard problem.
 
-## The Philosophy: Attestation Engineering vs. Traditional GRC
+## Design Philosophy
 
-Of the five core pillars of traditional Governance, Risk, and Compliance (GRC), Jula Controls attacks only two: IT Risk & Compliance (ITRM) and Audit Management.
+Jula is an **assessment integrity engine**, not a GRC platform. It automates a four-stage compliance pipeline:
 
-### What We Attack (The Revenue Blockers)
-We focus exclusively on the two pillars that drain engineering sprint velocity and directly block you from passing audits to close enterprise deals. You do not need another shiny dashboard; you need cryptographic proof of your infrastructure. By programmatically extracting evidence directly from your APIs, we create an operational buffer that keeps auditors out of your CI/CD pipeline.
+| Stage | Module | Function |
+|:------|:-------|:---------|
+| **Translate** | Governor | Compliance catalog prose → executable OPA Rego policy |
+| **Collect** | Collector | Cloud/SaaS API configurations → cryptographically signed evidence |
+| **Evaluate** | Assessor | Evidence + policy → signed compliance verdicts |
+| **Quantify** | Reporter | Verdicts → posture status, maturity scores, FAIR risk analysis |
 
-1. **IT Risk & Compliance (ITRM):** Mapping technical controls directly to framework specifications via decoupled, dynamic policy logic.
-2. **Audit Management:** Programmatically gathering, hashing, and storing cryptographic evidence.
+Every artifact in this pipeline is cryptographically signed. No single key can forge artifacts from another stage.
 
-### What We Intentionally Ignore (Bring Your Own Tools)
-Why pay a massive premium for redundant software? Traditional GRCs justify heavy annual contracts by bundling the remaining three pillars, forcing you to migrate workflows into their proprietary systems. We intentionally leave these out to eliminate software overhead, allowing you to leverage the tools your organization already pays for:
-
-* For **policy management**, you do not need a specialized SaaS platform to host an Information Security Policy. Write it in Google Workspace, Notion, or Confluence, and use their native version history and access controls.
-* For **third-party risk management**, standardized intake forms routed through existing IT ticketing (Jira or Zendesk) are vastly superior and less noisy than third-party scanning portals.
-* For **enterprise risk management**, formal financial risk modeling is overkill for velocity-driven engineering organizations since that risk tracking belongs at the board level.
-
-By pairing this containerized evidence suite with your existing tooling, you eliminate redundant SaaS overhead. Stop wasting time organizing policies in a vendor's portal, and start generating the actual evidence required to pass your audit and close enterprise deals.
+**What Jula does not cover:** policy document management (use Notion, Confluence), vendor/third-party risk questionnaires (use Jira, Zendesk), and organizational risk registers. These are intentionally excluded to keep the tool focused on the engineering pipeline.
 
 ---
 
-## Decoupled Architecture: The Attestation & Assurance Paradigm
+## Architecture
 
-Jula Controls operates as a decoupled pipeline, cleanly separating raw evidence attestation, governor evaluation, and executive posture visualization.
+Jula operates as a decoupled pipeline, separating evidence attestation, policy evaluation, and posture visualization.
 
 ```mermaid
 flowchart TB
@@ -224,11 +219,12 @@ Jula Controls is licensed under the **Business Source License (BSL) 1.1**. See t
 
 **Key terms:**
 
-- **Internal, non-commercial use** is permitted with attribution ("Powered by Jula Controls")
+- **Production use is permitted**, including within commercial organizations
+- **Attribution required:** All generated artifacts must retain "Powered by Jula Controls" visible to the end consumer
 - **Rolling Change Date:** Each release converts to Apache License 2.0 four years after publication
 - **Expressly prohibited** without an Enterprise License:
-  - (a) Use by consultants, MSSPs, or vCISOs to deliver commercial compliance services
-  - (b) Hosting as a managed service or embedding in a commercial SaaS/API product
+  - (a) Use by consultants, MSSPs, or vCISOs to deliver commercial compliance services to their own clients
+  - (b) Hosting as a managed service or embedding in a competing commercial SaaS/API product
   - (c) Use as training data for AI/ML models or automated code generation tools
 
 For Enterprise License inquiries, contact the Licensor.

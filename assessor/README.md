@@ -2,34 +2,16 @@
 
 The **Jula Assessor** is the Continuous Assurance Engine of the Jula Controls ecosystem.
 
-It assesses compliance by consuming the raw ledger artifacts produced by the `jula-collector`. The Assessor runs a stateless Go engine that performs strict cryptographic gatekeeping before executing dynamic Open Policy Agent (OPA) rules.
+It consumes raw ledger artifacts produced by the Collector, performs strict cryptographic gatekeeping, and executes dynamic OPA Rego policies to produce signed compliance verdicts.
 
 ## Key Features
 
-1. **Gatekeeper Modules:**
-   - **Signature Verification:** Validates the ECDSA signatures on the incoming manifest using the `JULA_PUBLIC_KEY`.
-   - **Integrity Check:** Compares the SHA-256 hashes of the actual payloads against the values logged in the signed manifest.
-   - **Provenance Verification:** Verifies the sidecar payloads to guarantee evidence authenticity.
-2. **Embedded OPA Engine:** Executes dynamic scoping and verification Rego rules (supplied by `jula-governor`) against the authenticated payloads.
-3. **Schema Drift Detection:** Flags `SCHEMA_DRIFT` anomalies to trigger the Jula GitOps self-healing workflows.
-4. **OSCAL Output:** Optionally produces a NIST OSCAL 1.1.2 Assessment Results JSON document alongside the standard findings ledger.
-
-## OSCAL Assessment Results
-
-When the `--output-format oscal` flag is set (or `JULA_OUTPUT_FORMAT=oscal` environment variable), the Assessor maps its control findings to a standards-compliant OSCAL Assessment Results document and writes `assessment-results.json` to the evidence bucket.
-
-| Environment Variable | Description | Default |
-| :--- | :--- | :--- |
-| `JULA_OUTPUT_FORMAT` | Set to `oscal` to enable OSCAL AR output | (disabled) |
-| `JULA_ORGANIZATION` | Organization name for OSCAL metadata party | `Jula Controls` |
-| `JULA_FRAMEWORK` | Compliance framework name for OSCAL properties | `SCF` |
-
-The OSCAL document includes:
-
-- UUID-stamped metadata with organization and framework properties
-- Each control finding mapped to an OSCAL `finding` with `satisfied` or `not-satisfied` status
-- Signed verdict properties embedded when Key C is configured
+1. **Gatekeeper Modules:** Validates ECDSA manifest signatures (Key A), verifies SHA-256 payload hashes, and checks provenance sidecars before any policy evaluation runs.
+2. **Embedded OPA Engine:** Executes dynamic scoping and verification Rego rules supplied by the Governor.
+3. **Schema Drift Detection:** Flags `SCHEMA_DRIFT` anomalies to trigger GitOps self-healing workflows.
+4. **OSCAL Output:** Optionally produces NIST OSCAL 1.1.2 Assessment Results JSON via `--output-format oscal` (or `JULA_OUTPUT_FORMAT=oscal`).
+5. **Signed Verdicts:** Every compliance verdict is ECDSA-signed (Key C) for tamper-evident audit trails.
 
 ## Usage
 
-For full ecosystem documentation, architecture diagrams, and licensing details, please refer to the [Root README](../README.md).
+For full ecosystem documentation, architecture diagrams, and licensing details, see the [Root README](../README.md).

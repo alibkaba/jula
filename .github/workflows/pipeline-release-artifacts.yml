@@ -109,6 +109,12 @@ jobs:
       - name: Build Windows Binary (AMD64)
         run: GOOS=windows GOARCH=amd64 go build -o build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe ./${{ needs.detect-release.outputs.service }}/cmd/${{ needs.detect-release.outputs.service }}
 
+      - name: Generate SBOM (CycloneDX)
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: mod -licenses -json -output build/jula-${{ needs.detect-release.outputs.service }}-sbom.cdx.json ./${{ needs.detect-release.outputs.service }}/
+
       - name: Upload Release Artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -116,7 +122,8 @@ jobs:
           gh release upload ${{ github.event.release.tag_name }} \
             build/jula-${{ needs.detect-release.outputs.service }}-darwin-arm64 \
             build/jula-${{ needs.detect-release.outputs.service }}-linux-amd64 \
-            build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe
+            build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe \
+            build/jula-${{ needs.detect-release.outputs.service }}-sbom.cdx.json
 
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
@@ -125,6 +132,7 @@ jobs:
             build/jula-${{ needs.detect-release.outputs.service }}-darwin-arm64
             build/jula-${{ needs.detect-release.outputs.service }}-linux-amd64
             build/jula-${{ needs.detect-release.outputs.service }}-windows-amd64.exe
+            build/jula-${{ needs.detect-release.outputs.service }}-sbom.cdx.json
 
   # ==========================================
   # Build core CLI binaries (jula-sign-evidence, jula-verify)
@@ -165,6 +173,12 @@ jobs:
       - name: Build jula-verify (Windows AMD64)
         run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o build/jula-verify-windows-amd64.exe ./core/cmd/jula-verify
 
+      - name: Generate SBOM (CycloneDX)
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: mod -licenses -json -output build/jula-core-sbom.cdx.json ./core/
+
       - name: Upload Release Artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -175,7 +189,8 @@ jobs:
             build/jula-sign-evidence-windows-amd64.exe \
             build/jula-verify-darwin-arm64 \
             build/jula-verify-linux-amd64 \
-            build/jula-verify-windows-amd64.exe
+            build/jula-verify-windows-amd64.exe \
+            build/jula-core-sbom.cdx.json
 
       - name: Attest Build Provenance
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
@@ -187,3 +202,4 @@ jobs:
             build/jula-verify-darwin-arm64
             build/jula-verify-linux-amd64
             build/jula-verify-windows-amd64.exe
+            build/jula-core-sbom.cdx.json
