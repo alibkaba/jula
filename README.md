@@ -52,37 +52,41 @@ Jula operates as a decoupled pipeline, separating evidence attestation, policy e
 ```mermaid
 flowchart TB
     %% ══════════════════════════════════════════════════
-    %% Color System (each module has a unique hue)
-    %%   Governor  = Orange   (~30°)
-    %%   Collector = Blue     (~220°)
-    %%   Assessor  = Green    (~140°)
-    %%   Reporter  = Purple   (~280°)
-    %%   Ledger    = Slate    (neutral)
-    %%   Output    = Rose     (~340°, findings + verdicts)
-    %%   Core      = Gray     (neutral)
-    %% Keys = lighter shade of their parent module
-    %% Verify nodes = lighter shade of the key they check
+    %% 🎨 Color System: Themed Boundaries & High-Contrast Nodes
+    %%   🟠 Governor  = Peach / Orange  (Policy Auth)
+    %%   🔵 Collector = Light Blue      (Ingestion)
+    %%   ⚪ Ledger    = Cool Gray       (Data at Rest)
+    %%   🟢 Assessor  = Light Green     (Evaluation Engine)
+    %%   🟣 Reporter  = Light Purple    (Visualization Engine)
+    %%   ⬛ Core      = Dark Zinc       (Shared Low-Level Utilities)
+    %%   🌹 Data      = Rose            (Intermediate Artifacts)
+    %%   🔷 Output    = Cyan            (Final Deliverables)
+    %%   🔑 Keys      = Owner-tinted    (Crypto Primitives, 2.5px stroke)
+    %%   ✅ Verify    = Mid-tone        (Check-gate Bridges)
     %% ══════════════════════════════════════════════════
 
-    %% Module classes (lightened fills ~700-level)
-    classDef governor fill:#7c2d12,stroke:#fb923c,stroke-width:2px,color:#fff;
-    classDef collector fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#fff;
-    classDef assessor fill:#166534,stroke:#4ade80,stroke-width:2px,color:#fff;
-    classDef reporter fill:#581c87,stroke:#c084fc,stroke-width:2px,color:#fff;
-    classDef ledger fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#fff;
-    classDef output fill:#881337,stroke:#fb7185,stroke-width:2px,color:#fff;
-    classDef core fill:#374151,stroke:#9ca3af,stroke-width:1px,color:#fff;
+    %% 🏗️ Module Node Styles
+    classDef governor fill:#ffebd8,stroke:#ea580c,stroke-width:2px,color:#431407;
+    classDef collector fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
+    classDef assessor fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d;
+    classDef reporter fill:#faf5ff,stroke:#7c3aed,stroke-width:2px,color:#581c87;
+    classDef ledger fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a;
+    classDef core fill:#f4f4f5,stroke:#27272a,stroke-width:2px,color:#09090b;
 
-    %% Key classes (noticeably lighter than parent, ~400/500-level, cross-repo identifiers)
-    classDef keyA fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#fff;
-    classDef keyB fill:#d97706,stroke:#fcd34d,stroke-width:2px,color:#fff;
-    classDef keyC fill:#16a34a,stroke:#86efac,stroke-width:2px,color:#fff;
+    %% 📦 Data / Deliverable Artifact Styles (Separated from Engines)
+    classDef dataBundle fill:#fff1f2,stroke:#f43f5e,stroke-width:2px,color:#4c0519;
+    classDef finalOutput fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63;
 
-    %% Verify node classes (between key and module shades)
-    classDef verifyA fill:#2563eb,stroke:#93c5fd,stroke-width:1px,color:#fff;
-    classDef verifyB fill:#d97706,stroke:#fcd34d,stroke-width:1px,color:#fff;
-    classDef verifyC fill:#16a34a,stroke:#86efac,stroke-width:1px,color:#fff;
-    classDef verifyInteg fill:#475569,stroke:#94a3b8,stroke-width:1px,color:#fff;
+    %% 🔑 Cryptographic Key Primitives (owner-tinted)
+    classDef keyA fill:#dbeafe,stroke:#2563eb,stroke-width:2.5px,color:#1e3a8a;
+    classDef keyB fill:#fed7aa,stroke:#ea580c,stroke-width:2.5px,color:#431407;
+    classDef keyC fill:#dcfce7,stroke:#16a34a,stroke-width:2.5px,color:#14532d;
+
+    %% ✅ Verification Check-gates
+    classDef verifyA fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e;
+    classDef verifyB fill:#ffe4e6,stroke:#f43f5e,stroke-width:1.5px,color:#4c0519;
+    classDef verifyC fill:#fae8ff,stroke:#c084fc,stroke-width:1.5px,color:#6b21a8;
+    classDef verifyInteg fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59;
 
     subgraph Phase1 ["1. Governor Registry (governor/)"]
         direction LR
@@ -187,30 +191,37 @@ flowchart TB
     Findings --> SignedVerdict
     SignedVerdict -->|Verify Before Render| VerdictGate
 
-    %% ══ Apply Styles ══
-    %% Governor (orange)
-    class Cat,Req,PR_Int,PR_Norm,PR_Pol,Meta,BundleManifest governor;
-    %% Collector (blue)
+    %% ══ Apply Styling Assignments ══
+    class Cat,Req,PR_Int,PR_Norm,PR_Pol,Meta governor;
     class APIs,JIE,H,Sign,P,M,L collector;
-    %% Assessor (green)
     class EE,OPA assessor;
-    %% Reporter (purple)
     class DB,Summary,Coverage,TrendMod,Maturity,FAIR,ROI,Export,MCP reporter;
-    %% Ledger (slate)
     class GCS ledger;
-    %% Output artifacts (teal)
-    class Findings,SignedVerdict output;
-    %% Core (gray)
     class JC core;
-    %% Keys (lighter parent)
+
+    %% Intermediate Policy Bundles (Rose Data)
+    class BundleManifest dataBundle;
+
+    %% Final Deliverables (Gold Artifacts)
+    class Findings,SignedVerdict finalOutput;
+
+    %% Keys
     class KMS keyA;
     class KeyB keyB;
     class KeyC keyC;
-    %% Verify nodes (lighter of the key they check)
+
+    %% Verification Bridges
     class SigCheck,ProvCheck verifyA;
     class PolicyCheck verifyB;
     class VerdictGate verifyC;
     class HashCheck verifyInteg;
+
+    %% ══ Subgraph Canvas Fills (with visible borders) ══
+    style Phase1 fill:#fff7ed,stroke:#fb923c,stroke-width:2px;
+    style Phase2 fill:#f0f9ff,stroke:#93c5fd,stroke-width:2px;
+    style Phase3 fill:#f8fafc,stroke:#94a3b8,stroke-width:2px;
+    style Phase4 fill:#f0fdf4,stroke:#86efac,stroke-width:2px;
+    style Phase5 fill:#faf5ff,stroke:#d8b4fe,stroke-width:2px;
 ```
 
 ---
