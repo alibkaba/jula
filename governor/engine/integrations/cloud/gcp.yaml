@@ -1,19 +1,78 @@
 vendor_name: "gcp"
 provider: "gcp"
 auth_flow:
-  type: "gcp_native_auth"
-  token_env: "GCP_ACCESS_TOKEN"
-
-# Egress manifest: required domains for evidence collection.
-# Deployment tooling derives firewall rules from this list.
+  type: "gcp_adc"
 endpoints:
-  compute: "compute.googleapis.com"
-  storage: "storage.googleapis.com"
-  iam: "iam.googleapis.com"
-  cloudresourcemanager: "cloudresourcemanager.googleapis.com"
-  logging: "logging.googleapis.com"
-  secretmanager: "secretmanager.googleapis.com"
-  cloudasset: "cloudasset.googleapis.com"
-  dns: "dns.googleapis.com"
-  container: "container.googleapis.com"
-  sqladmin: "sqladmin.googleapis.com"
+  # --- Cloud Storage: Data Protection (SOC 2 C1.1) ---
+  "https://storage.googleapis.com/storage/v1/b?project=${GCP_PROJECT_ID}":
+    method: "GET"
+    evidence_id: "EVID-GCP-STORAGE-BUCKETS"
+    description: "List Cloud Storage buckets and their configurations"
+    headers:
+      Accept: "application/json"
+  "https://storage.googleapis.com/storage/v1/b/${BUCKET_NAME}/iam":
+    method: "GET"
+    evidence_id: "EVID-GCP-STORAGE-IAM"
+    description: "Get IAM policy bindings for a Cloud Storage bucket"
+    headers:
+      Accept: "application/json"
+
+  # --- Cloud SQL: Database Compliance (SOC 2 A1.2) ---
+  "https://sqladmin.googleapis.com/v1/projects/${GCP_PROJECT_ID}/instances":
+    method: "GET"
+    evidence_id: "EVID-GCP-SQL-INSTANCES"
+    description: "List Cloud SQL instances with SSL and backup configuration"
+    headers:
+      Accept: "application/json"
+
+  # --- Compute Engine: Workload Security (SOC 2 CC6.1, CC6.6) ---
+  "https://compute.googleapis.com/compute/v1/projects/${GCP_PROJECT_ID}/aggregated/instances":
+    method: "GET"
+    evidence_id: "EVID-GCP-COMPUTE-INSTANCES"
+    description: "List Compute Engine instances with service account bindings"
+    headers:
+      Accept: "application/json"
+  "https://compute.googleapis.com/compute/v1/projects/${GCP_PROJECT_ID}/global/firewalls":
+    method: "GET"
+    evidence_id: "EVID-GCP-COMPUTE-FIREWALLS"
+    description: "Read firewall rules for network segmentation audits"
+    headers:
+      Accept: "application/json"
+
+  # --- IAM: Service Identity Management (SOC 2 CC6.1) ---
+  "https://iam.googleapis.com/v1/projects/${GCP_PROJECT_ID}/serviceAccounts":
+    method: "GET"
+    evidence_id: "EVID-GCP-IAM-SERVICE-ACCOUNTS"
+    description: "Enumerate service accounts for key rotation and lifecycle audits"
+    headers:
+      Accept: "application/json"
+  "https://iam.googleapis.com/v1/projects/${GCP_PROJECT_ID}/serviceAccounts/${SA_EMAIL}/keys":
+    method: "GET"
+    evidence_id: "EVID-GCP-IAM-SA-KEYS"
+    description: "List service account keys to detect long-lived credentials"
+    headers:
+      Accept: "application/json"
+
+  # --- Cloud Logging: Audit Trail (SOC 2 CC7.2) ---
+  "https://logging.googleapis.com/v2/projects/${GCP_PROJECT_ID}/sinks":
+    method: "GET"
+    evidence_id: "EVID-GCP-LOGGING-SINKS"
+    description: "List log sinks to verify audit logging export is configured"
+    headers:
+      Accept: "application/json"
+
+  # --- Cloud KMS: Encryption Key Management (SOC 2 C1.1) ---
+  "https://cloudkms.googleapis.com/v1/projects/${GCP_PROJECT_ID}/locations/-/keyRings":
+    method: "GET"
+    evidence_id: "EVID-GCP-KMS-KEYRINGS"
+    description: "List KMS key rings for encryption key lifecycle audits"
+    headers:
+      Accept: "application/json"
+
+  # --- Cloud Run: Serverless Workload Config ---
+  "https://run.googleapis.com/v2/projects/${GCP_PROJECT_ID}/locations/-/services":
+    method: "GET"
+    evidence_id: "EVID-GCP-RUN-SERVICES"
+    description: "List Cloud Run services and their configurations"
+    headers:
+      Accept: "application/json"
