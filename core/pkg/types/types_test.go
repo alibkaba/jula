@@ -45,7 +45,33 @@ func TestStructInstantiation(t *testing.T) {
 	}
 }
 
-func TestJSONSerialization(t *testing.T) {
+func TestJSONSerialization_Finding(t *testing.T) {
+	now := time.Now().Truncate(time.Second) // truncate to avoid nanosecond precision mismatch in JSON roundtrip
+
+	f := Finding{
+		EvidenceID: "EVID-TEST-01",
+		ControlID:  "BCD-11.4",
+		SourceID:   "gcp-project-123",
+		Provider:   "gcp_cai",
+		RawData:    []byte(`{"status":"OK"}`),
+		Timestamp:  now,
+		RunID:      "test-run-99",
+	}
+
+	fBytes, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("failed to marshal Finding: %v", err)
+	}
+	var fDecoded Finding
+	if err := json.Unmarshal(fBytes, &fDecoded); err != nil {
+		t.Fatalf("failed to unmarshal Finding: %v", err)
+	}
+	if fDecoded.EvidenceID != f.EvidenceID || fDecoded.RunID != f.RunID || string(fDecoded.RawData) != string(f.RawData) {
+		t.Errorf("unmarshaled Finding mismatch. Expected %+v, got %+v", f, fDecoded)
+	}
+}
+
+func TestJSONSerialization_Evidence(t *testing.T) {
 	now := time.Now().Truncate(time.Second) // truncate to avoid nanosecond precision mismatch in JSON roundtrip
 
 	f := Finding{
@@ -66,30 +92,6 @@ func TestJSONSerialization(t *testing.T) {
 		PayloadHash: "hash-789",
 	}
 
-	m := Manifest{
-		RunID:     "test-run-99",
-		Timestamp: now,
-		Providers: []string{"gcp_cai"},
-		EvidenceFiles: []FileChecksum{
-			{Path: "EVID-TEST-01/hash-789.json", SHA256: "hash-789"},
-		},
-		Signature: "sig-999",
-	}
-
-	// Test Finding JSON roundtrip
-	fBytes, err := json.Marshal(f)
-	if err != nil {
-		t.Fatalf("failed to marshal Finding: %v", err)
-	}
-	var fDecoded Finding
-	if err := json.Unmarshal(fBytes, &fDecoded); err != nil {
-		t.Fatalf("failed to unmarshal Finding: %v", err)
-	}
-	if fDecoded.EvidenceID != f.EvidenceID || fDecoded.RunID != f.RunID || string(fDecoded.RawData) != string(f.RawData) {
-		t.Errorf("unmarshaled Finding mismatch. Expected %+v, got %+v", f, fDecoded)
-	}
-
-	// Test Evidence JSON roundtrip
 	eBytes, err := json.Marshal(e)
 	if err != nil {
 		t.Fatalf("failed to marshal Evidence: %v", err)
@@ -101,8 +103,21 @@ func TestJSONSerialization(t *testing.T) {
 	if eDecoded.EvidenceID != e.EvidenceID || eDecoded.PayloadHash != e.PayloadHash || eDecoded.Finding.Provider != e.Finding.Provider {
 		t.Errorf("unmarshaled Evidence mismatch. Expected %+v, got %+v", e, eDecoded)
 	}
+}
 
-	// Test Manifest JSON roundtrip
+func TestJSONSerialization_Manifest(t *testing.T) {
+	now := time.Now().Truncate(time.Second) // truncate to avoid nanosecond precision mismatch in JSON roundtrip
+
+	m := Manifest{
+		RunID:     "test-run-99",
+		Timestamp: now,
+		Providers: []string{"gcp_cai"},
+		EvidenceFiles: []FileChecksum{
+			{Path: "EVID-TEST-01/hash-789.json", SHA256: "hash-789"},
+		},
+		Signature: "sig-999",
+	}
+
 	mBytes, err := json.Marshal(m)
 	if err != nil {
 		t.Fatalf("failed to marshal Manifest: %v", err)
