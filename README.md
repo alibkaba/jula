@@ -184,6 +184,9 @@ flowchart TB
                 HashCheck --> ProvCheck
                 ProvCheck --> PolicyCheck
                 PolicyCheck --> OPA
+
+                Findings["🏆 Compliance Findings<br>(assessor_ledger.json + OSCAL AR)"]
+                SignedVerdict["🛡️ Signed Verdict<br>(verdict.json)"]
             end
         end
     end
@@ -202,8 +205,8 @@ flowchart TB
 
     %% Execution flow (Inside Client Cloud)
     GCS -->|Pull Signed Ledger Run| SigCheck
-    OPA -->|Audit Logs| Findings["🏆 Compliance Findings<br>(assessor_ledger.json + OSCAL AR)"]
-    KeyC -.->|Sign Verdict| SignedVerdict["🛡️ Signed Verdict<br>(verdict.json)"]
+    OPA -->|Audit Logs| Findings
+    KeyC -.->|Sign Verdict| SignedVerdict
     Findings --> SignedVerdict
     
     %% Connection from external workloads into compliance environment
