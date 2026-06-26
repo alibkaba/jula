@@ -421,6 +421,49 @@ func (o *Orchestrator) loadIntegrationsFromConfig(ctx context.Context) ([]*unive
 // Cloud provider integrations live under cloud/{provider}.yaml and are
 // filtered by RunConfig.Provider. External integrations in the root are
 // always loaded.
+func (o *Orchestrator) determineSourceID(vendorName, evidenceID string) string {
+	sourceID := getSaaSSourceID(vendorName)
+	if sourceID == "default" {
+		sourceID = getAWSSourceID()
+	}
+	if sourceID == "default" {
+		sourceID = getGCPSourceID(evidenceID)
+	}
+	return sourceID
+}
+
+func (o *Orchestrator) createExtractionJob(engine *universalrest.Engine, integ *universalrest.RESTIntegration, erlPath string, epCfg universalrest.RESTEndpointConfig) extractionJob {
+	return extractionJob{
+		controlID:   strings.TrimPrefix(epCfg.EvidenceID, "EVID-"),
+		evidenceID:  epCfg.EvidenceID,
+		description: epCfg.Description,
+		execute: func(ctx context.Context) ([]types.Finding, error) {
+			findings, err := engine.Execute(ctx, integ, erlPath, epCfg, o.cfg.RunID)
+			if err != nil {
+				return nil, err
+			}
+			for i := range findings {
+				findings[i].ControlID = strings.TrimPrefix(epCfg.EvidenceID, "EVID-")
+				findings[i].SourceID = o.determineSourceID(integ.VendorName, epCfg.EvidenceID)
+			}
+			return findings, nil
+		},
+	}
+}
+
+func (o *Orchestrator) buildJobsForIntegration(engine *universalrest.Engine, integ *universalrest.RESTIntegration) []extractionJob {
+	var jobs []extractionJob
+	for erlPath, epCfg := range integ.Endpoints {
+		jobs = append(jobs, o.createExtractionJob(engine, integ, erlPath, epCfg))
+	}
+	return jobs
+}
+
+// buildJobs dynamically walks the integrations directory structure
+// and routes YAML integration configs through the Universal REST engine.
+// Cloud provider integrations live under cloud/{provider}.yaml and are
+// filtered by RunConfig.Provider. External integrations in the root are
+// always loaded.
 func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 	integrations, err := o.loadIntegrationsFromConfig(ctx)
 	if err != nil {
@@ -431,35 +474,9 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 
 	var jobs []extractionJob
 	for _, integ := range integrations {
-		integCopy := integ
-		for erlPath, epCfg := range integ.Endpoints {
-			p := erlPath
-			c := epCfg
-			jobs = append(jobs, extractionJob{
-				controlID:   strings.TrimPrefix(c.EvidenceID, "EVID-"),
-				evidenceID:  c.EvidenceID,
-				description: c.Description,
-				execute: func(ctx context.Context) ([]types.Finding, error) {
-					findings, err := engine.Execute(ctx, integCopy, p, c, o.cfg.RunID)
-					if err != nil {
-						return nil, err
-					}
-					for i := range findings {
-						findings[i].ControlID = strings.TrimPrefix(c.EvidenceID, "EVID-")
-						// Fallback to getSaaSSourceID logic
-						findings[i].SourceID = getSaaSSourceID(integCopy.VendorName)
-						if findings[i].SourceID == "default" {
-							findings[i].SourceID = getAWSSourceID()
-						}
-						if findings[i].SourceID == "default" {
-							findings[i].SourceID = getGCPSourceID(c.EvidenceID)
-						}
-					}
-					return findings, nil
-				},
-			})
-		}
+		jobs = append(jobs, o.buildJobsForIntegration(engine, integ)...)
 	}
 
 	return jobs, nil
 }
+
