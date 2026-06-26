@@ -51,6 +51,10 @@ func NewOPAEngine() *OPAEngine {
 	}
 }
 
+func isRegoPolicyFile(d fs.DirEntry) bool {
+	return !d.IsDir() && strings.HasSuffix(d.Name(), ".rego") && !strings.HasSuffix(d.Name(), "_test.rego")
+}
+
 // LoadPolicies walks a local directory and loads all .rego policy files.
 func (e *OPAEngine) LoadPolicies(policiesDir string) error {
 	slog.Info("evaluation: loading OPA policies from directory", "path", policiesDir)
@@ -59,7 +63,7 @@ func (e *OPAEngine) LoadPolicies(policiesDir string) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && strings.HasSuffix(d.Name(), ".rego") && !strings.HasSuffix(d.Name(), "_test.rego") {
+		if isRegoPolicyFile(d) {
 			content, err := os.ReadFile(path)
 			if err != nil {
 				return fmt.Errorf("reading policy file %s: %w", path, err)
@@ -171,6 +175,29 @@ func prepareEvaluationInput(evidences []types.Evidence, metadata map[string]inte
 	}
 }
 
+func extractEvaluationMap(results rego.ResultSet) (map[string]interface{}, bool) {
+	if len(results) == 0 || len(results[0].Expressions) == 0 {
+		return nil, false
+	}
+	packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	evalMap, ok := packageRootMap["evaluation"].(map[string]interface{})
+	return evalMap, ok
+}
+
+func extractFirstEvidencePayload(evidences []types.Evidence) interface{} {
+	if len(evidences) == 0 {
+		return nil
+	}
+	var raw interface{}
+	if err := json.Unmarshal(evidences[0].Finding.RawData, &raw); err != nil {
+		raw = string(evidences[0].Finding.RawData)
+	}
+	return raw
+}
+
 func parseControlFindingVerdict(results rego.ResultSet, pkgPath string, evidences []types.Evidence) (verdict ComplianceVerdict, custControlID, details, targetService, automationStatus string, confidence float64, rawBreakingData interface{}) {
 	isCompliant := false
 	custControlID = ""
@@ -180,35 +207,31 @@ func parseControlFindingVerdict(results rego.ResultSet, pkgPath string, evidence
 	confidence = 0.0
 	automationStatus = ""
 
-	if len(results) > 0 && len(results[0].Expressions) > 0 {
-		if packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok {
-			if evalMap, okEval := packageRootMap["evaluation"].(map[string]interface{}); okEval {
-				if comp, okComp := evalMap["compliant"].(bool); okComp {
-					isCompliant = comp
-				}
-				if custID, okCust := evalMap["customer_control_id"].(string); okCust {
-					custControlID = custID
-				}
-				if det, okDet := evalMap["details"].(string); okDet {
-					dynamicDetails = det
-				}
-				if drift, okDrift := evalMap["drift_detected"].(bool); okDrift {
-					driftDetected = drift
-				}
-				if service, okServ := evalMap["service"].(string); okServ {
-					targetService = service
-				}
-				if conf, okConf := evalMap["confidence"].(json.Number); okConf {
-					if v, err := conf.Float64(); err == nil {
-						confidence = v
-					}
-				} else if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
-					confidence = confFloat
-				}
-				if status, okStatus := evalMap["automation_status"].(string); okStatus {
-					automationStatus = status
-				}
+	if evalMap, ok := extractEvaluationMap(results); ok {
+		if comp, okComp := evalMap["compliant"].(bool); okComp {
+			isCompliant = comp
+		}
+		if custID, okCust := evalMap["customer_control_id"].(string); okCust {
+			custControlID = custID
+		}
+		if det, okDet := evalMap["details"].(string); okDet {
+			dynamicDetails = det
+		}
+		if drift, okDrift := evalMap["drift_detected"].(bool); okDrift {
+			driftDetected = drift
+		}
+		if service, okServ := evalMap["service"].(string); okServ {
+			targetService = service
+		}
+		if conf, okConf := evalMap["confidence"].(json.Number); okConf {
+			if v, err := conf.Float64(); err == nil {
+				confidence = v
 			}
+		} else if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
+			confidence = confFloat
+		}
+		if status, okStatus := evalMap["automation_status"].(string); okStatus {
+			automationStatus = status
 		}
 	}
 
@@ -227,14 +250,7 @@ func parseControlFindingVerdict(results rego.ResultSet, pkgPath string, evidence
 	}
 
 	if driftDetected {
-		for _, ev := range evidences {
-			var raw interface{}
-			if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
-				raw = string(ev.Finding.RawData)
-			}
-			rawBreakingData = raw
-			break // Grab the first one for the alert payload
-		}
+		rawBreakingData = extractFirstEvidencePayload(evidences)
 	}
 
 	return
