@@ -39,14 +39,14 @@ type ControlFinding struct {
 
 // OPAEngine manages the in-memory loading, compilation, and execution of Rego policies.
 type OPAEngine struct {
-	policyModules map[string]string
+	policyModules     map[string]string
 	controlPackageMap map[string][]string // Control ID -> List of OPA Package paths
 }
 
 // NewOPAEngine creates a new OPAEngine.
 func NewOPAEngine() *OPAEngine {
 	return &OPAEngine{
-		policyModules: make(map[string]string),
+		policyModules:     make(map[string]string),
 		controlPackageMap: make(map[string][]string),
 	}
 }

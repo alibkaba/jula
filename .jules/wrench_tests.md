@@ -9,3 +9,5 @@ WRENCH'S JOURNAL
 - To mock GCP credential token exchange (e.g., `google.FindDefaultCredentials`) without network calls, provide a dummy service account JSON file with a dynamically generated RSA private key and set its `token_uri` field to point to a local `httptest.NewServer`.
 
 - **Testing Oracle Cloud Infrastructure (OCI) Signatures:** The OCI signing logic `SignOCICavage` correctly expects PEM-encoded private keys, and supports both `RSA PRIVATE KEY` and `PRIVATE KEY` headers. During testing, to avoid file dependencies, generate keys in memory with `rsa.GenerateKey` and marshal them into valid PKCS#1 and PKCS#8 PEM blocks for mocking the `OCI_PRIVATE_KEY` environment variable.
+- In the evaluator module, passing a canceled context before calling OPA Eval() does not reliably simulate runtime errors for trivial rules (it may successfully evaluate anyway). Use invalid Rego syntax or empty results instead to test failure paths.
+- Ensure GOTOOLCHAIN=auto is set if the local Go version is older than the required workspace version (e.g., 1.25.10) to avoid 'go.work requires go >=' errors during testing.

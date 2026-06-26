@@ -26,9 +26,9 @@ type AssessmentResults struct {
 
 // AssessmentResultsBody holds the metadata and result entries.
 type AssessmentResultsBody struct {
-	UUID     string    `json:"uuid"`
-	Metadata Metadata  `json:"metadata"`
-	Results  []Result  `json:"results"`
+	UUID     string   `json:"uuid"`
+	Metadata Metadata `json:"metadata"`
+	Results  []Result `json:"results"`
 }
 
 // Metadata contains document-level metadata.
@@ -43,9 +43,9 @@ type Metadata struct {
 
 // Party identifies the organization or tool producing the assessment.
 type Party struct {
-	UUID  string `json:"uuid"`
-	Type  string `json:"type"`
-	Name  string `json:"name"`
+	UUID string `json:"uuid"`
+	Type string `json:"type"`
+	Name string `json:"name"`
 }
 
 // Property is a key-value metadata pair.
@@ -56,29 +56,29 @@ type Property struct {
 
 // Result represents a single assessment activity result.
 type Result struct {
-	UUID        string       `json:"uuid"`
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	Start       time.Time    `json:"start"`
-	End         time.Time    `json:"end,omitempty"`
-	Findings    []Finding    `json:"findings,omitempty"`
-	Props       []Property   `json:"props,omitempty"`
+	UUID        string     `json:"uuid"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Start       time.Time  `json:"start"`
+	End         time.Time  `json:"end,omitempty"`
+	Findings    []Finding  `json:"findings,omitempty"`
+	Props       []Property `json:"props,omitempty"`
 }
 
 // Finding maps to an OSCAL finding entry.
 type Finding struct {
-	UUID        string           `json:"uuid"`
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Target      FindingTarget    `json:"target"`
-	Props       []Property       `json:"props,omitempty"`
+	UUID        string        `json:"uuid"`
+	Title       string        `json:"title"`
+	Description string        `json:"description"`
+	Target      FindingTarget `json:"target"`
+	Props       []Property    `json:"props,omitempty"`
 }
 
 // FindingTarget identifies the control that was assessed.
 type FindingTarget struct {
-	Type     string   `json:"type"`
-	TargetID string   `json:"target-id"`
-	Status   Status   `json:"status"`
+	Type     string `json:"type"`
+	TargetID string `json:"target-id"`
+	Status   Status `json:"status"`
 }
 
 // Status maps the compliance verdict to OSCAL status values.
