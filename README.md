@@ -88,108 +88,129 @@ flowchart TB
     classDef verifyC fill:#fae8ff,stroke:#c084fc,stroke-width:1.5px,color:#6b21a8;
     classDef verifyInteg fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59;
 
-    subgraph Phase1 ["1. Governor Registry (governor/)"]
+    subgraph ClientLocal ["💻 Client Local & GitOps Space"]
+        direction TB
+
+        subgraph Phase1 ["1. Governor Registry (governor/)"]
+            direction LR
+            Cat["📄 catalog.csv<br>(GRC Controls Catalog)"] -->|AI Extract| Req["📄 requirements.csv<br>(Engineering Requirements)"]
+            Req -->|Approve + Generate| PR_Pol["📂 policies/rules/<br>(Rego Policies)"]
+            PR_Int["📂 engine/integrations/<br>(YAML Data Collectors)"]
+            PR_Norm["📂 engine/translators/<br>(Rego Payload Adapters)"]
+            Meta["📄 workspace.yaml<br>(Active Scopes)"]
+            KeyB["🔑 Key B: Policy Signing<br>(JULA_POLICY_SIGNING_KEY)"] -.->|Sign Bundle| BundleManifest["🛡️ bundle-manifest.json<br>(Signed Policy Bundle)"]
+        end
+
+        subgraph Phase5 ["5. Posture Insights (reporter/) 🚧"]
+            direction TB
+            VerdictGate["🔑 Verdict Verify<br>(Key C Public)"]
+            DB["📊 Posture Reporter<br>(jula-posture CLI)"]
+
+            subgraph Analysis ["Analysis"]
+                direction LR
+                Summary["📋 Executive Summary"]
+                Coverage["🔧 Automation Coverage"]
+                TrendMod["📈 Compliance Trend"]
+                Maturity["🕸️ CSF Maturity"]
+            end
+
+            subgraph Risk ["Risk Quantification"]
+                direction LR
+                FAIR["📈 FAIR Monte Carlo"]
+                ROI["📊 Risk vs Mitigation ROI"]
+            end
+
+            subgraph Output ["Output"]
+                direction LR
+                Export["📄 HTML / PDF Export"]
+                MCP["🔌 MCP Server"]
+            end
+
+            VerdictGate --> DB
+            DB --> Analysis
+            DB --> Risk
+            DB --> Output
+        end
+
+        JC["📦 Jula Core<br>(Shared Go Module)"]
+    end
+
+    subgraph ClientCloud ["☁️ Client Cloud Infrastructure (AWS / GCP)"]
         direction LR
-        Cat["📄 catalog.csv<br>(GRC Controls Catalog)"] -->|AI Extract| Req["📄 requirements.csv<br>(Engineering Requirements)"]
-        Req -->|Approve + Generate| PR_Pol["📂 policies/rules/<br>(Rego Policies)"]
-        PR_Int["📂 engine/integrations/<br>(YAML Data Collectors)"]
-        PR_Norm["📂 engine/translators/<br>(Rego Payload Adapters)"]
-        Meta["📄 workspace.yaml<br>(Active Scopes)"]
-        KeyB["🔑 Key B: Policy Signing<br>(JULA_POLICY_SIGNING_KEY)"] -.->|Sign Bundle| BundleManifest["🛡️ bundle-manifest.json<br>(Signed Policy Bundle)"]
-    end
 
-    subgraph Phase2 ["2. Attestation Layer (collector/)"]
-        direction TB
-        APIs["☁️ Target Provider Scopes<br>(Cloud + SaaS APIs)"] -->|1. Extract Configs| JIE["Collector Engine<br>(Stateless Go CLI)"]
-        JIE -->|2a. Output Payloads| H["📄 Evidence Payloads<br>(Raw JSON / CSV / Text)"]
-        KMS["🔑 Key A: Evidence Signing<br>(Cloud KMS Asymmetric)"] -.->|Sign Manifest + Provenance| Sign["Signing Engine"]
-        Sign -->|2b. Provenance| P["🛡️ Provenance Sidecars<br>(*.prov.json)"]
-        Sign -->|2c. Manifest| M["📜 Cryptographic Manifest<br>(manifest.json)"]
-        Sign -->|2d. Execution Trace| L["📝 Sanitized Logs<br>(run.log.gz)"]
-    end
-
-    subgraph Phase3 ["3. Immutable Attestation Ledger"]
-        direction TB
-        GCS[("🪣 Secure Object Storage<br>ledger://jula-ledger-{cloud_id}<br>(Versioned + Audit Logged)")]
-        H -->|Upload| GCS
-        P -->|Upload| GCS
-        M -->|Upload| GCS
-        L -->|Upload| GCS
-    end
-
-    subgraph Phase4 ["4. Continuous Assurance Layer (assessor/)"]
-        direction TB
-        EE["🔍 Assessor Engine<br>(Stateless Go CLI)"]
-
-        subgraph GK ["Gatekeeper Verification"]
+        subgraph ClientTargetEnv ["☁️ Target Workloads (In-Scope)"]
             direction LR
-            SigCheck["🔑 Manifest Verify<br>(Key A Public)"]
-            HashCheck["✅ Integrity Check<br>(Hash Comparison)"]
-            ProvCheck["🛡️ Provenance Verify<br>(Sidecar Check)"]
-            PolicyCheck["🔑 Bundle Verify<br>(Key B Public)"]
+            APIs["☁️ Target Provider Scopes<br>(AWS, GCP, SaaS APIs)"]
         end
 
-        OPA["⚙️ Embedded OPA Engine<br>(Dynamic Rego Execution)"]
-        KeyC["🔑 Key C: Verdict Signing<br>(JULA_ASSESSOR_SIGNING_KEY)"]
+        subgraph ComplianceVPC ["🔒 Dedicated Compliance Account (Isolated Jula VPC)"]
+            direction TB
+            
+            subgraph Phase2 ["2. Attestation Layer (collector/)"]
+                direction TB
+                JIE["Collector Engine<br>(Stateless Go CLI)"] -->|2a. Output Payloads| H["📄 Evidence Payloads<br>(Raw JSON / CSV / Text)"]
+                KMS["🔑 Key A: Evidence Signing<br>(Cloud KMS Asymmetric)"] -.->|Sign Manifest + Provenance| Sign["Signing Engine"]
+                Sign -->|2b. Provenance| P["🛡️ Provenance Sidecars<br>(*.prov.json)"]
+                Sign -->|2c. Manifest| M["📜 Cryptographic Manifest<br>(manifest.json)"]
+                Sign -->|2d. Execution Trace| L["📝 Sanitized Logs<br>(run.log.gz)"]
+            end
 
-        EE --> SigCheck
-        SigCheck --> HashCheck
-        HashCheck --> ProvCheck
-        ProvCheck --> PolicyCheck
-        PolicyCheck --> OPA
+            subgraph Phase3 ["3. Immutable Attestation Ledger"]
+                direction TB
+                GCS[("🪣 Secure Object Storage<br>ledger://jula-ledger-{cloud_id}<br>(Versioned + Audit Logged)")]
+                H -->|Upload| GCS
+                P -->|Upload| GCS
+                M -->|Upload| GCS
+                L -->|Upload| GCS
+            end
+
+            subgraph Phase4 ["4. Continuous Assurance Layer (assessor/)"]
+                direction TB
+                EE["🔍 Assessor Engine<br>(Stateless Go CLI)"]
+
+                subgraph GK ["Gatekeeper Verification"]
+                    direction LR
+                    SigCheck["🔑 Manifest Verify<br>(Key A Public)"]
+                    HashCheck["✅ Integrity Check<br>(Hash Comparison)"]
+                    ProvCheck["🛡️ Provenance Verify<br>(Sidecar Check)"]
+                    PolicyCheck["🔑 Bundle Verify<br>(Key B Public)"]
+                end
+
+                OPA["⚙️ Embedded OPA Engine<br>(Dynamic Rego Execution)"]
+                KeyC["🔑 Key C: Verdict Signing<br>(JULA_ASSESSOR_SIGNING_KEY)"]
+
+                EE --> SigCheck
+                SigCheck --> HashCheck
+                HashCheck --> ProvCheck
+                ProvCheck --> PolicyCheck
+                PolicyCheck --> OPA
+            end
+        end
     end
-
-    subgraph Phase5 ["5. Posture Insights (reporter/) 🚧"]
-        direction TB
-        VerdictGate["🔑 Verdict Verify<br>(Key C Public)"]
-        DB["📊 Posture Reporter<br>(jula-posture CLI)"]
-
-        subgraph Analysis ["Analysis"]
-            direction LR
-            Summary["📋 Executive Summary"]
-            Coverage["🔧 Automation Coverage"]
-            TrendMod["📈 Compliance Trend"]
-            Maturity["🕸️ CSF Maturity"]
-        end
-
-        subgraph Risk ["Risk Quantification"]
-            direction LR
-            FAIR["📈 FAIR Monte Carlo"]
-            ROI["📊 Risk vs Mitigation ROI"]
-        end
-
-        subgraph Output ["Output"]
-            direction LR
-            Export["📄 HTML / PDF Export"]
-            MCP["🔌 MCP Server"]
-        end
-
-        VerdictGate --> DB
-        DB --> Analysis
-        DB --> Risk
-        DB --> Output
-    end
-
-    JC["📦 Jula Core<br>(Shared Go Module)"]
 
     %% Core Data Relationships
     JC -.->|Shared Schema + Crypto| JIE
     JC -.->|Shared Schema + Crypto| EE
     JC -.->|Shared Schema + Crypto| DB
 
-    %% Governor injections
+    %% Governor injections (Crossing into Client Cloud)
     PR_Int -->|Remote Streaming| JIE
     Meta -->|--metadata-url| EE
     PR_Norm -->|Stream Translators| OPA
     PR_Pol -->|Stream Policies| OPA
     BundleManifest -->|Verify Before Load| PolicyCheck
 
-    %% Execution flow
+    %% Execution flow (Inside Client Cloud)
     GCS -->|Pull Signed Ledger Run| SigCheck
     OPA -->|Audit Logs| Findings["🏆 Compliance Findings<br>(assessor_ledger.json + OSCAL AR)"]
     KeyC -.->|Sign Verdict| SignedVerdict["🛡️ Signed Verdict<br>(verdict.json)"]
     Findings --> SignedVerdict
-    SignedVerdict -->|Verify Before Render| VerdictGate
+    
+    %% Connection from external workloads into compliance environment
+    APIs -->|1. Extract Configs| JIE
+
+    %% Execution flow (Exiting Client Cloud via VPN/IAM)
+    SignedVerdict -->|Secure VPN / IAM Pull| VerdictGate
 
     %% ══ Apply Styling Assignments ══
     class Cat,Req,PR_Int,PR_Norm,PR_Pol,Meta governor;
@@ -222,6 +243,12 @@ flowchart TB
     style Phase3 fill:#f8fafc,stroke:#94a3b8,stroke-width:2px;
     style Phase4 fill:#f0fdf4,stroke:#86efac,stroke-width:2px;
     style Phase5 fill:#faf5ff,stroke:#d8b4fe,stroke-width:2px;
+    
+    %% NEW: Client boundaries & background styling
+    style ClientLocal fill:#fafaf9,stroke:#0f172a,stroke-width:3px;
+    style ClientCloud fill:#f8fafc,stroke:#334155,stroke-width:3px;
+    style ClientTargetEnv fill:#fffbeb,stroke:#d97706,stroke-width:2px,stroke-dasharray: 5 5;
+    style ComplianceVPC fill:#f8fafc,stroke:#334155,stroke-width:2px,stroke-dasharray: 10 5;
 ```
 
 ---
