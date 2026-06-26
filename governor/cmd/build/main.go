@@ -13,12 +13,13 @@ import (
 	"jula-governor/internal/aiutil"
 )
 
-const (
+var (
 	workspaceFile    = "../../workspace.yaml"
 	requirementsFile = "../../requirements.csv"
 	promptFile       = "../../engine/prompts/setup_04_generate_policy.md"
 	translatorsDir   = "../../engine/translators/"
 	policiesDir      = "../../policies/rules/"
+	exitFunc         = os.Exit
 )
 
 // extractRegoBlock extracts Rego code from a markdown-fenced response.
@@ -73,41 +74,52 @@ func loadTranslators(provider string) string {
 }
 
 func main() {
+	if err := runBuild(); err != nil {
+		log.Printf("[FATAL] %v", err)
+		exitFunc(1)
+		return
+	}
+}
+
+// runBuild runs the generation of policies based on requirements.csv approvals and OPA translators.
+func runBuild() error {
 	primaryConfig := aiutil.LoadPrimaryConfig()
 	fallbackConfig := aiutil.LoadFallbackConfig()
 	maxRetries := aiutil.LoadMaxRetries()
 
-	aiutil.RequireAIConfig(primaryConfig, fallbackConfig)
+	if primaryConfig.Endpoint == "" && fallbackConfig.Endpoint == "" {
+		return fmt.Errorf("neither primary nor fallback AI endpoint is configured")
+	}
 
 	// 1. Parse Workspace
 	_, err := aiutil.ParseWorkspace(workspaceFile)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to parse workspace.yaml: %v", err)
+		return fmt.Errorf("failed to parse workspace.yaml: %w", err)
 	}
 
 	// 2. Load Prompt Template
 	promptBytes, err := os.ReadFile(promptFile)
 	if err != nil {
-		log.Fatalf("[FATAL] Prompt template not found at %s: %v", promptFile, err)
+		return fmt.Errorf("prompt template not found at %s: %w", promptFile, err)
 	}
 	promptTemplate := string(promptBytes)
 
 	// Create output dir if it doesn't exist
 	if err := os.MkdirAll(policiesDir, 0755); err != nil {
-		log.Fatalf("[FATAL] Failed to create policies output directory: %v", err)
+		return fmt.Errorf("failed to create policies output directory: %w", err)
 	}
 
 	// 3. Process Requirements Ledger
 	f, err := os.Open(requirementsFile)
 	if err != nil {
-		log.Fatalf("[FATAL] Input ledger not found at %s: %v", requirementsFile, err)
+		return fmt.Errorf("input ledger not found at %s: %w", requirementsFile, err)
 	}
 	defer f.Close()
 
 	reader := csv.NewReader(f)
 	header, err := reader.Read()
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to read ledger header: %v", err)
+		return fmt.Errorf("failed to read ledger header: %w", err)
 	}
 
 	colMap := make(map[string]int)
@@ -118,7 +130,7 @@ func main() {
 	requiredCols := []string{"control_id", "requirement_id", "target_provider", "parameter_field", "operator", "expected_value", "status"}
 	for _, req := range requiredCols {
 		if _, ok := colMap[req]; !ok {
-			log.Fatalf("[FATAL] ledger is missing required column: %s", req)
+			return fmt.Errorf("ledger is missing required column: %s", req)
 		}
 	}
 
@@ -189,4 +201,6 @@ func main() {
 	if approvedCount == 0 {
 		fmt.Println("[GENERATE] No APPROVED rules found in the ledger. Exiting gracefully.")
 	}
+
+	return nil
 }

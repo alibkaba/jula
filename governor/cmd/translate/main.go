@@ -12,10 +12,11 @@ import (
 	"jula-governor/internal/aiutil"
 )
 
-const (
+var (
 	buildPromptFile = "../../engine/prompts/setup_02_build_translator.md"
 	healPromptFile  = "../../engine/prompts/remediate_01_heal_translator.md"
 	translatorsDir  = "../../engine/translators/"
+	exitFunc        = os.Exit
 )
 
 // extractRegoBlock extracts Rego code from a markdown-fenced response.
@@ -43,36 +44,49 @@ func main() {
 	if *providerFlag == "" || *serviceFlag == "" || *samplePathFlag == "" {
 		fmt.Fprintf(os.Stderr, "Usage: translate --provider <provider> --service <service> --sample-path <path>\n\n")
 		fmt.Fprintf(os.Stderr, "All three flags are mandatory.\n")
-		os.Exit(2)
+		exitFunc(2)
+		return
+	}
+
+	if err := runTranslate(*providerFlag, *serviceFlag, *samplePathFlag, *healFlag); err != nil {
+		log.Printf("[FATAL] %v", err)
+		exitFunc(1)
+		return
+	}
+}
+
+// runTranslate orchestrates loading the raw response sample, hydrating the prompt,
+// invoking the AI engine, extracting the generated Rego, and saving the translator.
+func runTranslate(provider, service, samplePath string, heal bool) error {
+	fmt.Printf("[TRANSLATE] Loading raw response sample from %s...\n", samplePath)
+	sampleBytes, err := os.ReadFile(samplePath)
+	if err != nil {
+		return fmt.Errorf("failed to read sample file at %s: %w", samplePath, err)
+	}
+
+	targetPromptFile := buildPromptFile
+	if heal {
+		targetPromptFile = healPromptFile
+		fmt.Printf("[TRANSLATE] Hydrating remediate_01_heal_translator.md for %s %s...\n", provider, service)
+	} else {
+		fmt.Printf("[TRANSLATE] Hydrating setup_02_build_translator.md for %s %s...\n", provider, service)
+	}
+
+	promptBytes, err := os.ReadFile(targetPromptFile)
+	if err != nil {
+		return fmt.Errorf("prompt template not found at %s: %w", targetPromptFile, err)
 	}
 
 	primaryConfig := aiutil.LoadPrimaryConfig()
 	fallbackConfig := aiutil.LoadFallbackConfig()
 	maxRetries := aiutil.LoadMaxRetries()
 
-	aiutil.RequireAIConfig(primaryConfig, fallbackConfig)
-
-	fmt.Printf("[TRANSLATE] Loading raw response sample from %s...\n", *samplePathFlag)
-	sampleBytes, err := os.ReadFile(*samplePathFlag)
-	if err != nil {
-		log.Fatalf("[FATAL] Failed to read sample file at %s: %v", *samplePathFlag, err)
+	if primaryConfig.Endpoint == "" && fallbackConfig.Endpoint == "" {
+		return fmt.Errorf("neither primary nor fallback AI endpoint is configured")
 	}
 
-	targetPromptFile := buildPromptFile
-	if *healFlag {
-		targetPromptFile = healPromptFile
-		fmt.Printf("[TRANSLATE] Hydrating remediate_01_heal_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
-	} else {
-		fmt.Printf("[TRANSLATE] Hydrating setup_02_build_translator.md for %s %s...\n", *providerFlag, *serviceFlag)
-	}
-
-	promptBytes, err := os.ReadFile(targetPromptFile)
-	if err != nil {
-		log.Fatalf("[FATAL] Prompt template not found at %s: %v", targetPromptFile, err)
-	}
-
-	providerLower := strings.ToLower(*providerFlag)
-	serviceLower := strings.ToLower(*serviceFlag)
+	providerLower := strings.ToLower(provider)
+	serviceLower := strings.ToLower(service)
 
 	hydratedPrompt := string(promptBytes)
 	hydratedPrompt = strings.ReplaceAll(hydratedPrompt, "{{TARGET_PROVIDER}}", providerLower)
@@ -90,7 +104,7 @@ func main() {
 
 	rawContent, tierUsed, err := aiutil.ProcessWithRetriesAndFailover(primaryConfig, fallbackConfig, maxRetries, req)
 	if err != nil {
-		log.Fatalf("[FATAL] Translation generation failed: %v", err)
+		return fmt.Errorf("translation generation failed: %w", err)
 	}
 
 	regoCode := extractRegoBlock(rawContent)
@@ -98,15 +112,16 @@ func main() {
 	fmt.Printf("         [SUCCESS] Generated via %s\n", tierUsed)
 
 	if err := os.MkdirAll(translatorsDir, 0755); err != nil {
-		log.Fatalf("[FATAL] Failed to create translators directory: %v", err)
+		return fmt.Errorf("failed to create translators directory: %w", err)
 	}
 
 	outputFilename := fmt.Sprintf("%s_%s.rego", providerLower, serviceLower)
 	outputPath := filepath.Join(translatorsDir, outputFilename)
 
 	if err := os.WriteFile(outputPath, []byte(regoCode), 0644); err != nil {
-		log.Fatalf("[FATAL] Failed to save %s: %v", outputFilename, err)
+		return fmt.Errorf("failed to save %s: %w", outputFilename, err)
 	}
 
 	fmt.Printf("[SUCCESS] Output saved to engine/translators/%s\n", outputFilename)
+	return nil
 }

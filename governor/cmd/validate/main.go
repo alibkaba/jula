@@ -9,13 +9,26 @@ import (
 	"github.com/open-policy-agent/opa/ast"
 )
 
-const translatorsDir = "../../engine/translators/"
+var (
+	translatorsDir = "../../engine/translators/"
+	exitFunc       = os.Exit
+)
 
 func main() {
+	if err := runValidate(translatorsDir); err != nil {
+		fmt.Println(err)
+		exitFunc(1)
+		return
+	}
+	fmt.Println("[SUCCESS] All translator modules passed compilation validation successfully.")
+}
+
+// runValidate performs the walk-based static analysis of Rego files under target directory.
+func runValidate(dir string) error {
 	fmt.Println("[VALIDATE] Initiating offline static analysis on AI patches...")
 	failed := false
 
-	err := filepath.Walk(translatorsDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -39,9 +52,12 @@ func main() {
 		return nil
 	})
 
-	if err != nil || failed {
-		fmt.Println("[FATAL] Validation checks failed. Corrupted Rego code detected.")
-		os.Exit(1)
+	if err != nil {
+		return err
 	}
-	fmt.Println("[SUCCESS] All translator modules passed compilation validation successfully.")
+	if failed {
+		return fmt.Errorf("[FATAL] Validation checks failed. Corrupted Rego code detected.")
+	}
+	return nil
 }
+

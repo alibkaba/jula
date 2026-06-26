@@ -22,10 +22,13 @@ import (
 	"jula-reporter/internal/render"
 )
 
+var exitFunc = os.Exit
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	cmd := os.Args[1]
@@ -55,12 +58,14 @@ func main() {
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", cmd)
 		printUsage()
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 }
 
@@ -143,7 +148,8 @@ func runSummary(args []string) error {
 		if !ok {
 			renderSummary(summary)
 			fmt.Fprintf(os.Stderr, "\n  %s\n\n", render.BoldRed("✗ VERDICT SIGNATURE INVALID - the verdict has been tampered with or signed by an unknown key"))
-			os.Exit(1)
+			exitFunc(1)
+			return nil
 		}
 		summary.VerdictVerified = true
 	}

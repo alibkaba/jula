@@ -343,3 +343,161 @@ func TestDefaultRiskConfig(t *testing.T) {
 		}
 	}
 }
+
+// --- LoadLedger ---
+
+func TestLoadLedger_Valid(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ledger.json")
+	data := `[
+		{"control_id":"AC-1","verdict":"COMPLIANT","details":"ok","confidence":1.0,"evaluated_at":"2025-01-15T10:00:00Z"},
+		{"control_id":"AC-2","verdict":"NON_COMPLIANT","details":"missing mfa","confidence":0.95,"evaluated_at":"2025-01-15T10:01:00Z"}
+	]`
+	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := LoadLedger(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0].ControlID != "AC-1" {
+		t.Errorf("unexpected first control: %s", entries[0].ControlID)
+	}
+	if entries[1].Verdict != "NON_COMPLIANT" {
+		t.Errorf("unexpected second verdict: %s", entries[1].Verdict)
+	}
+}
+
+func TestLoadLedger_MissingFile(t *testing.T) {
+	_, err := LoadLedger("/nonexistent/ledger.json")
+	if err == nil {
+		t.Error("expected error for missing file")
+	}
+}
+
+func TestLoadLedger_InvalidJSON(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.json")
+	if err := os.WriteFile(path, []byte("not json"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadLedger(path)
+	if err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
+func TestLoadLedger_EmptyArray(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "empty.json")
+	if err := os.WriteFile(path, []byte("[]"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := LoadLedger(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(entries))
+	}
+}
+
+// --- LoadVerdict ---
+
+func TestLoadVerdict_Valid(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "verdict.json")
+	data := `{
+		"run_id": "run-abc",
+		"ledger_hash": "sha256:deadbeef",
+		"signature": "sig-123",
+		"timestamp": "2025-01-15T10:00:00Z"
+	}`
+	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	v, err := LoadVerdict(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if v.RunID != "run-abc" {
+		t.Errorf("unexpected RunID: %s", v.RunID)
+	}
+	if v.LedgerHash != "sha256:deadbeef" {
+		t.Errorf("unexpected LedgerHash: %s", v.LedgerHash)
+	}
+}
+
+func TestLoadVerdict_MissingFile(t *testing.T) {
+	_, err := LoadVerdict("/nonexistent/verdict.json")
+	if err == nil {
+		t.Error("expected error for missing file")
+	}
+}
+
+func TestLoadVerdict_InvalidJSON(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.json")
+	if err := os.WriteFile(path, []byte("{invalid}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadVerdict(path)
+	if err == nil {
+		t.Error("expected error for invalid JSON")
+	}
+}
+
+// --- ComputeTrend (multi-run) ---
+
+func TestComputeTrend_MultipleRuns(t *testing.T) {
+	dir := t.TempDir()
+
+	// Run 1: 50% pass rate.
+	run1Dir := filepath.Join(dir, "2025-01-15_run1")
+	if err := os.MkdirAll(run1Dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ledger1 := `[{"control_id":"AC-1","verdict":"COMPLIANT"},{"control_id":"AC-2","verdict":"NON_COMPLIANT"}]`
+	if err := os.WriteFile(filepath.Join(run1Dir, "assessor_ledger.json"), []byte(ledger1), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run 2: 100% pass rate.
+	run2Dir := filepath.Join(dir, "2025-02-15_run2")
+	if err := os.MkdirAll(run2Dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ledger2 := `[{"control_id":"AC-1","verdict":"COMPLIANT"},{"control_id":"AC-2","verdict":"COMPLIANT"}]`
+	if err := os.WriteFile(filepath.Join(run2Dir, "assessor_ledger.json"), []byte(ledger2), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	trend, err := ComputeTrend(dir, 12)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(trend.Points) != 2 {
+		t.Fatalf("expected 2 points, got %d", len(trend.Points))
+	}
+
+	// Delta should be positive (improvement).
+	if trend.DeltaRate <= 0 {
+		t.Errorf("expected positive delta rate, got %.0f", trend.DeltaRate)
+	}
+	if trend.DeltaFixed <= 0 {
+		t.Errorf("expected positive delta fixed, got %d", trend.DeltaFixed)
+	}
+}
+
+func TestComputeTrend_MissingDir(t *testing.T) {
+	_, err := ComputeTrend("/nonexistent/dir", 12)
+	if err == nil {
+		t.Error("expected error for missing directory")
+	}
+}
+
