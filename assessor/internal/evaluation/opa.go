@@ -198,41 +198,41 @@ func extractFirstEvidencePayload(evidences []types.Evidence) interface{} {
 	return raw
 }
 
+func parseBoolField(evalMap map[string]interface{}, key string) bool {
+	val, _ := evalMap[key].(bool)
+	return val
+}
+
+func parseStringField(evalMap map[string]interface{}, key string) string {
+	val, _ := evalMap[key].(string)
+	return val
+}
+
+func parseConfidence(evalMap map[string]interface{}) float64 {
+	if conf, okConf := evalMap["confidence"].(json.Number); okConf {
+		if v, err := conf.Float64(); err == nil {
+			return v
+		}
+	}
+	if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
+		return confFloat
+	}
+	return 0.0
+}
+
 func parseControlFindingVerdict(results rego.ResultSet, pkgPath string, evidences []types.Evidence) (verdict ComplianceVerdict, custControlID, details, targetService, automationStatus string, confidence float64, rawBreakingData interface{}) {
-	isCompliant := false
-	custControlID = ""
-	dynamicDetails := ""
-	targetService = ""
-	driftDetected := false
-	confidence = 0.0
-	automationStatus = ""
+	var isCompliant bool
+	var dynamicDetails string
+	var driftDetected bool
 
 	if evalMap, ok := extractEvaluationMap(results); ok {
-		if comp, okComp := evalMap["compliant"].(bool); okComp {
-			isCompliant = comp
-		}
-		if custID, okCust := evalMap["customer_control_id"].(string); okCust {
-			custControlID = custID
-		}
-		if det, okDet := evalMap["details"].(string); okDet {
-			dynamicDetails = det
-		}
-		if drift, okDrift := evalMap["drift_detected"].(bool); okDrift {
-			driftDetected = drift
-		}
-		if service, okServ := evalMap["service"].(string); okServ {
-			targetService = service
-		}
-		if conf, okConf := evalMap["confidence"].(json.Number); okConf {
-			if v, err := conf.Float64(); err == nil {
-				confidence = v
-			}
-		} else if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
-			confidence = confFloat
-		}
-		if status, okStatus := evalMap["automation_status"].(string); okStatus {
-			automationStatus = status
-		}
+		isCompliant = parseBoolField(evalMap, "compliant")
+		custControlID = parseStringField(evalMap, "customer_control_id")
+		dynamicDetails = parseStringField(evalMap, "details")
+		driftDetected = parseBoolField(evalMap, "drift_detected")
+		targetService = parseStringField(evalMap, "service")
+		confidence = parseConfidence(evalMap)
+		automationStatus = parseStringField(evalMap, "automation_status")
 	}
 
 	verdict = VerdictNonCompliant

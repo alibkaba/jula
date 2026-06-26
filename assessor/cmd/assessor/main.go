@@ -676,22 +676,24 @@ func fetchRemoteMetadata(pathOrURL string) ([]byte, error) {
 	return data, nil
 }
 
+func readMetadataBytes(pathOrURL string) ([]byte, error) {
+	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
+		return fetchRemoteMetadata(pathOrURL)
+	}
+	data, err := os.ReadFile(pathOrURL)
+	if err != nil {
+		return nil, fmt.Errorf("reading metadata file: %w", err)
+	}
+	return data, nil
+}
+
 func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	if pathOrURL == "" {
 		return nil, nil
 	}
-	var data []byte
-	var err error
-	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
-		data, err = fetchRemoteMetadata(pathOrURL)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		data, err = os.ReadFile(pathOrURL)
-		if err != nil {
-			return nil, fmt.Errorf("reading metadata file: %w", err)
-		}
+	data, err := readMetadataBytes(pathOrURL)
+	if err != nil {
+		return nil, err
 	}
 	var meta map[string]interface{}
 	if err := json.Unmarshal(data, &meta); err != nil {
