@@ -135,6 +135,111 @@ func (e *OPAEngine) GetRegisteredControlIDs() []string {
 	return ids
 }
 
+func prepareEvaluationInput(evidences []types.Evidence, metadata map[string]interface{}) map[string]interface{} {
+	findingsMap := make(map[string]interface{})
+	for _, ev := range evidences {
+		var raw interface{}
+		if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
+			raw = string(ev.Finding.RawData)
+		}
+
+		entry := map[string]interface{}{
+			"raw_data":    raw,
+			"evidence_id": ev.EvidenceID,
+			"provider":    ev.Finding.Provider,
+			"timestamp":   ev.Finding.Timestamp,
+		}
+
+		// Group under findingsMap[evidenceID][sourceID]
+		var sourceMap map[string]interface{}
+		if existing, ok := findingsMap[ev.EvidenceID]; ok {
+			sourceMap = existing.(map[string]interface{})
+		} else {
+			sourceMap = make(map[string]interface{})
+			findingsMap[ev.EvidenceID] = sourceMap
+		}
+		sourceMap[ev.SourceID] = entry
+	}
+
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+
+	return map[string]interface{}{
+		"findings": findingsMap,
+		"metadata": metadata,
+	}
+}
+
+func parseControlFindingVerdict(results rego.ResultSet, pkgPath string, evidences []types.Evidence) (verdict ComplianceVerdict, custControlID, details, targetService, automationStatus string, confidence float64, rawBreakingData interface{}) {
+	isCompliant := false
+	custControlID = ""
+	dynamicDetails := ""
+	targetService = ""
+	driftDetected := false
+	confidence = 0.0
+	automationStatus = ""
+
+	if len(results) > 0 && len(results[0].Expressions) > 0 {
+		if packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok {
+			if evalMap, okEval := packageRootMap["evaluation"].(map[string]interface{}); okEval {
+				if comp, okComp := evalMap["compliant"].(bool); okComp {
+					isCompliant = comp
+				}
+				if custID, okCust := evalMap["customer_control_id"].(string); okCust {
+					custControlID = custID
+				}
+				if det, okDet := evalMap["details"].(string); okDet {
+					dynamicDetails = det
+				}
+				if drift, okDrift := evalMap["drift_detected"].(bool); okDrift {
+					driftDetected = drift
+				}
+				if service, okServ := evalMap["service"].(string); okServ {
+					targetService = service
+				}
+				if conf, okConf := evalMap["confidence"].(json.Number); okConf {
+					if v, err := conf.Float64(); err == nil {
+						confidence = v
+					}
+				} else if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
+					confidence = confFloat
+				}
+				if status, okStatus := evalMap["automation_status"].(string); okStatus {
+					automationStatus = status
+				}
+			}
+		}
+	}
+
+	verdict = VerdictNonCompliant
+	if driftDetected {
+		verdict = VerdictDrifted
+	} else if isCompliant {
+		verdict = VerdictCompliant
+	}
+
+	details = fmt.Sprintf("Evaluation failed under policy package %q", pkgPath)
+	if dynamicDetails != "" {
+		details = dynamicDetails
+	} else if isCompliant {
+		details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
+	}
+
+	if driftDetected {
+		for _, ev := range evidences {
+			var raw interface{}
+			if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
+				raw = string(ev.Finding.RawData)
+			}
+			rawBreakingData = raw
+			break // Grab the first one for the alert payload
+		}
+	}
+
+	return
+}
+
 // EvaluateControl evaluates compliance for a specific control ID using a slice of evidence.
 func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evidences []types.Evidence, metadata map[string]interface{}) ([]ControlFinding, error) {
 	var findings []ControlFinding
@@ -157,39 +262,7 @@ func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evide
 		regoOptions = append(regoOptions, rego.Module(filename, content))
 	}
 
-	findingsMap := make(map[string]interface{})
-	for _, ev := range evidences {
-		var raw interface{}
-		if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
-			raw = string(ev.Finding.RawData)
-		}
-
-		entry := map[string]interface{}{
-			"raw_data":  raw,
-			"evidence_id":    ev.EvidenceID,
-			"provider":  ev.Finding.Provider,
-			"timestamp": ev.Finding.Timestamp,
-		}
-
-		// Group under findingsMap[evidenceID][sourceID]
-		var sourceMap map[string]interface{}
-		if existing, ok := findingsMap[ev.EvidenceID]; ok {
-			sourceMap = existing.(map[string]interface{})
-		} else {
-			sourceMap = make(map[string]interface{})
-			findingsMap[ev.EvidenceID] = sourceMap
-		}
-		sourceMap[ev.SourceID] = entry
-	}
-
-	if metadata == nil {
-		metadata = make(map[string]interface{})
-	}
-
-	regoInput := map[string]interface{}{
-		"findings": findingsMap,
-		"metadata": metadata,
-	}
+	regoInput := prepareEvaluationInput(evidences, metadata)
 
 	for _, pkgPath := range pkgPaths {
 		queryStr := pkgPath
@@ -234,71 +307,7 @@ func (e *OPAEngine) EvaluateControl(ctx context.Context, controlID string, evide
 			continue
 		}
 
-		isCompliant := false
-		custControlID := ""
-		dynamicDetails := ""
-		targetService := ""
-		driftDetected := false
-		confidence := 0.0
-		automationStatus := ""
-
-		if len(results) > 0 && len(results[0].Expressions) > 0 {
-			if packageRootMap, ok := results[0].Expressions[0].Value.(map[string]interface{}); ok {
-				if evalMap, okEval := packageRootMap["evaluation"].(map[string]interface{}); okEval {
-					if comp, okComp := evalMap["compliant"].(bool); okComp {
-						isCompliant = comp
-					}
-					if custID, okCust := evalMap["customer_control_id"].(string); okCust {
-						custControlID = custID
-					}
-					if det, okDet := evalMap["details"].(string); okDet {
-						dynamicDetails = det
-					}
-					if drift, okDrift := evalMap["drift_detected"].(bool); okDrift {
-						driftDetected = drift
-					}
-					if service, okServ := evalMap["service"].(string); okServ {
-						targetService = service
-					}
-					if conf, okConf := evalMap["confidence"].(json.Number); okConf {
-						if v, err := conf.Float64(); err == nil {
-							confidence = v
-						}
-					} else if confFloat, okFloat := evalMap["confidence"].(float64); okFloat {
-						confidence = confFloat
-					}
-					if status, okStatus := evalMap["automation_status"].(string); okStatus {
-						automationStatus = status
-					}
-				}
-			}
-		}
-
-		verdict := VerdictNonCompliant
-		if driftDetected {
-			verdict = VerdictDrifted
-		} else if isCompliant {
-			verdict = VerdictCompliant
-		}
-
-		details := fmt.Sprintf("Evaluation failed under policy package %q", pkgPath)
-		if dynamicDetails != "" {
-			details = dynamicDetails
-		} else if isCompliant {
-			details = fmt.Sprintf("Evaluation successfully passed under policy package %q", pkgPath)
-		}
-
-		var rawBreakingData interface{}
-		if driftDetected {
-			for _, ev := range evidences {
-				var raw interface{}
-				if err := json.Unmarshal(ev.Finding.RawData, &raw); err != nil {
-					raw = string(ev.Finding.RawData)
-				}
-				rawBreakingData = raw
-				break // Grab the first one for the alert payload
-			}
-		}
+		verdict, custControlID, details, targetService, automationStatus, confidence, rawBreakingData := parseControlFindingVerdict(results, pkgPath, evidences)
 
 		slog.Info("evaluation: evaluated control policy", "control_id", controlID, "verdict", verdict, "package", pkgPath)
 		findings = append(findings, ControlFinding{

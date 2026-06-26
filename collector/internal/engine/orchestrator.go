@@ -64,28 +64,40 @@ func getAWSSourceID() string {
 	return "default"
 }
 
+func getGitHubSourceID() string {
+	if org := os.Getenv("GITHUB_ORGANIZATION"); org != "" {
+		return org
+	}
+	if org := os.Getenv("GITHUB_ORG"); org != "" {
+		return org
+	}
+	return "default"
+}
+
+func getAikidoSourceID() string {
+	cid := os.Getenv("AIK_CLIENT_ID")
+	if cid == "" {
+		return "default"
+	}
+	if len(cid) > 12 {
+		return "client-" + cid[len(cid)-8:]
+	}
+	return cid
+}
+
 func getSaaSSourceID(provider string) string {
 	// Universal source org override: works for any Git provider.
 	if org := os.Getenv("JULA_SOURCE_ORG"); org != "" {
 		return org
 	}
-	if provider == "github" {
-		if org := os.Getenv("GITHUB_ORGANIZATION"); org != "" {
-			return org
-		}
-		if org := os.Getenv("GITHUB_ORG"); org != "" {
-			return org
-		}
+	switch provider {
+	case "github":
+		return getGitHubSourceID()
+	case "aikido":
+		return getAikidoSourceID()
+	default:
+		return "default"
 	}
-	if provider == "aikido" {
-		if cid := os.Getenv("AIK_CLIENT_ID"); cid != "" {
-			if len(cid) > 12 {
-				return "client-" + cid[len(cid)-8:]
-			}
-			return cid
-		}
-	}
-	return "default"
 }
 
 // Orchestrator manages the execution of the evidence collection pipeline.
@@ -110,31 +122,12 @@ func (o *Orchestrator) Platform() platform.EnvironmentInfo {
 	return o.envInfo
 }
 
-// Extract loads declarative extraction configs for all available providers,
-// builds a unified job queue, and executes every Evidence extraction concurrently
-// with bounded concurrency. It converts extracted findings to signed/normalized Evidence.
-//
-// This is the "blind extraction loop": no framework filtering, no evaluation.
-// Every Evidence defined across all provider configs is executed unconditionally.
-func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
-	jobs, err := o.buildJobs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("job builder initialization failed: %w", err)
-	}
+type groupKey struct {
+	evidenceID string
+	sourceID   string
+}
 
-	if len(jobs) == 0 {
-		return nil, fmt.Errorf("no extraction jobs available: check provider configs and credentials")
-	}
-
-	findings, err := o.executeJobs(ctx, jobs)
-	if err != nil {
-		return nil, err
-	}
-
-	type groupKey struct {
-		evidenceID string
-		sourceID   string
-	}
+func groupAndMergeFindings(findings []types.Finding) ([]types.Evidence, error) {
 	grouped := make(map[groupKey][]types.Finding)
 	var keysOrdered []groupKey
 	keySeen := make(map[groupKey]bool)
@@ -194,6 +187,85 @@ func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
 	return evidenceSlice, nil
 }
 
+// Extract loads declarative extraction configs for all available providers,
+// builds a unified job queue, and executes every Evidence extraction concurrently
+// with bounded concurrency. It converts extracted findings to signed/normalized Evidence.
+//
+// This is the "blind extraction loop": no framework filtering, no evaluation.
+// Every Evidence defined across all provider configs is executed unconditionally.
+func (o *Orchestrator) Extract(ctx context.Context) ([]types.Evidence, error) {
+	jobs, err := o.buildJobs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("job builder initialization failed: %w", err)
+	}
+
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("no extraction jobs available: check provider configs and credentials")
+	}
+
+	findings, err := o.executeJobs(ctx, jobs)
+	if err != nil {
+		return nil, err
+	}
+
+	return groupAndMergeFindings(findings)
+}
+
+func (o *Orchestrator) runSingleExtractionJob(ctx context.Context, j extractionJob, sem chan struct{}, mu *sync.Mutex, allFindings *[]types.Finding, realErrs *[]error, skipped *[]string) {
+	// Acquire semaphore slot.
+	select {
+	case sem <- struct{}{}:
+		defer func() { <-sem }()
+	case <-ctx.Done():
+		mu.Lock()
+		*realErrs = append(*realErrs, fmt.Errorf("erl %q: context cancelled before start", j.evidenceID))
+		mu.Unlock()
+		return
+	}
+
+	// Per-Evidence timeout context.
+	erlCtx, cancel := context.WithTimeout(ctx, o.cfg.Timeout)
+	defer cancel()
+
+	slog.Info("extract: starting Evidence extraction",
+		"evidence_id", j.evidenceID,
+		"description", j.description,
+		"run_id", o.cfg.RunID,
+	)
+
+	findings, err := j.execute(erlCtx)
+	if err != nil {
+		// Distinguish "credentials not configured" from real failures.
+		if errors.Is(err, universalrest.ErrMissingCredentials) {
+			slog.Warn("extract: skipping, credentials not configured",
+				"evidence_id", j.evidenceID,
+			)
+			mu.Lock()
+			*skipped = append(*skipped, j.evidenceID)
+			mu.Unlock()
+			return
+		}
+
+		slog.Error("extract: Evidence extraction failed",
+			"evidence_id", j.evidenceID,
+			"error", err,
+		)
+		mu.Lock()
+		*realErrs = append(*realErrs, fmt.Errorf("erl %q: %w", j.evidenceID, err))
+		mu.Unlock()
+		return
+	}
+
+	slog.Info("extract: Evidence extraction complete",
+		"evidence_id", j.evidenceID,
+		"findings_extracted", len(findings),
+	)
+
+	mu.Lock()
+	*allFindings = append(*allFindings, findings...)
+	mu.Unlock()
+}
+
 // executeJobs runs a slice of extractionJobs concurrently with bounded
 // concurrency and per-job timeouts. It collects all successful Findings
 // and returns them.
@@ -219,59 +291,7 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 		wg.Add(1)
 		go func(j extractionJob) {
 			defer wg.Done()
-
-			// Acquire semaphore slot.
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
-				mu.Lock()
-				realErrs = append(realErrs, fmt.Errorf("erl %q: context cancelled before start", j.evidenceID))
-				mu.Unlock()
-				return
-			}
-
-			// Per-Evidence timeout context.
-			erlCtx, cancel := context.WithTimeout(ctx, o.cfg.Timeout)
-			defer cancel()
-
-			slog.Info("extract: starting Evidence extraction",
-				"evidence_id", j.evidenceID,
-				"description", j.description,
-				"run_id", o.cfg.RunID,
-			)
-
-			findings, err := j.execute(erlCtx)
-			if err != nil {
-				// Distinguish "credentials not configured" from real failures.
-				if errors.Is(err, universalrest.ErrMissingCredentials) {
-					slog.Warn("extract: skipping, credentials not configured",
-						"evidence_id", j.evidenceID,
-					)
-					mu.Lock()
-					skipped = append(skipped, j.evidenceID)
-					mu.Unlock()
-					return
-				}
-
-				slog.Error("extract: Evidence extraction failed",
-					"evidence_id", j.evidenceID,
-					"error", err,
-				)
-				mu.Lock()
-				realErrs = append(realErrs, fmt.Errorf("erl %q: %w", j.evidenceID, err))
-				mu.Unlock()
-				return
-			}
-
-			slog.Info("extract: Evidence extraction complete",
-				"evidence_id", j.evidenceID,
-				"findings_extracted", len(findings),
-			)
-
-			mu.Lock()
-			allFindings = append(allFindings, findings...)
-			mu.Unlock()
+			o.runSingleExtractionJob(ctx, j, sem, &mu, &allFindings, &realErrs, &skipped)
 		}(job)
 	}
 
@@ -299,16 +319,7 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 	return allFindings, nil
 }
 
-type IntegrationHeader struct {
-	Provider string `yaml:"provider"`
-}
-
-// buildJobs dynamically walks the integrations directory structure
-// and routes YAML integration configs through the Universal REST engine.
-// Cloud provider integrations live under cloud/{provider}.yaml and are
-// filtered by RunConfig.Provider. External integrations in the root are
-// always loaded.
-func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
+func (o *Orchestrator) loadIntegrationsFromConfig(ctx context.Context) ([]*universalrest.RESTIntegration, error) {
 	var integrations []*universalrest.RESTIntegration
 
 	if len(o.cfg.IntegrationMap) > 0 {
@@ -376,6 +387,19 @@ func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
 		} else {
 			slog.Warn("buildJobs: JULA_PROVIDER not set, skipping cloud integrations")
 		}
+	}
+	return integrations, nil
+}
+
+// buildJobs dynamically walks the integrations directory structure
+// and routes YAML integration configs through the Universal REST engine.
+// Cloud provider integrations live under cloud/{provider}.yaml and are
+// filtered by RunConfig.Provider. External integrations in the root are
+// always loaded.
+func (o *Orchestrator) buildJobs(ctx context.Context) ([]extractionJob, error) {
+	integrations, err := o.loadIntegrationsFromConfig(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	engine := universalrest.NewEngine(nil)

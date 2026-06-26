@@ -117,7 +117,14 @@ func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
 	slog.Info("gitops: schema drift alert successfully broadcasted to governor endpoint", "status", resp.Status)
 }
 
-func handleRun(args []string) error {
+type runOptions struct {
+	bucketURL    string
+	policyURL    string
+	metadataURL  string
+	outputFormat string
+}
+
+func parseRunFlags(args []string) (*runOptions, error) {
 	fs := flag.NewFlagSet("assess", flag.ContinueOnError)
 	bucketURLFlag := fs.String("bucket-url", "", "The target GCS bucket run URL (e.g. gs://jula-ledger/2026-05-17/) or local folder path")
 	policyURLFlag := fs.String("policy-url", "", "The target OPA policy directory path (e.g. ./jula-governor/)")
@@ -125,21 +132,16 @@ func handleRun(args []string) error {
 	outputFormatFlag := fs.String("output-format", "", "Output format: 'oscal' to emit NIST OSCAL Assessment Results JSON")
 
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("flag parse: %w", err)
+		return nil, fmt.Errorf("flag parse: %w", err)
 	}
 
-	// Setup logging structure.
-	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
-	slog.SetDefault(slog.New(logHandler))
-
-	// Resolve the target bucket URL.
 	bucketURL := *bucketURLFlag
 	if bucketURL == "" {
 		bucketURL = os.Getenv("JULA_BUCKET_URL")
 	}
 
 	if bucketURL == "" {
-		return fmt.Errorf("assessor: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
+		return nil, fmt.Errorf("assessor: missing target path: please specify --bucket-url flag or set JULA_BUCKET_URL env variable")
 	}
 
 	// Append deployment prefix and today's date if the bucketURL is a root cloud bucket.
@@ -149,24 +151,54 @@ func handleRun(args []string) error {
 		}
 		deployID := os.Getenv("JULA_DEPLOYMENT_ID")
 		if deployID == "" {
-			return fmt.Errorf("assessor: JULA_DEPLOYMENT_ID environment variable is required")
+			return nil, fmt.Errorf("assessor: JULA_DEPLOYMENT_ID environment variable is required")
 		}
 		bucketURL += fmt.Sprintf("deploy-%s/", deployID)
 		bucketURL += time.Now().UTC().Format("2006-01-02")
 	}
 
-	// Resolve the target policies URL.
 	policyURL := *policyURLFlag
 	if policyURL == "" {
 		policyURL = os.Getenv("JULA_POLICY_URL")
 	}
 
 	if policyURL == "" {
-		return fmt.Errorf("assessor: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
+		return nil, fmt.Errorf("assessor: missing policy path: please specify --policy-url flag or set JULA_POLICY_URL env variable")
 	}
 
-	start := time.Now()
-	slog.Info("assessor: starting Jula assurance engine", "bucket_url", bucketURL, "policy_url", policyURL)
+	metadataURL := *metadataURLFlag
+	if metadataURL == "" {
+		metadataURL = os.Getenv("JULA_METADATA_URL")
+	}
+
+	outputFormat := *outputFormatFlag
+	if outputFormat == "" {
+		outputFormat = os.Getenv("JULA_OUTPUT_FORMAT")
+	}
+
+	return &runOptions{
+		bucketURL:    bucketURL,
+		policyURL:    policyURL,
+		metadataURL:  metadataURL,
+		outputFormat: outputFormat,
+	}, nil
+}
+
+func handleRun(args []string) error {
+	opts, err := parseRunFlags(args)
+	if err != nil {
+		return err
+	}
+
+	// Setup logging structure.
+	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	slog.SetDefault(slog.New(logHandler))
+
+	return runAssessmentPipeline(opts, time.Now())
+}
+
+func runAssessmentPipeline(opts *runOptions, start time.Time) error {
+	slog.Info("assessor: starting Jula assurance engine", "bucket_url", opts.bucketURL, "policy_url", opts.policyURL)
 
 	// Validate the JULA_PUBLIC_KEY env variable early.
 	pubKeyPEM := os.Getenv("JULA_PUBLIC_KEY")
@@ -179,17 +211,11 @@ func handleRun(args []string) error {
 		return fmt.Errorf("assessor: failed to parse public key PEM: %w", err)
 	}
 
-	// Resolve the target metadata URL.
-	metadataURL := *metadataURLFlag
-	if metadataURL == "" {
-		metadataURL = os.Getenv("JULA_METADATA_URL")
-	}
-
 	var metadata map[string]interface{}
-	if metadataURL != "" {
-		slog.Info("assessor: loading client metadata", "metadata_url", metadataURL)
+	if opts.metadataURL != "" {
+		slog.Info("assessor: loading client metadata", "metadata_url", opts.metadataURL)
 		var err error
-		metadata, err = loadMetadata(metadataURL)
+		metadata, err = loadMetadata(opts.metadataURL)
 		if err != nil {
 			return fmt.Errorf("assessor: failed to load client metadata: %w", err)
 		}
@@ -201,7 +227,7 @@ func handleRun(args []string) error {
 	// --- Phase 1: Ingestion & The Gatekeeper ---
 
 	// 1. Initialize the cloud-agnostic ingestion reader.
-	reader, err := ingestion.NewCloudReader(bucketURL)
+	reader, err := ingestion.NewCloudReader(opts.bucketURL)
 	if err != nil {
 		return fmt.Errorf("assessor: failed to initialize ingestion reader: %w", err)
 	}
@@ -231,8 +257,8 @@ func handleRun(args []string) error {
 	engine := evaluation.NewOPAEngine()
 
 	// 2. Download and extract policies from GitHub tarball.
-	slog.Info("assessor: fetching policies", "url", policyURL)
-	policiesDir, err := downloadPolicies(ctx, policyURL)
+	slog.Info("assessor: fetching policies", "url", opts.policyURL)
+	policiesDir, err := downloadPolicies(ctx, opts.policyURL)
 	if err != nil {
 		return fmt.Errorf("assessor: failed to download policies: %w", err)
 	}
@@ -346,7 +372,7 @@ func handleRun(args []string) error {
 		for _, finding := range findings {
 			if finding.Verdict == "SCHEMA_DRIFT" {
 				slog.Warn("CRITICAL: Architectural schema drift detected! Halting loop to route correction patch...")
-				
+
 				// Extract provider prefix dynamically from control string layout (e.g. "CIS-GCP-STORAGE-1")
 				idParts := strings.Split(finding.ControlID, "-")
 				provider := "gcp"
@@ -386,7 +412,7 @@ func handleRun(args []string) error {
 	fmt.Println("\n================ JULA ASSURANCE FINDINGS LEDGER ================")
 	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
-	
+
 	if err := reader.WriteFile(ctx, "assessor_ledger.json", findingsJSON); err != nil {
 		slog.Error("assessor: failed to export assessor ledger to file", "error", err)
 	}
@@ -436,7 +462,7 @@ func handleRun(args []string) error {
 	}
 
 	// 7. Emit OSCAL Assessment Results if requested.
-	outputFormat := *outputFormatFlag
+	outputFormat := opts.outputFormat
 	if outputFormat == "" {
 		outputFormat = os.Getenv("JULA_OUTPUT_FORMAT")
 	}
@@ -491,6 +517,26 @@ func handleRun(args []string) error {
 	return nil
 }
 
+func validateMetadataURL(pathOrURL string) (*url.URL, error) {
+	u, err := url.Parse(pathOrURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing metadata URL: %w", err)
+	}
+	if u.Scheme != "https" {
+		return nil, fmt.Errorf("metadata URL must use HTTPS scheme")
+	}
+	host := u.Hostname()
+	if host == "" {
+		return nil, fmt.Errorf("metadata URL has empty host")
+	}
+	if ip := net.ParseIP(host); ip != nil && os.Getenv("JULA_TEST_ENV") != "true" {
+		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return nil, fmt.Errorf("metadata URL host is an invalid IP address")
+		}
+	}
+	return u, nil
+}
+
 func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	if pathOrURL == "" {
 		return nil, nil
@@ -498,21 +544,9 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	var data []byte
 	var err error
 	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
-		u, err := url.Parse(pathOrURL)
+		u, err := validateMetadataURL(pathOrURL)
 		if err != nil {
-			return nil, fmt.Errorf("parsing metadata URL: %w", err)
-		}
-		if u.Scheme != "https" {
-			return nil, fmt.Errorf("metadata URL must use HTTPS scheme")
-		}
-		host := u.Hostname()
-		if host == "" {
-			return nil, fmt.Errorf("metadata URL has empty host")
-		}
-		if ip := net.ParseIP(host); ip != nil && os.Getenv("JULA_TEST_ENV") != "true" {
-			if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-				return nil, fmt.Errorf("metadata URL host is an invalid IP address")
-			}
+			return nil, err
 		}
 
 		req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + IP blocking
@@ -543,6 +577,55 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("parsing metadata JSON: %w", err)
 	}
 	return meta, nil
+}
+
+func untarPolicyBundle(body io.Reader, tmpDir string) error {
+	gzr, err := gzip.NewReader(body)
+	if err != nil {
+		return fmt.Errorf("creating gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("reading tar header: %w", err)
+		}
+
+		cleanName := filepath.Clean(header.Name)
+		if strings.Contains(cleanName, "..") || filepath.IsAbs(cleanName) {
+			return fmt.Errorf("invalid file path %s", header.Name)
+		}
+		target := filepath.Join(tmpDir, cleanName)
+		if !strings.HasPrefix(target, filepath.Clean(tmpDir)+string(filepath.Separator)) {
+			return fmt.Errorf("invalid path: path traversal detected in %s", header.Name)
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(f, tr); err != nil {
+				f.Close()
+				return err
+			}
+			f.Close()
+		}
+	}
+	return nil
 }
 
 func downloadPolicies(ctx context.Context, url string) (string, error) {
@@ -580,50 +663,9 @@ func downloadPolicies(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
 
-	gzr, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("creating gzip reader: %w", err)
-	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return "", fmt.Errorf("reading tar header: %w", err)
-		}
-
-		cleanName := filepath.Clean(header.Name)
-		if strings.Contains(cleanName, "..") || filepath.IsAbs(cleanName) {
-			return "", fmt.Errorf("invalid file path %s", header.Name)
-		}
-		target := filepath.Join(tmpDir, cleanName)
-		if !strings.HasPrefix(target, filepath.Clean(tmpDir)+string(filepath.Separator)) {
-			return "", fmt.Errorf("invalid path: path traversal detected in %s", header.Name)
-		}
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0755); err != nil {
-				return "", err
-			}
-		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return "", err
-			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return "", err
-			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
-				return "", err
-			}
-			f.Close()
-		}
+	if err := untarPolicyBundle(resp.Body, tmpDir); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", err
 	}
 
 	return tmpDir, nil

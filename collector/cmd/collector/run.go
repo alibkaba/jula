@@ -14,16 +14,28 @@ import (
 	"strings"
 	"time"
 
+	"crypto/ecdsa"
+
 	"github.com/alibkaba/jula-collector/internal/engine"
 	"github.com/alibkaba/jula-collector/internal/courier"
 	"github.com/alibkaba/jula-core/pkg/crypto"
 	"github.com/alibkaba/jula-core/pkg/objstore"
 	"github.com/alibkaba/jula-core/pkg/safehttp"
+	"github.com/alibkaba/jula-core/pkg/types"
 )
 
 var newSafeClient = safehttp.NewClient
 
-func handleRun(args []string) error {
+type collectorOptions struct {
+	output         string
+	integrationURL string
+	provider       string
+	concurrency    int
+	timeout        time.Duration
+	signingKey     *ecdsa.PrivateKey
+}
+
+func parseCollectorFlags(args []string) (*collectorOptions, error) {
 	runCmd := flag.NewFlagSet("run", flag.ContinueOnError)
 
 	outputFlag := runCmd.String("output", resolveOutputURL(), "Output URL: gs://bucket, s3://bucket, or local path")
@@ -33,37 +45,82 @@ func handleRun(args []string) error {
 	timeoutFlag := runCmd.String("timeout", "5m", "Per-Evidence extraction timeout duration")
 
 	if err := runCmd.Parse(args); err != nil {
-		return fmt.Errorf("parsing run flags: %w", err)
+		return nil, fmt.Errorf("parsing run flags: %w", err)
 	}
 
 	// Validate output.
 	if *outputFlag == "" {
-		return fmt.Errorf("output is required: use -output or set JULA_OUTPUT_PATH")
+		return nil, fmt.Errorf("output is required: use -output or set JULA_OUTPUT_PATH")
 	}
 
 	// Parse timeout duration.
 	timeout, err := time.ParseDuration(*timeoutFlag)
 	if err != nil {
-		return fmt.Errorf("parsing timeout: %w", err)
+		return nil, fmt.Errorf("parsing timeout: %w", err)
 	}
 
 	// Validate signing key early.
 	signingKeyStr := os.Getenv("JULA_SIGNING_KEY")
 	if signingKeyStr == "" {
-		return fmt.Errorf("JULA_SIGNING_KEY environment variable is required")
+		return nil, fmt.Errorf("JULA_SIGNING_KEY environment variable is required")
 	}
 	signingKey, err := crypto.ParseECDSAPrivateKey(signingKeyStr)
 	if err != nil {
-		return fmt.Errorf("parsing JULA_SIGNING_KEY: %w", err)
+		return nil, fmt.Errorf("parsing JULA_SIGNING_KEY: %w", err)
+	}
+
+	return &collectorOptions{
+		output:         *outputFlag,
+		integrationURL: *urlFlag,
+		provider:       *providerFlag,
+		concurrency:    *concurrencyFlag,
+		timeout:        timeout,
+		signingKey:     signingKey,
+	}, nil
+}
+
+func deliverEvidence(ctx context.Context, output string, signingKey *ecdsa.PrivateKey, evidence []types.Evidence, runID string) (*types.Manifest, error) {
+	bucketURL, pathPrefix, err := courier.ParseOutputURL(output)
+	if err != nil {
+		return nil, fmt.Errorf("parsing output URL: %w", err)
+	}
+
+	store, _, err := objstore.FromURL(bucketURL, &http.Client{})
+	if err != nil {
+		return nil, fmt.Errorf("creating object store: %w", err)
+	}
+
+	rep := &courier.CloudCourier{
+		Store:      store,
+		SigningKey: signingKey,
+		PathPrefix: pathPrefix,
+	}
+
+	if err := rep.Validate(ctx); err != nil {
+		return nil, fmt.Errorf("courier validation failed: %w", err)
+	}
+
+	manifest, err := rep.Deliver(ctx, evidence, runID)
+	if err != nil {
+		return nil, fmt.Errorf("delivery failed: %w", err)
+	}
+
+	return manifest, nil
+}
+
+func handleRun(args []string) error {
+	opts, err := parseCollectorFlags(args)
+	if err != nil {
+		return err
 	}
 
 	var integrationMap map[string][]byte
 	integrationDir := resolveConfigPath("JULA_INTEGRATION_DIR", "integrations")
 
-	if *urlFlag != "" && (strings.HasPrefix(*urlFlag, "http://") || strings.HasPrefix(*urlFlag, "https://")) {
-		slog.Info("run: fetching integrations from URL", "url", *urlFlag)
+	if opts.integrationURL != "" && (strings.HasPrefix(opts.integrationURL, "http://") || strings.HasPrefix(opts.integrationURL, "https://")) {
+		slog.Info("run: fetching integrations from URL", "url", opts.integrationURL)
 		var err error
-		integrationMap, err = fetchIntegrationsMap(*urlFlag, *providerFlag)
+		integrationMap, err = fetchIntegrationsMap(opts.integrationURL, opts.provider)
 		if err != nil {
 			return fmt.Errorf("fetching integrations: %w", err)
 		}
@@ -71,21 +128,21 @@ func handleRun(args []string) error {
 	runID := fmt.Sprintf("run-%d", time.Now().UnixNano())
 
 	slog.Info("run: pipeline starting",
-		"output", *outputFlag,
-		"concurrency", *concurrencyFlag,
-		"timeout", *timeoutFlag,
-		"provider", *providerFlag,
+		"output", opts.output,
+		"concurrency", opts.concurrency,
+		"timeout", opts.timeout,
+		"provider", opts.provider,
 		"integration_dir", integrationDir,
 		"run_id", runID,
 	)
 
 	// --- Step 1: Extract ---
 	orch := engine.New(engine.RunConfig{
-		OutputURL:      *outputFlag,
-		Concurrency:    *concurrencyFlag,
-		Timeout:        timeout,
+		OutputURL:      opts.output,
+		Concurrency:    opts.concurrency,
+		Timeout:        opts.timeout,
 		RunID:          runID,
-		Provider:       *providerFlag,
+		Provider:       opts.provider,
 		IntegrationDir: integrationDir,
 		IntegrationMap: integrationMap,
 	})
@@ -104,29 +161,9 @@ func handleRun(args []string) error {
 	slog.Info("run: extraction and transformation complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	bucketURL, pathPrefix, err := courier.ParseOutputURL(*outputFlag)
+	manifest, err := deliverEvidence(ctx, opts.output, opts.signingKey, evidence, runID)
 	if err != nil {
-		return fmt.Errorf("parsing output URL: %w", err)
-	}
-
-	store, _, err := objstore.FromURL(bucketURL, &http.Client{})
-	if err != nil {
-		return fmt.Errorf("creating object store: %w", err)
-	}
-
-	rep := &courier.CloudCourier{
-		Store:      store,
-		SigningKey: signingKey,
-		PathPrefix: pathPrefix,
-	}
-
-	if err := rep.Validate(ctx); err != nil {
-		return fmt.Errorf("courier validation failed: %w", err)
-	}
-
-	manifest, err := rep.Deliver(ctx, evidence, runID)
-	if err != nil {
-		return fmt.Errorf("delivery failed: %w", err)
+		return err
 	}
 
 	// --- Step 4: Structured Audit Summary ---
@@ -137,7 +174,7 @@ func handleRun(args []string) error {
 		"platform_type", orch.Platform().Type,
 		"total_erl_extractions", len(evidence),
 		"evidence_files", len(manifest.EvidenceFiles),
-		"evidence_location", *outputFlag,
+		"evidence_location", opts.output,
 		"signature", manifest.Signature[:16]+"...",
 	)
 
@@ -168,47 +205,8 @@ func resolveConfigPath(envKey, defaultPath string) string {
 	return path
 }
 
-func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, error) {
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid integrations URL: %w", err)
-	}
-	if os.Getenv("JULA_TEST_ENV") != "true" {
-		if u.Scheme != "https" {
-			return nil, fmt.Errorf("integrations URL must use HTTPS scheme")
-		}
-		allowedHosts := getAllowedHosts()
-		host := strings.ToLower(u.Hostname())
-		if !safehttp.IsHostAllowed(host, allowedHosts) {
-			return nil, fmt.Errorf("integrations URL host %q is not in the allowed hosts list: %v", host, allowedHosts)
-		}
-	}
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + allowlisted hosts
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	tokenEnvName := os.Getenv("JULA_SOURCE_TOKEN_ENV")
-	if tokenEnvName == "" {
-		tokenEnvName = "GITHUB_TOKEN"
-	}
-	if token := os.Getenv(tokenEnvName); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	client := newSafeClient(30 * time.Second)
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http get: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	gzr, err := gzip.NewReader(resp.Body)
+func extractIntegrationsFromTarGz(body io.Reader, provider string) (map[string][]byte, error) {
+	gzr, err := gzip.NewReader(body)
 	if err != nil {
 		return nil, fmt.Errorf("gzip reader: %w", err)
 	}
@@ -265,6 +263,49 @@ func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, er
 	}
 
 	return result, nil
+}
+
+func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid integrations URL: %w", err)
+	}
+	if os.Getenv("JULA_TEST_ENV") != "true" {
+		if u.Scheme != "https" {
+			return nil, fmt.Errorf("integrations URL must use HTTPS scheme")
+		}
+		allowedHosts := getAllowedHosts()
+		host := strings.ToLower(u.Hostname())
+		if !safehttp.IsHostAllowed(host, allowedHosts) {
+			return nil, fmt.Errorf("integrations URL host %q is not in the allowed hosts list: %v", host, allowedHosts)
+		}
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + allowlisted hosts
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	tokenEnvName := os.Getenv("JULA_SOURCE_TOKEN_ENV")
+	if tokenEnvName == "" {
+		tokenEnvName = "GITHUB_TOKEN"
+	}
+	if token := os.Getenv(tokenEnvName); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	client := newSafeClient(30 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http get: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return extractIntegrationsFromTarGz(resp.Body, provider)
 }
 
 // getAllowedHosts returns the list of allowed HTTPS hosts for fetching
