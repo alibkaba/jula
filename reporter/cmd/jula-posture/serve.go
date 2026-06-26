@@ -84,6 +84,34 @@ func runServe(args []string) error {
 
 // --- Tool: get_compliance_summary ---
 
+// formatComplianceSummary builds a markdown summary of the compliance posture.
+func formatComplianceSummary(summary *insights.PostureSummary) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# Compliance Posture Summary\n\n")
+	fmt.Fprintf(&sb, "**Overall: %.0f%% compliant** (%d/%d controls passed)\n\n", summary.PassRate, summary.Passed, summary.TotalControls)
+
+	if summary.RunID != "" {
+		fmt.Fprintf(&sb, "- Run ID: %s\n", summary.RunID)
+		fmt.Fprintf(&sb, "- Timestamp: %s\n", summary.Timestamp)
+	}
+	if summary.VerdictVerified {
+		fmt.Fprintf(&sb, "- Verdict: VERIFIED ✓ (Key C)\n")
+		fmt.Fprintf(&sb, "- Ledger Hash: %s\n", summary.LedgerHash)
+	} else if summary.VerdictSigned {
+		fmt.Fprintf(&sb, "- Verdict: SIGNED (unverified)\n")
+		fmt.Fprintf(&sb, "- Ledger Hash: %s\n", summary.LedgerHash)
+	}
+
+	fmt.Fprintf(&sb, "\n## Control Family Breakdown\n\n")
+	fmt.Fprintf(&sb, "| Family | Passed | Failed | Pass Rate |\n")
+	fmt.Fprintf(&sb, "|--------|--------|--------|----------|\n")
+	for _, f := range summary.Families {
+		fmt.Fprintf(&sb, "| %s | %d | %d | %.0f%% |\n", f.Family, f.Passed, f.Failed, f.PassRate)
+	}
+
+	return sb.String()
+}
+
 func registerGetSummary(server *mcp.Server, cfg *serveConfig) {
 	server.AddTool(
 		&mcp.Tool{
@@ -118,37 +146,31 @@ func registerGetSummary(server *mcp.Server, cfg *serveConfig) {
 				}
 			}
 
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "# Compliance Posture Summary\n\n")
-			fmt.Fprintf(&sb, "**Overall: %.0f%% compliant** (%d/%d controls passed)\n\n", summary.PassRate, summary.Passed, summary.TotalControls)
-
-			if summary.RunID != "" {
-				fmt.Fprintf(&sb, "- Run ID: %s\n", summary.RunID)
-				fmt.Fprintf(&sb, "- Timestamp: %s\n", summary.Timestamp)
-			}
-			if summary.VerdictVerified {
-				fmt.Fprintf(&sb, "- Verdict: VERIFIED ✓ (Key C)\n")
-				fmt.Fprintf(&sb, "- Ledger Hash: %s\n", summary.LedgerHash)
-			} else if summary.VerdictSigned {
-				fmt.Fprintf(&sb, "- Verdict: SIGNED (unverified)\n")
-				fmt.Fprintf(&sb, "- Ledger Hash: %s\n", summary.LedgerHash)
-			}
-
-			fmt.Fprintf(&sb, "\n## Control Family Breakdown\n\n")
-			fmt.Fprintf(&sb, "| Family | Passed | Failed | Pass Rate |\n")
-			fmt.Fprintf(&sb, "|--------|--------|--------|----------|\n")
-			for _, f := range summary.Families {
-				fmt.Fprintf(&sb, "| %s | %d | %d | %.0f%% |\n", f.Family, f.Passed, f.Failed, f.PassRate)
-			}
-
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+				Content: []mcp.Content{&mcp.TextContent{Text: formatComplianceSummary(summary)}},
 			}, nil
 		},
 	)
 }
 
 // --- Tool: get_failed_controls ---
+
+// formatFailedControls builds a markdown table of failed controls.
+func formatFailedControls(summary *insights.PostureSummary) string {
+	if len(summary.FailedControls) == 0 {
+		return "No failed controls. All controls are COMPLIANT."
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# Failed Controls (%d)\n\n", len(summary.FailedControls))
+	fmt.Fprintf(&sb, "| Control ID | Details |\n")
+	fmt.Fprintf(&sb, "|-----------|--------|\n")
+	for _, fc := range summary.FailedControls {
+		fmt.Fprintf(&sb, "| %s | %s |\n", fc.ControlID, fc.Details)
+	}
+
+	return sb.String()
+}
 
 func registerGetFailedControls(server *mcp.Server, cfg *serveConfig) {
 	server.AddTool(
@@ -165,28 +187,43 @@ func registerGetFailedControls(server *mcp.Server, cfg *serveConfig) {
 
 			summary := insights.ComputeSummary(entries, nil)
 
-			if len(summary.FailedControls) == 0 {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{&mcp.TextContent{Text: "No failed controls. All controls are COMPLIANT."}},
-				}, nil
-			}
-
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "# Failed Controls (%d)\n\n", len(summary.FailedControls))
-			fmt.Fprintf(&sb, "| Control ID | Details |\n")
-			fmt.Fprintf(&sb, "|-----------|--------|\n")
-			for _, fc := range summary.FailedControls {
-				fmt.Fprintf(&sb, "| %s | %s |\n", fc.ControlID, fc.Details)
-			}
-
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+				Content: []mcp.Content{&mcp.TextContent{Text: formatFailedControls(summary)}},
 			}, nil
 		},
 	)
 }
 
 // --- Tool: get_coverage ---
+
+// formatAutomationCoverage builds a markdown report of automation coverage.
+func formatAutomationCoverage(cov *insights.CoverageSummary) string {
+	pctFull := 0.0
+	pctPartial := 0.0
+	pctManual := 0.0
+	if cov.Total > 0 {
+		pctFull = float64(cov.FullyAutomated) / float64(cov.Total) * 100
+		pctPartial = float64(cov.PartiallyAuto) / float64(cov.Total) * 100
+		pctManual = float64(cov.ManualAudit) / float64(cov.Total) * 100
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# Automation Coverage\n\n")
+	fmt.Fprintf(&sb, "| Status | Controls | Share |\n")
+	fmt.Fprintf(&sb, "|--------|----------|-------|\n")
+	fmt.Fprintf(&sb, "| Fully Automated | %d | %.0f%% |\n", cov.FullyAutomated, pctFull)
+	fmt.Fprintf(&sb, "| Partially Auto | %d | %.0f%% |\n", cov.PartiallyAuto, pctPartial)
+	fmt.Fprintf(&sb, "| Manual Audit | %d | %.0f%% |\n", cov.ManualAudit, pctManual)
+
+	if len(cov.ManualControls) > 0 {
+		fmt.Fprintf(&sb, "\n## Manual Audit Controls\n\n")
+		for _, mc := range cov.ManualControls {
+			fmt.Fprintf(&sb, "- **%s** (confidence: %.2f)\n", mc.ControlID, mc.Confidence)
+		}
+	}
+
+	return sb.String()
+}
 
 func registerGetCoverage(server *mcp.Server, cfg *serveConfig) {
 	server.AddTool(
@@ -202,38 +239,30 @@ func registerGetCoverage(server *mcp.Server, cfg *serveConfig) {
 			}
 
 			cov := insights.ComputeCoverage(entries)
-			pctFull := 0.0
-			pctPartial := 0.0
-			pctManual := 0.0
-			if cov.Total > 0 {
-				pctFull = float64(cov.FullyAutomated) / float64(cov.Total) * 100
-				pctPartial = float64(cov.PartiallyAuto) / float64(cov.Total) * 100
-				pctManual = float64(cov.ManualAudit) / float64(cov.Total) * 100
-			}
-
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "# Automation Coverage\n\n")
-			fmt.Fprintf(&sb, "| Status | Controls | Share |\n")
-			fmt.Fprintf(&sb, "|--------|----------|-------|\n")
-			fmt.Fprintf(&sb, "| Fully Automated | %d | %.0f%% |\n", cov.FullyAutomated, pctFull)
-			fmt.Fprintf(&sb, "| Partially Auto | %d | %.0f%% |\n", cov.PartiallyAuto, pctPartial)
-			fmt.Fprintf(&sb, "| Manual Audit | %d | %.0f%% |\n", cov.ManualAudit, pctManual)
-
-			if len(cov.ManualControls) > 0 {
-				fmt.Fprintf(&sb, "\n## Manual Audit Controls\n\n")
-				for _, mc := range cov.ManualControls {
-					fmt.Fprintf(&sb, "- **%s** (confidence: %.2f)\n", mc.ControlID, mc.Confidence)
-				}
-			}
 
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+				Content: []mcp.Content{&mcp.TextContent{Text: formatAutomationCoverage(cov)}},
 			}, nil
 		},
 	)
 }
 
 // --- Tool: get_maturity ---
+
+// formatCSFMaturity builds a markdown report of NIST CSF maturity scores.
+func formatCSFMaturity(mat *insights.MaturitySummary) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# NIST CSF Maturity\n\n")
+	fmt.Fprintf(&sb, "**Overall Maturity: %.0f%%**\n\n", mat.OverallScore*100)
+	fmt.Fprintf(&sb, "| Function | Score | Passed | Failed | Total |\n")
+	fmt.Fprintf(&sb, "|----------|-------|--------|--------|-------|\n")
+	for _, f := range mat.Functions {
+		fmt.Fprintf(&sb, "| %s - %s | %.0f%% | %d | %d | %d |\n",
+			f.ID, f.Name, f.Score*100, f.Passed, f.Failed, f.Total)
+	}
+
+	return sb.String()
+}
 
 func registerGetMaturity(server *mcp.Server, cfg *serveConfig) {
 	server.AddTool(
@@ -250,24 +279,39 @@ func registerGetMaturity(server *mcp.Server, cfg *serveConfig) {
 
 			mat := insights.ComputeMaturity(entries)
 
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "# NIST CSF Maturity\n\n")
-			fmt.Fprintf(&sb, "**Overall Maturity: %.0f%%**\n\n", mat.OverallScore*100)
-			fmt.Fprintf(&sb, "| Function | Score | Passed | Failed | Total |\n")
-			fmt.Fprintf(&sb, "|----------|-------|--------|--------|-------|\n")
-			for _, f := range mat.Functions {
-				fmt.Fprintf(&sb, "| %s - %s | %.0f%% | %d | %d | %d |\n",
-					f.ID, f.Name, f.Score*100, f.Passed, f.Failed, f.Total)
-			}
-
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+				Content: []mcp.Content{&mcp.TextContent{Text: formatCSFMaturity(mat)}},
 			}, nil
 		},
 	)
 }
 
 // --- Tool: get_risk ---
+
+// formatFAIRRisk builds a markdown report of the FAIR risk simulation.
+func formatFAIRRisk(risk *insights.RiskSummary) string {
+	if len(risk.Results) == 0 {
+		return "No failed controls. No risk to simulate."
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# FAIR Risk Analysis (%d simulations)\n\n", risk.Simulations)
+	fmt.Fprintf(&sb, "| Family | Failed | ALE (Mean) | 95th Pct | Mit. Cost | ROI |\n")
+	fmt.Fprintf(&sb, "|--------|--------|-----------|---------|----------|-----|\n")
+	for _, r := range risk.Results {
+		fmt.Fprintf(&sb, "| %s | %d | %s | %s | %s | %.0f%% |\n",
+			r.Family, r.ControlsFailed,
+			formatMoney(r.AnnualLossExp), formatMoney(r.Loss95th),
+			formatMoney(r.MitigationCost), r.ROI)
+	}
+
+	fmt.Fprintf(&sb, "\n**Totals:**\n")
+	fmt.Fprintf(&sb, "- Annual Loss Expectancy: %s\n", formatMoney(risk.TotalALE))
+	fmt.Fprintf(&sb, "- 95th Percentile Loss: %s\n", formatMoney(risk.TotalLoss95th))
+	fmt.Fprintf(&sb, "- Mitigation Investment: %s\n", formatMoney(risk.TotalMitCost))
+
+	return sb.String()
+}
 
 func registerGetRisk(server *mcp.Server, cfg *serveConfig) {
 	server.AddTool(
@@ -285,36 +329,38 @@ func registerGetRisk(server *mcp.Server, cfg *serveConfig) {
 			config := insights.DefaultRiskConfig()
 			risk := insights.ComputeRisk(entries, config, 10000)
 
-			if len(risk.Results) == 0 {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{&mcp.TextContent{Text: "No failed controls. No risk to simulate."}},
-				}, nil
-			}
-
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "# FAIR Risk Analysis (%d simulations)\n\n", risk.Simulations)
-			fmt.Fprintf(&sb, "| Family | Failed | ALE (Mean) | 95th Pct | Mit. Cost | ROI |\n")
-			fmt.Fprintf(&sb, "|--------|--------|-----------|---------|----------|-----|\n")
-			for _, r := range risk.Results {
-				fmt.Fprintf(&sb, "| %s | %d | %s | %s | %s | %.0f%% |\n",
-					r.Family, r.ControlsFailed,
-					formatMoney(r.AnnualLossExp), formatMoney(r.Loss95th),
-					formatMoney(r.MitigationCost), r.ROI)
-			}
-
-			fmt.Fprintf(&sb, "\n**Totals:**\n")
-			fmt.Fprintf(&sb, "- Annual Loss Expectancy: %s\n", formatMoney(risk.TotalALE))
-			fmt.Fprintf(&sb, "- 95th Percentile Loss: %s\n", formatMoney(risk.TotalLoss95th))
-			fmt.Fprintf(&sb, "- Mitigation Investment: %s\n", formatMoney(risk.TotalMitCost))
-
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+				Content: []mcp.Content{&mcp.TextContent{Text: formatFAIRRisk(risk)}},
 			}, nil
 		},
 	)
 }
 
 // --- Tool: get_trend ---
+
+// formatComplianceTrend builds a markdown report of the compliance trend.
+func formatComplianceTrend(trend *insights.TrendSummary, months int) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# Compliance Trend (%d months)\n\n", months)
+	fmt.Fprintf(&sb, "| Run Date | Pass Rate | Passed | Failed |\n")
+	fmt.Fprintf(&sb, "|----------|-----------|--------|--------|\n")
+	for _, p := range trend.Points {
+		fmt.Fprintf(&sb, "| %s | %.0f%% | %d | %d |\n",
+			p.RunDate.Format("2006-01-02"), p.PassRate, p.Passed, p.Failed)
+	}
+
+	if len(trend.Points) >= 2 {
+		fmt.Fprintf(&sb, "\n**Delta: %+.0f%%** over %d months", trend.DeltaRate, months)
+		if trend.DeltaFixed > 0 {
+			fmt.Fprintf(&sb, " (%d controls remediated)", trend.DeltaFixed)
+		} else if trend.DeltaFixed < 0 {
+			fmt.Fprintf(&sb, " (%d controls regressed)", -trend.DeltaFixed)
+		}
+		fmt.Fprintln(&sb)
+	}
+
+	return sb.String()
+}
 
 func registerGetTrend(server *mcp.Server, cfg *serveConfig) {
 	server.AddTool(
@@ -345,27 +391,8 @@ func registerGetTrend(server *mcp.Server, cfg *serveConfig) {
 				return toolError(err)
 			}
 
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "# Compliance Trend (%d months)\n\n", months)
-			fmt.Fprintf(&sb, "| Run Date | Pass Rate | Passed | Failed |\n")
-			fmt.Fprintf(&sb, "|----------|-----------|--------|--------|\n")
-			for _, p := range trend.Points {
-				fmt.Fprintf(&sb, "| %s | %.0f%% | %d | %d |\n",
-					p.RunDate.Format("2006-01-02"), p.PassRate, p.Passed, p.Failed)
-			}
-
-			if len(trend.Points) >= 2 {
-				fmt.Fprintf(&sb, "\n**Delta: %+.0f%%** over %d months", trend.DeltaRate, months)
-				if trend.DeltaFixed > 0 {
-					fmt.Fprintf(&sb, " (%d controls remediated)", trend.DeltaFixed)
-				} else if trend.DeltaFixed < 0 {
-					fmt.Fprintf(&sb, " (%d controls regressed)", -trend.DeltaFixed)
-				}
-				fmt.Fprintln(&sb)
-			}
-
 			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{Text: sb.String()}},
+				Content: []mcp.Content{&mcp.TextContent{Text: formatComplianceTrend(trend, months)}},
 			}, nil
 		},
 	)

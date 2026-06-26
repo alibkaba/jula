@@ -1,8 +1,15 @@
 package main
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -624,4 +631,386 @@ func TestWriteCSVProvenance(t *testing.T) {
 	writeCSVProvenance("test.csv", content, "test-framework", 5)
 	w.Close()
 	os.Stdout = old
+}
+
+func TestLoadIdempotencyState(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 1. Missing file: should create it with headers and return empty map
+	path := filepath.Join(tmpDir, "reqs_missing.csv")
+	processed, err := loadIdempotencyState(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(processed) != 0 {
+		t.Errorf("expected empty map, got %v", processed)
+	}
+
+	// Verify file was created and has headers
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "Control_ID") {
+		t.Errorf("expected headers in created file, got: %s", string(data))
+	}
+
+	// 2. Existing file with entries
+	pathExist := filepath.Join(tmpDir, "reqs_exist.csv")
+	csvContent := "Control_ID,Requirement_ID,Target_Provider,Parameter_Field,Operator,Expected_Value,Confidence,Status,Documentation_URL\nAC-1,REQ-1,aws,param,eq,val,1.00,PENDING,url\nIA-2,REQ-2,gcp,param,eq,val,1.00,PENDING,url\n"
+	if err := os.WriteFile(pathExist, []byte(csvContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	processedExist, err := loadIdempotencyState(pathExist)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(processedExist) != 2 {
+		t.Errorf("expected 2 processed controls, got %d", len(processedExist))
+	}
+	if !processedExist["AC-1|aws"] {
+		t.Error("expected AC-1|aws to be processed")
+	}
+	if !processedExist["IA-2|gcp"] {
+		t.Error("expected IA-2|gcp to be processed")
+	}
+}
+
+func TestLoadCatalogEntries(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Backup and override provenanceFile to prevent modifying repository files
+	oldProvenanceFile := provenanceFile
+	defer func() { provenanceFile = oldProvenanceFile }()
+	provenanceFile = filepath.Join(tmpDir, "source_provenance.json")
+
+	// 1. Local CSV catalog path
+	csvPath := filepath.Join(tmpDir, "catalog.csv")
+	csvContent := "Control_ID,Description\nAC-1,Access control prose\n"
+	if err := os.WriteFile(csvPath, []byte(csvContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := loadCatalogEntries(csvPath, "", "", "framework-test", false, FrameworkEntry{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].ControlID != "AC-1" {
+		t.Errorf("unexpected entries: %v", entries)
+	}
+
+	// 2. Local JSON catalog path
+	jsonPath := filepath.Join(tmpDir, "catalog.json")
+	jsonContent := `{
+		"catalog": {
+			"uuid": "test-uuid-999",
+			"metadata": {"title": "Test JSON", "oscal-version": "1.1.2"},
+			"groups": [{
+				"id": "ac",
+				"title": "Access",
+				"controls": [{"id": "ac-1", "title": "Access 1"}]
+			}]
+		}
+	}`
+	if err := os.WriteFile(jsonPath, []byte(jsonContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	entriesJSON, err := loadCatalogEntries(jsonPath, "", "", "framework-test", false, FrameworkEntry{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entriesJSON) != 1 || entriesJSON[0].ControlID != "AC-1" {
+		t.Errorf("unexpected entries: %v", entriesJSON)
+	}
+
+	// 3. Error path: registry lookup missing catalog info
+	_, err = loadCatalogEntries("", "", "", "unknown-framework", false, FrameworkEntry{})
+	if err == nil {
+		t.Error("expected error when framework has no registry catalog info")
+	}
+}
+
+func TestFilterByGroups(t *testing.T) {
+	entries := []CatalogEntry{
+		{ControlID: "AC-1", Prose: "prose 1"},
+		{ControlID: "IA-2", Prose: "prose 2"},
+		{ControlID: "SC-3", Prose: "prose 3"},
+	}
+
+	// 1. Single prefix
+	res := filterByGroups(entries, "ac")
+	if len(res) != 1 || res[0].ControlID != "AC-1" {
+		t.Errorf("expected AC-1, got %v", res)
+	}
+
+	// 2. Multiple prefixes
+	res = filterByGroups(entries, "ac,sc")
+	if len(res) != 2 || res[0].ControlID != "AC-1" || res[1].ControlID != "SC-3" {
+		t.Errorf("expected AC-1 and SC-3, got %v", res)
+	}
+
+	// 3. No match
+	res = filterByGroups(entries, "xyz")
+	if len(res) != 0 {
+		t.Errorf("expected empty, got %v", res)
+	}
+
+	// 4. Empty filter
+	res = filterByGroups(entries, "")
+	if len(res) != 3 {
+		t.Errorf("expected original 3 entries, got %d", len(res))
+	}
+}
+
+func TestBuildCatalogRequest(t *testing.T) {
+	template := "Hello {{CATALOG_PROSE_LINE}} from {{DOC_ROOT}}"
+	res := buildCatalogRequest("World", "Home", template)
+	expected := "Hello World from Home"
+	if res != expected {
+		t.Errorf("expected %q, got %q", expected, res)
+	}
+}
+
+func TestMain_Triage(t *testing.T) {
+	// Backup original global variables
+	oldWorkspaceFile := workspaceFile
+	oldRequirementsFile := requirementsFile
+	oldProvenanceFile := provenanceFile
+	oldPromptFile := promptFile
+	oldRegistryFile := registryFile
+	oldArgs := os.Args
+
+	defer func() {
+		workspaceFile = oldWorkspaceFile
+		requirementsFile = oldRequirementsFile
+		provenanceFile = oldProvenanceFile
+		promptFile = oldPromptFile
+		registryFile = oldRegistryFile
+		os.Args = oldArgs
+	}()
+
+	tmpDir := t.TempDir()
+
+	// 1. Create a dummy workspace.yaml
+	workspaceFile = filepath.Join(tmpDir, "workspace.yaml")
+	workspaceYAML := `organization: "Test Org"
+active_providers:
+  gcp:
+    doc_root: "https://cloud.google.com"
+`
+	if err := os.WriteFile(workspaceFile, []byte(workspaceYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 2. Create framework_registry.yaml
+	registryFile = filepath.Join(tmpDir, "framework_registry.yaml")
+	registryYAML := `frameworks:
+  fedramp-moderate:
+    source: "local"
+    description: "FedRAMP Moderate"
+`
+	if err := os.WriteFile(registryFile, []byte(registryYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 3. Create setup_03_extract_requirements.md
+	promptFile = filepath.Join(tmpDir, "extract_prompt.md")
+	promptMD := "Extract for {{CATALOG_PROSE_LINE}} doc root {{DOC_ROOT}}"
+	if err := os.WriteFile(promptFile, []byte(promptMD), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 4. Create dummy catalog.csv
+	catalogPath := filepath.Join(tmpDir, "catalog.csv")
+	catalogCSV := "Control_ID,Description\nAC-1,Access control prose\n"
+	if err := os.WriteFile(catalogPath, []byte(catalogCSV), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 5. Output files (written by main)
+	requirementsFile = filepath.Join(tmpDir, "requirements.csv")
+	provenanceFile = filepath.Join(tmpDir, "source_provenance.json")
+
+	// 6. Mock LLM Server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Mock response body of ChatResponse
+		response := map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"content": `{"Requirement_ID":"REQ-1","Target_Provider":"gcp","Parameter_Field":"test_param","Operator":"eq","Expected_Value":"true","Confidence":0.95,"Status":"PENDING","Documentation_URL":"http://doc"}`,
+					},
+				},
+			},
+		}
+		data, _ := json.Marshal(response)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}))
+	defer server.Close()
+
+	// Configure environment variables
+	t.Setenv("JULA_PRIMARY_ENDPOINT", server.URL)
+	t.Setenv("JULA_PRIMARY_KEY", "test-key")
+	t.Setenv("JULA_PRIMARY_MODEL", "test-model")
+
+	// Set CLI args
+	os.Args = []string{
+		"import",
+		"--framework", "fedramp-moderate",
+		"--catalog", catalogPath,
+		"--provider", "gcp",
+	}
+
+	// Run main
+	main()
+
+	// Verify outputs were generated
+	if _, err := os.Stat(requirementsFile); os.IsNotExist(err) {
+		t.Error("expected requirements.csv to be created")
+	}
+	if _, err := os.Stat(provenanceFile); os.IsNotExist(err) {
+		t.Error("expected source_provenance.json to be created")
+	}
+}
+
+func createDummyTarGz(t *testing.T, filename string, content []byte) []byte {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	header := &tar.Header{
+		Name: filename,
+		Size: int64(len(content)),
+		Mode: 0600,
+	}
+	if err := tw.WriteHeader(header); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func TestOSCALDownloaderAndParser(t *testing.T) {
+	// Create minimal valid OSCAL catalog JSON
+	catalogJSON := `{
+		"catalog": {
+			"uuid": "test-uuid-001",
+			"metadata": {
+				"title": "NIST SP 800-53 Rev 5",
+				"oscal-version": "1.1.2"
+			},
+			"groups": [
+				{
+					"id": "ac",
+					"title": "Access Control",
+					"controls": [
+						{
+							"id": "ac-1",
+							"title": "Policy and Procedures",
+							"parts": [
+								{
+									"id": "ac-1_smt",
+									"name": "statement",
+									"prose": "The organization develops access control policy."
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	}`
+
+	tarGzBytes := createDummyTarGz(t, "content/catalog.json", []byte(catalogJSON))
+
+	// Setup mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-gzip")
+		w.WriteHeader(http.StatusOK)
+		w.Write(tarGzBytes)
+	}))
+	defer server.Close()
+
+	// Calculate expected SHA256 of the served archive
+	hasher := sha256.New()
+	hasher.Write(tarGzBytes)
+	expectedSHA := hex.EncodeToString(hasher.Sum(nil))
+
+	// Test downloadOSCALRelease
+	tmpFile := downloadOSCALRelease(server.URL)
+	defer os.Remove(tmpFile)
+
+	if _, err := os.Stat(tmpFile); os.IsNotExist(err) {
+		t.Fatalf("expected downloaded temp file to exist, got none")
+	}
+
+	// Test verifyIntegrity
+	verifyIntegrity(tmpFile, expectedSHA)
+
+	// Test extractFromTarball
+	extracted := extractFromTarball(tmpFile, "content/catalog.json")
+	if !strings.Contains(string(extracted), "test-uuid-001") {
+		t.Errorf("expected extracted JSON to contain UUID, got: %s", string(extracted))
+	}
+
+	// Test loadCatalogEntries default (remote tarball download flow via mock registry entry)
+	regEntry := FrameworkEntry{
+		Source:      "remote",
+		CatalogURL:  server.URL,
+		CatalogSHA:  expectedSHA,
+		TarballPath: "content/catalog.json",
+	}
+
+	entries, err := loadCatalogEntries("", "", "", "fedramp-moderate", true, regEntry)
+	if err != nil {
+		t.Fatalf("unexpected loadCatalogEntries error: %v", err)
+	}
+
+	if len(entries) != 1 || entries[0].ControlID != "AC-1" {
+		t.Errorf("expected 1 entry with ID AC-1, got %v", entries)
+	}
+}
+
+func TestMain_MissingFramework(t *testing.T) {
+	// Backup exitFunc and Args
+	oldExit := exitFunc
+	oldArgs := os.Args
+	defer func() {
+		exitFunc = oldExit
+		os.Args = oldArgs
+	}()
+
+	exitCalled := false
+	var exitCode int
+	exitFunc = func(code int) {
+		exitCalled = true
+		exitCode = code
+		panic("exit")
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			if r != "exit" {
+				panic(r)
+			}
+		}
+		if !exitCalled || exitCode != 1 {
+			t.Errorf("expected exitFunc(1) when framework is missing, got called=%t code=%d", exitCalled, exitCode)
+		}
+	}()
+
+	os.Args = []string{"import"} // no framework parameter
+
+	// Run main
+	main()
 }

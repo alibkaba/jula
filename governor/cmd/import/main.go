@@ -20,15 +20,16 @@ import (
 	"time"
 
 	"jula-governor/internal/aiutil"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
-const (
+var (
 	workspaceFile    = "../../workspace.yaml"
 	requirementsFile = "../../requirements.csv"
 	provenanceFile   = "../../source_provenance.json"
 	promptFile       = "../../engine/prompts/setup_03_extract_requirements.md"
 	registryFile     = "../../framework_registry.yaml"
+	exitFunc         = os.Exit
 )
 
 // FrameworkEntry represents a single framework in the registry.
@@ -515,6 +516,176 @@ func processWithRetriesAndFailover(primary, fallback aiutil.AIConfig, maxRetries
 	return extraction, nil
 }
 
+// loadIdempotencyState reads an existing requirements CSV file and returns
+// a map of already processed Control_ID|Provider keys. If the file does not exist,
+// it initializes it with headers.
+func loadIdempotencyState(path string) (map[string]bool, error) {
+	processed := make(map[string]bool)
+	if _, err := os.Stat(path); err != nil {
+		// Initialize the file with headers if it doesn't exist
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create idempotency file: %w", err)
+		}
+		writer := csv.NewWriter(f)
+		err = writer.Write([]string{"Control_ID", "Requirement_ID", "Target_Provider", "Parameter_Field", "Operator", "Expected_Value", "Confidence", "Status", "Documentation_URL"})
+		writer.Flush()
+		f.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to write headers: %w", err)
+		}
+		return processed, nil
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open idempotency file: %w", err)
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read idempotency records: %w", err)
+	}
+
+	if len(records) > 0 {
+		header := records[0]
+		idIdx, provIdx := -1, -1
+		for i, col := range header {
+			switch strings.TrimSpace(col) {
+			case "Control_ID":
+				idIdx = i
+			case "Target_Provider":
+				provIdx = i
+			}
+		}
+		if idIdx != -1 {
+			for _, row := range records[1:] {
+				if len(row) > idIdx {
+					prov := ""
+					if provIdx != -1 && len(row) > provIdx {
+						prov = row[provIdx]
+					}
+					processed[row[idIdx]+"|"+prov] = true
+				}
+			}
+		}
+	}
+	return processed, nil
+}
+
+// loadCatalogEntries loads and parses a catalog from a local path, URL, or framework registry.
+func loadCatalogEntries(catalogPath, catalogURL, sourceFormat, framework string, inRegistry bool, registryEntry FrameworkEntry) ([]CatalogEntry, error) {
+	var entries []CatalogEntry
+	switch {
+	case catalogPath != "":
+		jsonBytes, err := os.ReadFile(catalogPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read catalog file %s: %w", catalogPath, err)
+		}
+
+		format := sourceFormat
+		if format == "" {
+			format = detectSourceFormat(catalogPath, jsonBytes)
+		} else if format == "oscal" {
+			format = "json"
+		}
+		fmt.Printf("[CATALOG] Loading from local file: %s (format: %s)\n", catalogPath, format)
+
+		if inRegistry && registryEntry.CatalogSHA != "" {
+			verifyIntegrity(catalogPath, registryEntry.CatalogSHA)
+		}
+
+		switch format {
+		case "csv":
+			entries = parseCSVCatalog(jsonBytes)
+			writeCSVProvenance(catalogPath, jsonBytes, framework, len(entries))
+		default:
+			entries = parseOSCALCatalog(jsonBytes)
+		}
+
+	case catalogURL != "":
+		fmt.Printf("[CATALOG] Downloading catalog from URL: %s\n", catalogURL)
+		resp, httpErr := http.Get(catalogURL) //nolint:gosec
+		if httpErr != nil {
+			return nil, fmt.Errorf("failed to download catalog from %s: %w", catalogURL, httpErr)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("catalog download returned HTTP %d", resp.StatusCode)
+		}
+		jsonBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read catalog response body: %w", readErr)
+		}
+
+		format := sourceFormat
+		if format == "" {
+			format = detectSourceFormat(catalogURL, jsonBytes)
+		} else if format == "oscal" {
+			format = "json"
+		}
+		fmt.Printf("         Detected format: %s\n", format)
+
+		switch format {
+		case "csv":
+			entries = parseCSVCatalog(jsonBytes)
+		default:
+			entries = parseOSCALCatalog(jsonBytes)
+		}
+
+	default:
+		if !inRegistry || registryEntry.CatalogURL == "" {
+			return nil, fmt.Errorf("framework '%s' has no catalog_url in registry and no --catalog was provided", framework)
+		}
+		tarPath := downloadOSCALRelease(registryEntry.CatalogURL)
+		defer os.Remove(tarPath)
+		if registryEntry.CatalogSHA != "" {
+			verifyIntegrity(tarPath, registryEntry.CatalogSHA)
+		} else {
+			fmt.Println("[WARNING] No SHA-256 hash in registry for this framework. Skipping integrity check.")
+		}
+		if registryEntry.TarballPath == "" {
+			return nil, fmt.Errorf("framework '%s' has no tarball_path in registry", framework)
+		}
+		jsonBytes := extractFromTarball(tarPath, registryEntry.TarballPath)
+		entries = parseOSCALCatalog(jsonBytes)
+	}
+
+	return entries, nil
+}
+
+// filterByGroups filters CatalogEntry slices by a list of comma-separated prefixes.
+func filterByGroups(entries []CatalogEntry, filterGroups string) []CatalogEntry {
+	if filterGroups == "" {
+		return entries
+	}
+	prefixes := strings.Split(strings.ToLower(filterGroups), ",")
+	for i := range prefixes {
+		prefixes[i] = strings.TrimSpace(prefixes[i])
+	}
+	var filtered []CatalogEntry
+	for _, entry := range entries {
+		lowerID := strings.ToLower(entry.ControlID)
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(lowerID, prefix) {
+				filtered = append(filtered, entry)
+				break
+			}
+		}
+	}
+	fmt.Printf("[FILTER] --filter-group %s: %d of %d controls matched\n", filterGroups, len(filtered), len(entries))
+	return filtered
+}
+
+// buildCatalogRequest templates the AI prompt with catalog prose and document root.
+func buildCatalogRequest(prose, docRoot, promptTemplate string) string {
+	hydrated := strings.ReplaceAll(promptTemplate, "{{CATALOG_PROSE_LINE}}", prose)
+	hydrated = strings.ReplaceAll(hydrated, "{{DOC_ROOT}}", docRoot)
+	return hydrated
+}
+
 func main() {
 	primaryConfig := aiutil.LoadPrimaryConfig()
 	fallbackConfig := aiutil.LoadFallbackConfig()
@@ -580,7 +751,7 @@ func main() {
 		fmt.Println("  Or use --catalog <path> with any --framework name for custom OSCAL catalogs.")
 		fmt.Println("  Example: ./import --framework fedramp-moderate --provider gcp")
 		fmt.Println("  Example: ./import --framework scf-full --catalog ./catalogs/scf-oscal.json --provider gcp")
-		os.Exit(1)
+		exitFunc(1)
 	}
 
 	// Look up framework in registry.
@@ -627,150 +798,19 @@ func main() {
 	promptTemplate := string(promptBytes)
 
 	// Load Idempotency State (keyed by Control_ID|Provider for multi-provider support)
-	processedControls := make(map[string]bool)
-	if _, err := os.Stat(requirementsFile); err == nil {
-		f, err := os.Open(requirementsFile)
-		if err == nil {
-			reader := csv.NewReader(f)
-			records, err := reader.ReadAll()
-			f.Close()
-			if err == nil && len(records) > 0 {
-				header := records[0]
-				idIdx, provIdx := -1, -1
-				for i, col := range header {
-					switch strings.TrimSpace(col) {
-					case "Control_ID":
-						idIdx = i
-					case "Target_Provider":
-						provIdx = i
-					}
-				}
-				if idIdx != -1 {
-					for _, row := range records[1:] {
-						if len(row) > idIdx {
-							prov := ""
-							if provIdx != -1 && len(row) > provIdx {
-								prov = row[provIdx]
-							}
-							processedControls[row[idIdx]+"|"+prov] = true
-						}
-					}
-				}
-			}
-		}
-	} else {
-		// Initialize the file with headers if it doesn't exist
-		f, err := os.OpenFile(requirementsFile, os.O_CREATE|os.O_WRONLY, 0644)
-		if err == nil {
-			writer := csv.NewWriter(f)
-			writer.Write([]string{"Control_ID", "Requirement_ID", "Target_Provider", "Parameter_Field", "Operator", "Expected_Value", "Confidence", "Status", "Documentation_URL"})
-			writer.Flush()
-			f.Close()
-		}
+	processedControls, err := loadIdempotencyState(requirementsFile)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to load/initialize idempotency state: %v", err)
 	}
 
 	// Load OSCAL catalog: either from a custom catalog file, a URL, or the default tarball.
-	var entries []CatalogEntry
-	switch {
-	case catalogPath != "":
-		// User-provided local catalog file.
-		jsonBytes, err := os.ReadFile(catalogPath)
-		if err != nil {
-			log.Fatalf("[FATAL] Failed to read catalog file %s: %v", catalogPath, err)
-		}
-
-		// Auto-detect format if not explicitly set via --source.
-		format := sourceFormat
-		if format == "" {
-			format = detectSourceFormat(catalogPath, jsonBytes)
-		} else if format == "oscal" {
-			format = "json" // Normalize legacy "oscal" to "json"
-		}
-		fmt.Printf("[CATALOG] Loading from local file: %s (format: %s)\n", catalogPath, format)
-
-		// Verify integrity against registry hash if available.
-		if inRegistry && registryEntry.CatalogSHA != "" {
-			verifyIntegrity(catalogPath, registryEntry.CatalogSHA)
-		}
-
-		switch format {
-		case "csv":
-			entries = parseCSVCatalog(jsonBytes)
-			writeCSVProvenance(catalogPath, jsonBytes, framework, len(entries))
-		default:
-			entries = parseOSCALCatalog(jsonBytes)
-		}
-
-	case catalogURL != "":
-		// User-provided URL to a catalog file.
-		fmt.Printf("[CATALOG] Downloading catalog from URL: %s\n", catalogURL)
-		resp, httpErr := http.Get(catalogURL) //nolint:gosec // URL is from user CLI input, validated by intent
-		if httpErr != nil {
-			log.Fatalf("[FATAL] Failed to download catalog from %s: %v", catalogURL, httpErr)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			log.Fatalf("[FATAL] Catalog download returned HTTP %d", resp.StatusCode)
-		}
-		jsonBytes, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			log.Fatalf("[FATAL] Failed to read catalog response body: %v", readErr)
-		}
-
-		// Auto-detect format from URL path or content.
-		format := sourceFormat
-		if format == "" {
-			format = detectSourceFormat(catalogURL, jsonBytes)
-		} else if format == "oscal" {
-			format = "json" // Normalize legacy "oscal" to "json"
-		}
-		fmt.Printf("         Detected format: %s\n", format)
-
-		switch format {
-		case "csv":
-			entries = parseCSVCatalog(jsonBytes)
-		default:
-			entries = parseOSCALCatalog(jsonBytes)
-		}
-
-	default:
-		// Default: download from registry-configured source.
-		if !inRegistry || registryEntry.CatalogURL == "" {
-			log.Fatalf("[FATAL] Framework '%s' has no catalog_url in registry and no --catalog was provided.", framework)
-		}
-		tarPath := downloadOSCALRelease(registryEntry.CatalogURL)
-		defer os.Remove(tarPath)
-		if registryEntry.CatalogSHA != "" {
-			verifyIntegrity(tarPath, registryEntry.CatalogSHA)
-		} else {
-			fmt.Println("[WARNING] No SHA-256 hash in registry for this framework. Skipping integrity check.")
-		}
-		if registryEntry.TarballPath == "" {
-			log.Fatalf("[FATAL] Framework '%s' has no tarball_path in registry.", framework)
-		}
-		jsonBytes := extractFromTarball(tarPath, registryEntry.TarballPath)
-		entries = parseOSCALCatalog(jsonBytes)
+	entries, err := loadCatalogEntries(catalogPath, catalogURL, sourceFormat, framework, inRegistry, registryEntry)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to load catalog entries: %v", err)
 	}
 
 	// Apply --filter-group if specified.
-	if filterGroups != "" {
-		prefixes := strings.Split(strings.ToLower(filterGroups), ",")
-		for i := range prefixes {
-			prefixes[i] = strings.TrimSpace(prefixes[i])
-		}
-		var filtered []CatalogEntry
-		for _, entry := range entries {
-			lowerID := strings.ToLower(entry.ControlID)
-			for _, prefix := range prefixes {
-				if strings.HasPrefix(lowerID, prefix) {
-					filtered = append(filtered, entry)
-					break
-				}
-			}
-		}
-		fmt.Printf("[FILTER] --filter-group %s: %d of %d controls matched\n", filterGroups, len(filtered), len(entries))
-		entries = filtered
-	}
+	entries = filterByGroups(entries, filterGroups)
 
 	// Process each control from the OSCAL catalog.
 	for _, entry := range entries {
@@ -802,8 +842,7 @@ func main() {
 
 		fmt.Printf("[INGEST] Triaging Control %s (provider: %s, via: %s)...\n", controlID, resolvedProvider, resolutionMethod)
 
-		hydratedPrompt := strings.ReplaceAll(promptTemplate, "{{CATALOG_PROSE_LINE}}", prose)
-		hydratedPrompt = strings.ReplaceAll(hydratedPrompt, "{{DOC_ROOT}}", providerConf.DocRoot)
+		hydratedPrompt := buildCatalogRequest(prose, providerConf.DocRoot, promptTemplate)
 
 		extraction, err := processWithRetriesAndFailover(primaryConfig, fallbackConfig, maxRetries, hydratedPrompt)
 		if err != nil {

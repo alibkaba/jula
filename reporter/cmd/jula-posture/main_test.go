@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"jula-reporter/internal/insights"
 )
 
 // ---------------------------------------------------------------------------
@@ -489,5 +492,290 @@ func TestMain_CLI(t *testing.T) {
 	main()
 	if exitCalled {
 		t.Error("expected no exit on help command")
+	}
+}
+
+func TestPrintUsage(t *testing.T) {
+	out, err := captureOutput(func() error {
+		printUsage()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Usage:") || !strings.Contains(out, "jula-posture") {
+		t.Errorf("expected usage info, got: %s", out)
+	}
+}
+
+func TestRenderFunctions(t *testing.T) {
+	// 1. renderSummary
+	t.Run("renderSummary", func(t *testing.T) {
+		summary := &insights.PostureSummary{
+			RunID:         "run-123",
+			TotalControls: 10,
+			Passed:        8,
+			Failed:        2,
+			PassRate:      80.0,
+			Timestamp:     "2026-06-26 12:00 UTC",
+			Families: []insights.FamilySummary{
+				{FamilyID: "AC", Family: "Access Control", Passed: 4, Failed: 1, Total: 5, PassRate: 80.0},
+				{FamilyID: "IA", Family: "Identification & Auth", Passed: 4, Failed: 1, Total: 5, PassRate: 80.0},
+			},
+			FailedControls: []insights.LedgerEntry{
+				{ControlID: "AC-2", Verdict: "NON_COMPLIANT", Details: "Invalid access logs"},
+			},
+			VerdictSigned:   true,
+			VerdictVerified: true,
+			LedgerHash:      "hash123",
+		}
+		out, err := captureOutput(func() error {
+			renderSummary(summary)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "COMPLIANCE POSTURE") || !strings.Contains(out, "80%") || !strings.Contains(out, "VERIFIED") {
+			t.Errorf("unexpected output from renderSummary: %s", out)
+		}
+	})
+
+	// 2. renderCoverage
+	t.Run("renderCoverage", func(t *testing.T) {
+		cov := &insights.CoverageSummary{
+			FullyAutomated: 5,
+			PartiallyAuto:  3,
+			ManualAudit:    2,
+			Total:          10,
+			AvgConfidence:  0.65,
+			ManualControls: []insights.LedgerEntry{
+				{ControlID: "AC-3", Confidence: 0.0},
+			},
+		}
+		out, err := captureOutput(func() error {
+			renderCoverage(cov)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "AUTOMATION COVERAGE") || !strings.Contains(out, "50%") || !strings.Contains(out, "AC-3") {
+			t.Errorf("unexpected output from renderCoverage: %s", out)
+		}
+	})
+
+	// 3. renderTrend
+	t.Run("renderTrend", func(t *testing.T) {
+		trend := &insights.TrendSummary{
+			Points: []insights.TrendPoint{
+				{RunDate: time.Date(2026, 5, 26, 0, 0, 0, 0, time.UTC), PassRate: 70.0, Passed: 7, Failed: 3, Total: 10},
+				{RunDate: time.Date(2026, 6, 26, 0, 0, 0, 0, time.UTC), PassRate: 80.0, Passed: 8, Failed: 2, Total: 10},
+			},
+			DeltaRate:  10.0,
+			DeltaFixed: 1,
+		}
+		out, err := captureOutput(func() error {
+			renderTrend(trend, 1)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "COMPLIANCE TREND") || !strings.Contains(out, "+10%") || !strings.Contains(out, "80%") {
+			t.Errorf("unexpected output from renderTrend: %s", out)
+		}
+	})
+
+	// 4. renderMaturity
+	t.Run("renderMaturity", func(t *testing.T) {
+		mat := &insights.MaturitySummary{
+			Functions: []insights.CSFFunction{
+				{ID: "ID", Name: "Identify", Passed: 3, Failed: 1, Total: 4, Score: 0.75},
+				{ID: "PR", Name: "Protect", Passed: 4, Failed: 0, Total: 4, Score: 1.0},
+			},
+			OverallScore: 0.875,
+		}
+		out, err := captureOutput(func() error {
+			renderMaturity(mat)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "NIST CSF MATURITY") || !strings.Contains(out, "88%") || !strings.Contains(out, "Identify") {
+			t.Errorf("unexpected output from renderMaturity: %s", out)
+		}
+	})
+
+	// 5. renderRisk
+	t.Run("renderRisk", func(t *testing.T) {
+		risk := &insights.RiskSummary{
+			Results: []insights.RiskResult{
+				{Family: "AC", ControlsFailed: 2, AnnualLossExp: 50000.0, Loss95th: 150000.0, MitigationCost: 10000.0, ROI: 400.0},
+			},
+			TotalALE:      50000.0,
+			TotalLoss95th: 150000.0,
+			TotalMitCost:  10000.0,
+			Simulations:   10000,
+		}
+		out, err := captureOutput(func() error {
+			renderRisk(risk)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "FAIR RISK ANALYSIS") || !strings.Contains(out, "$50K") || !strings.Contains(out, "AC") {
+			t.Errorf("unexpected output from renderRisk: %s", out)
+		}
+	})
+
+	// 6. renderROI
+	t.Run("renderROI", func(t *testing.T) {
+		risk := &insights.RiskSummary{
+			Results: []insights.RiskResult{
+				{Family: "AC", ControlsFailed: 2, AnnualLossExp: 50000.0, Loss95th: 150000.0, MitigationCost: 10000.0, ROI: 400.0},
+			},
+			TotalALE:      50000.0,
+			TotalLoss95th: 150000.0,
+			TotalMitCost:  10000.0,
+			Simulations:   10000,
+		}
+		out, err := captureOutput(func() error {
+			renderROI(risk)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "RISK ROI") || !strings.Contains(out, "400%") {
+			t.Errorf("unexpected output from renderROI: %s", out)
+		}
+	})
+}
+
+func TestServeFormatFunctions(t *testing.T) {
+	// 1. formatComplianceSummary
+	summary := &insights.PostureSummary{
+		RunID:           "run-456",
+		TotalControls:   10,
+		Passed:          9,
+		Failed:          1,
+		PassRate:        90.0,
+		Timestamp:       "2026-06-26 13:00 UTC",
+		Families: []insights.FamilySummary{
+			{FamilyID: "AC", Family: "Access Control", Passed: 9, Failed: 1, Total: 10, PassRate: 90.0},
+		},
+		FailedControls: []insights.LedgerEntry{
+			{ControlID: "AC-1", Verdict: "NON_COMPLIANT", Details: "Missing auth policy"},
+		},
+		VerdictSigned:   true,
+		VerdictVerified: true,
+		LedgerHash:      "hash-456",
+	}
+	outSummary := formatComplianceSummary(summary)
+	if !strings.Contains(outSummary, "Compliance Posture Summary") || !strings.Contains(outSummary, "90% compliant") || !strings.Contains(outSummary, "VERIFIED") {
+		t.Errorf("unexpected formatComplianceSummary output: %s", outSummary)
+	}
+
+	// 2. formatFailedControls
+	outFailed := formatFailedControls(summary)
+	if !strings.Contains(outFailed, "Failed Controls (1)") || !strings.Contains(outFailed, "AC-1") {
+		t.Errorf("unexpected formatFailedControls output: %s", outFailed)
+	}
+
+	// Empty failed controls
+	emptySummary := &insights.PostureSummary{FailedControls: []insights.LedgerEntry{}}
+	outEmptyFailed := formatFailedControls(emptySummary)
+	if !strings.Contains(outEmptyFailed, "No failed controls") {
+		t.Errorf("unexpected formatFailedControls empty output: %s", outEmptyFailed)
+	}
+
+	// 3. formatAutomationCoverage
+	cov := &insights.CoverageSummary{
+		FullyAutomated: 6,
+		PartiallyAuto:  2,
+		ManualAudit:    2,
+		Total:          10,
+		ManualControls: []insights.LedgerEntry{
+			{ControlID: "AC-2", Confidence: 0.0},
+		},
+	}
+	outCov := formatAutomationCoverage(cov)
+	if !strings.Contains(outCov, "Automation Coverage") || !strings.Contains(outCov, "Fully Automated") || !strings.Contains(outCov, "AC-2") {
+		t.Errorf("unexpected formatAutomationCoverage output: %s", outCov)
+	}
+
+	// 4. formatCSFMaturity
+	mat := &insights.MaturitySummary{
+		Functions: []insights.CSFFunction{
+			{ID: "DE", Name: "Detect", Passed: 2, Failed: 1, Total: 3, Score: 0.66},
+		},
+		OverallScore: 0.66,
+	}
+	outMat := formatCSFMaturity(mat)
+	if !strings.Contains(outMat, "NIST CSF Maturity") || !strings.Contains(outMat, "Detect") {
+		t.Errorf("unexpected formatCSFMaturity output: %s", outMat)
+	}
+
+	// 5. formatFAIRRisk
+	risk := &insights.RiskSummary{
+		Results: []insights.RiskResult{
+			{Family: "AU", ControlsFailed: 1, AnnualLossExp: 20000.0, Loss95th: 60000.0, MitigationCost: 5000.0, ROI: 300.0},
+		},
+		TotalALE:      20000.0,
+		TotalLoss95th: 60000.0,
+		TotalMitCost:  5000.0,
+		Simulations:   1000,
+	}
+	outRisk := formatFAIRRisk(risk)
+	if !strings.Contains(outRisk, "FAIR Risk Analysis") || !strings.Contains(outRisk, "AU") || !strings.Contains(outRisk, "$20K") {
+		t.Errorf("unexpected formatFAIRRisk output: %s", outRisk)
+	}
+
+	// Empty risk results
+	emptyRisk := &insights.RiskSummary{Results: []insights.RiskResult{}}
+	outEmptyRisk := formatFAIRRisk(emptyRisk)
+	if !strings.Contains(outEmptyRisk, "No failed controls") {
+		t.Errorf("unexpected formatFAIRRisk empty output: %s", outEmptyRisk)
+	}
+
+	// 6. formatComplianceTrend
+	trend := &insights.TrendSummary{
+		Points: []insights.TrendPoint{
+			{RunDate: time.Date(2026, 6, 26, 0, 0, 0, 0, time.UTC), PassRate: 90.0, Passed: 9, Failed: 1, Total: 10},
+		},
+		DeltaRate:  0.0,
+		DeltaFixed: 0,
+	}
+	outTrend := formatComplianceTrend(trend, 12)
+	if !strings.Contains(outTrend, "Compliance Trend (12 months)") || !strings.Contains(outTrend, "90%") {
+		t.Errorf("unexpected formatComplianceTrend output: %s", outTrend)
+	}
+}
+
+func TestErrorPaths(t *testing.T) {
+	// runServe missing ledger path
+	err := runServe([]string{})
+	if err == nil || !strings.Contains(err.Error(), "--ledger is required") {
+		t.Errorf("expected error for missing ledger in runServe, got: %v", err)
+	}
+
+	// runTrend invalid months
+	tmpDir := t.TempDir()
+	err = runTrend([]string{"--history", tmpDir, "--months", "abc"})
+	if err == nil || !strings.Contains(err.Error(), "invalid --months value") {
+		t.Errorf("expected error for invalid months in runTrend, got: %v", err)
+	}
+
+	// runExport missing output path
+	ledgerPath := filepath.Join(tmpDir, "ledger.json")
+	if err := os.WriteFile(ledgerPath, []byte(`[]`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err = runExport([]string{"--ledger", ledgerPath, "--format", "html"})
+	if err == nil || !strings.Contains(err.Error(), "--output is required") {
+		t.Errorf("expected error for missing output in runExport, got: %v", err)
 	}
 }
