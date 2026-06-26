@@ -134,7 +134,7 @@ func resolveBucketURL(bucketURL string) (string, error) {
 	}
 
 	// Append deployment prefix and today's date if the bucketURL is a root cloud bucket.
-	if (strings.HasPrefix(bucketURL, "gs://") || strings.HasPrefix(bucketURL, "s3://")) && !strings.Contains(bucketURL, "20") { // naive check for YYYY
+	if isCloudRootBucket(bucketURL) {
 		if !strings.HasSuffix(bucketURL, "/") {
 			bucketURL += "/"
 		}
@@ -146,6 +146,10 @@ func resolveBucketURL(bucketURL string) (string, error) {
 		bucketURL += time.Now().UTC().Format("2006-01-02")
 	}
 	return bucketURL, nil
+}
+
+func isCloudRootBucket(bucketURL string) bool {
+	return (strings.HasPrefix(bucketURL, "gs://") || strings.HasPrefix(bucketURL, "s3://")) && !strings.Contains(bucketURL, "20")
 }
 
 func parseRunFlags(args []string) (*runOptions, error) {
@@ -230,6 +234,33 @@ func executeIngestionPhase(ctx context.Context, opts *runOptions, pubKey *ecdsa.
 	return reader, manifest, nil
 }
 
+func verifyPolicyBundleSignature(policiesDir string, policyPubKeyPEM string) error {
+	slog.Info("assessor: JULA_POLICY_PUBLIC_KEY is set, verifying policy bundle signature")
+
+	policyPubKey, err := pkgCrypto.ParseECDSAPublicKey(policyPubKeyPEM)
+	if err != nil {
+		return fmt.Errorf("parse policy public key PEM: %w", err)
+	}
+
+	bundleManifestPath := filepath.Join(policiesDir, "bundle-manifest.json")
+	bundleManifestData, err := os.ReadFile(bundleManifestPath)
+	if err != nil {
+		return fmt.Errorf("bundle-manifest.json not found in policy bundle - refusing to load unsigned policies: %w", err)
+	}
+
+	var bundle pkgCrypto.PolicyBundle
+	if err := json.Unmarshal(bundleManifestData, &bundle); err != nil {
+		return fmt.Errorf("parse bundle-manifest.json: %w", err)
+	}
+
+	if err := intCrypto.VerifyPolicyBundle(&bundle, policyPubKey); err != nil {
+		return fmt.Errorf("POLICY GATE FAILURE - %w", err)
+	}
+
+	slog.Info("assessor: policy bundle cryptographic verification passed")
+	return nil
+}
+
 func executeOPASetupPhase(ctx context.Context, opts *runOptions, engine *evaluation.OPAEngine) error {
 	slog.Info("assessor: fetching policies", "url", opts.policyURL)
 	policiesDir, err := downloadPolicies(ctx, opts.policyURL)
@@ -239,29 +270,9 @@ func executeOPASetupPhase(ctx context.Context, opts *runOptions, engine *evaluat
 
 	policyPubKeyPEM := os.Getenv("JULA_POLICY_PUBLIC_KEY")
 	if policyPubKeyPEM != "" {
-		slog.Info("assessor: JULA_POLICY_PUBLIC_KEY is set, verifying policy bundle signature")
-
-		policyPubKey, err := pkgCrypto.ParseECDSAPublicKey(policyPubKeyPEM)
-		if err != nil {
-			return fmt.Errorf("assessor: failed to parse policy public key PEM: %w", err)
+		if err := verifyPolicyBundleSignature(policiesDir, policyPubKeyPEM); err != nil {
+			return fmt.Errorf("assessor: %w", err)
 		}
-
-		bundleManifestPath := filepath.Join(policiesDir, "bundle-manifest.json")
-		bundleManifestData, err := os.ReadFile(bundleManifestPath)
-		if err != nil {
-			return fmt.Errorf("assessor: bundle-manifest.json not found in policy bundle - refusing to load unsigned policies: %w", err)
-		}
-
-		var bundle pkgCrypto.PolicyBundle
-		if err := json.Unmarshal(bundleManifestData, &bundle); err != nil {
-			return fmt.Errorf("assessor: failed to parse bundle-manifest.json: %w", err)
-		}
-
-		if err := intCrypto.VerifyPolicyBundle(&bundle, policyPubKey); err != nil {
-			return fmt.Errorf("assessor: POLICY GATE FAILURE - %w", err)
-		}
-
-		slog.Info("assessor: policy bundle cryptographic verification passed")
 	} else {
 		slog.Warn("assessor: JULA_POLICY_PUBLIC_KEY is not set, skipping policy bundle signature verification")
 	}
@@ -277,18 +288,74 @@ func executeOPASetupPhase(ctx context.Context, opts *runOptions, engine *evaluat
 	return nil
 }
 
-func executeEvaluationPhase(ctx context.Context, reader *ingestion.CloudReader, manifest *types.Manifest, engine *evaluation.OPAEngine, pubKey *ecdsa.PublicKey, metadata map[string]interface{}) ([]evaluation.ControlFinding, error) {
+type evaluationContext struct {
+	ctx      context.Context
+	reader   *ingestion.CloudReader
+	manifest *types.Manifest
+	engine   *evaluation.OPAEngine
+	pubKey   *ecdsa.PublicKey
+	metadata map[string]interface{}
+}
+
+func (ec *evaluationContext) filterValidEvidenceFiles() []types.FileChecksum {
 	var validFiles []types.FileChecksum
-	for _, f := range manifest.EvidenceFiles {
+	for _, f := range ec.manifest.EvidenceFiles {
 		if strings.HasSuffix(f.Path, ".log.gz") {
 			slog.Info("assessor: skipping non-evidence trace log file in manifest", "path", f.Path)
 			continue
 		}
 		validFiles = append(validFiles, f)
 	}
+	return validFiles
+}
+
+func verifyEvidenceProvenance(f types.FileChecksum, payloads map[string][]byte, pubKey *ecdsa.PublicKey) (*types.Evidence, error) {
+	if strings.HasSuffix(f.Path, ".prov.json") {
+		return nil, nil
+	}
+	provPath := strings.TrimSuffix(f.Path, ".json") + ".prov.json"
+	provBytes, ok := payloads[provPath]
+	if !ok {
+		slog.Warn("assessor: missing provenance sidecar for evidence file", "file", f.Path)
+		return nil, nil
+	}
+	var prov pkgCrypto.Provenance
+	if err := json.Unmarshal(provBytes, &prov); err != nil {
+		return nil, fmt.Errorf("failed to parse provenance sidecar %s: %w", provPath, err)
+	}
+	okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
+	if err != nil || !okSignature {
+		return nil, fmt.Errorf("provenance signature is INVALID for %s: %w", provPath, err)
+	}
+	var ev types.Evidence
+	if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal evidence payload %s: %w", f.Path, err)
+	}
+	if prov.PayloadHash != ev.PayloadHash {
+		return nil, fmt.Errorf("provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
+	}
+	slog.Info("assessor: successfully verified provenance sidecar", "file", provPath)
+	return &ev, nil
+}
+
+func handleSchemaDriftFinding(finding evaluation.ControlFinding) {
+	if finding.Verdict == "SCHEMA_DRIFT" {
+		slog.Warn("CRITICAL: Architectural schema drift detected! Halting loop to route correction patch...")
+		idParts := strings.Split(finding.ControlID, "-")
+		provider := "gcp"
+		if len(idParts) > 1 {
+			provider = strings.ToLower(idParts[1])
+		}
+		dispatchDriftAlert(provider, finding.TargetService, finding.RawBreakingData)
+		os.Exit(0)
+	}
+}
+
+func (ec *evaluationContext) evaluate() ([]evaluation.ControlFinding, error) {
+	validFiles := ec.filterValidEvidenceFiles()
 
 	slog.Info("assessor: downloading all evidence payloads", "files_count", len(validFiles))
-	payloads, err := reader.ReadPayloads(ctx, validFiles)
+	payloads, err := ec.reader.ReadPayloads(ec.ctx, validFiles)
 	if err != nil {
 		return nil, fmt.Errorf("assessor: failed to download evidence payloads: %w", err)
 	}
@@ -299,57 +366,29 @@ func executeEvaluationPhase(ctx context.Context, reader *ingestion.CloudReader, 
 
 	var allEvidences []types.Evidence
 	for _, f := range validFiles {
-		if strings.HasSuffix(f.Path, ".prov.json") {
-			continue
+		ev, err := verifyEvidenceProvenance(f, payloads, ec.pubKey)
+		if err != nil {
+			return nil, fmt.Errorf("assessor: %w", err)
 		}
-		provPath := strings.TrimSuffix(f.Path, ".json") + ".prov.json"
-		provBytes, ok := payloads[provPath]
-		if !ok {
-			slog.Warn("assessor: missing provenance sidecar for evidence file", "file", f.Path)
-			continue
+		if ev != nil {
+			allEvidences = append(allEvidences, *ev)
 		}
-		var prov pkgCrypto.Provenance
-		if err := json.Unmarshal(provBytes, &prov); err != nil {
-			return nil, fmt.Errorf("assessor: failed to parse provenance sidecar %s: %w", provPath, err)
-		}
-		okSignature, err := pkgCrypto.VerifyProvenance(&prov, pubKey)
-		if err != nil || !okSignature {
-			return nil, fmt.Errorf("assessor: provenance signature is INVALID for %s: %w", provPath, err)
-		}
-		var ev types.Evidence
-		if err := json.Unmarshal(payloads[f.Path], &ev); err != nil {
-			return nil, fmt.Errorf("assessor: failed to unmarshal evidence payload %s: %w", f.Path, err)
-		}
-		if prov.PayloadHash != ev.PayloadHash {
-			return nil, fmt.Errorf("assessor: provenance payload hash mismatch for %s: expected %s, got %s", provPath, prov.PayloadHash, ev.PayloadHash)
-		}
-		allEvidences = append(allEvidences, ev)
-		slog.Info("assessor: successfully verified provenance sidecar", "file", provPath)
 	}
 
 	allFindings := make([]evaluation.ControlFinding, 0)
-	registeredIDs := engine.GetRegisteredControlIDs()
+	registeredIDs := ec.engine.GetRegisteredControlIDs()
 	slog.Info("assessor: starting sequential control evaluation", "controls_count", len(registeredIDs))
 
 	for _, controlID := range registeredIDs {
 		slog.Info("assessor: sequentially evaluating control", "control_id", controlID)
 
-		findings, err := engine.EvaluateControl(ctx, controlID, allEvidences, metadata)
+		findings, err := ec.engine.EvaluateControl(ec.ctx, controlID, allEvidences, ec.metadata)
 		if err != nil {
 			return nil, fmt.Errorf("assessor: policy evaluation error for control %s: %w", controlID, err)
 		}
 
 		for _, finding := range findings {
-			if finding.Verdict == "SCHEMA_DRIFT" {
-				slog.Warn("CRITICAL: Architectural schema drift detected! Halting loop to route correction patch...")
-				idParts := strings.Split(finding.ControlID, "-")
-				provider := "gcp"
-				if len(idParts) > 1 {
-					provider = strings.ToLower(idParts[1])
-				}
-				dispatchDriftAlert(provider, finding.TargetService, finding.RawBreakingData)
-				os.Exit(0)
-			}
+			handleSchemaDriftFinding(finding)
 		}
 
 		allFindings = append(allFindings, findings...)
@@ -360,112 +399,155 @@ func executeEvaluationPhase(ctx context.Context, reader *ingestion.CloudReader, 
 	return allFindings, nil
 }
 
-func writeLedgerAndVerdict(ctx context.Context, reader *ingestion.CloudReader, manifest *types.Manifest, allFindings []evaluation.ControlFinding, opts *runOptions, start time.Time) error {
-	slog.Info("assessor: completed compliance evaluation", "findings_count", len(allFindings))
+func executeEvaluationPhase(ctx context.Context, reader *ingestion.CloudReader, manifest *types.Manifest, engine *evaluation.OPAEngine, pubKey *ecdsa.PublicKey, metadata map[string]interface{}) ([]evaluation.ControlFinding, error) {
+	ec := &evaluationContext{
+		ctx:      ctx,
+		reader:   reader,
+		manifest: manifest,
+		engine:   engine,
+		pubKey:   pubKey,
+		metadata: metadata,
+	}
+	return ec.evaluate()
+}
 
-	hasFailures := false
-	controlsPassed := 0
-	controlsFailed := 0
-	for _, f := range allFindings {
+type outputContext struct {
+	ctx         context.Context
+	reader      *ingestion.CloudReader
+	manifest    *types.Manifest
+	allFindings []evaluation.ControlFinding
+	opts        *runOptions
+	start       time.Time
+}
+
+func (oc *outputContext) calculateFindingCounts() (hasFailures bool, passed int, failed int) {
+	for _, f := range oc.allFindings {
 		if f.Verdict != evaluation.VerdictCompliant {
 			hasFailures = true
-			controlsFailed++
+			failed++
 		} else {
-			controlsPassed++
+			passed++
 		}
 	}
+	return
+}
 
+func (oc *outputContext) writeAssessorLedger(findingsJSON []byte) {
 	fmt.Println("\n================ JULA ASSURANCE FINDINGS LEDGER ================")
-	findingsJSON, _ := json.MarshalIndent(allFindings, "", "  ")
 	fmt.Println(string(findingsJSON))
 
-	if err := reader.WriteFile(ctx, "assessor_ledger.json", findingsJSON); err != nil {
+	if err := oc.reader.WriteFile(oc.ctx, "assessor_ledger.json", findingsJSON); err != nil {
 		slog.Error("assessor: failed to export assessor ledger to file", "error", err)
 	}
+}
 
-	var signedVerdict *pkgCrypto.Verdict
+func (oc *outputContext) signAssessmentVerdict(findingsJSON []byte, passed, failed int) (*pkgCrypto.Verdict, error) {
 	assessorSigningKeyPEM := os.Getenv("JULA_ASSESSOR_SIGNING_KEY")
-	if assessorSigningKeyPEM != "" {
-		slog.Info("assessor: signing assessment verdict with Key C")
-
-		assessorSigningKey, err := pkgCrypto.ParseECDSAPrivateKey(assessorSigningKeyPEM)
-		if err != nil {
-			return fmt.Errorf("assessor: failed to parse assessor signing key: %w", err)
-		}
-
-		ledgerHash := pkgCrypto.HashFile(findingsJSON)
-		signedVerdict = &pkgCrypto.Verdict{
-			RunID:          manifest.RunID,
-			LedgerHash:     ledgerHash,
-			ControlsPassed: controlsPassed,
-			ControlsFailed: controlsFailed,
-			ControlsTotal:  len(allFindings),
-			Timestamp:      time.Now().UTC(),
-		}
-
-		if err := pkgCrypto.SignVerdict(signedVerdict, assessorSigningKey); err != nil {
-			return fmt.Errorf("assessor: failed to sign verdict: %w", err)
-		}
-
-		verdictJSON, err := json.MarshalIndent(signedVerdict, "", "  ")
-		if err != nil {
-			return fmt.Errorf("assessor: failed to marshal signed verdict: %w", err)
-		}
-
-		if err := reader.WriteFile(ctx, "verdict.json", verdictJSON); err != nil {
-			slog.Error("assessor: failed to export signed verdict", "error", err)
-		} else {
-			slog.Info("assessor: signed verdict written successfully",
-				"run_id", signedVerdict.RunID,
-				"ledger_hash", ledgerHash,
-				"controls_passed", controlsPassed,
-				"controls_failed", controlsFailed,
-			)
-		}
-	} else {
+	if assessorSigningKeyPEM == "" {
 		slog.Warn("assessor: JULA_ASSESSOR_SIGNING_KEY is not set, skipping verdict signing")
+		return nil, nil
 	}
 
-	outputFormat := opts.outputFormat
+	slog.Info("assessor: signing assessment verdict with Key C")
+
+	assessorSigningKey, err := pkgCrypto.ParseECDSAPrivateKey(assessorSigningKeyPEM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse assessor signing key: %w", err)
+	}
+
+	ledgerHash := pkgCrypto.HashFile(findingsJSON)
+	signedVerdict := &pkgCrypto.Verdict{
+		RunID:          oc.manifest.RunID,
+		LedgerHash:     ledgerHash,
+		ControlsPassed: passed,
+		ControlsFailed: failed,
+		ControlsTotal:  len(oc.allFindings),
+		Timestamp:      time.Now().UTC(),
+	}
+
+	if err := pkgCrypto.SignVerdict(signedVerdict, assessorSigningKey); err != nil {
+		return nil, fmt.Errorf("failed to sign verdict: %w", err)
+	}
+
+	verdictJSON, err := json.MarshalIndent(signedVerdict, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal signed verdict: %w", err)
+	}
+
+	if err := oc.reader.WriteFile(oc.ctx, "verdict.json", verdictJSON); err != nil {
+		slog.Error("assessor: failed to export signed verdict", "error", err)
+	} else {
+		slog.Info("assessor: signed verdict written successfully",
+			"run_id", signedVerdict.RunID,
+			"ledger_hash", ledgerHash,
+			"controls_passed", passed,
+			"controls_failed", failed,
+		)
+	}
+
+	return signedVerdict, nil
+}
+
+func (oc *outputContext) emitOSCALResults(signedVerdict *pkgCrypto.Verdict) {
+	outputFormat := oc.opts.outputFormat
 	if outputFormat == "" {
 		outputFormat = os.Getenv("JULA_OUTPUT_FORMAT")
 	}
-	if strings.EqualFold(outputFormat, "oscal") {
-		slog.Info("assessor: generating OSCAL Assessment Results output")
+	if !strings.EqualFold(outputFormat, "oscal") {
+		return
+	}
 
-		oscalFindings := make([]oscal.ControlFindingInput, len(allFindings))
-		for i, f := range allFindings {
-			oscalFindings[i] = oscal.ControlFindingInput{
-				ControlID:         f.ControlID,
-				CustomerControlID: f.CustomerControlID,
-				Verdict:           string(f.Verdict),
-				Details:           f.Details,
-				Confidence:        f.Confidence,
-				AutomationStatus:  f.AutomationStatus,
-				EvaluatedAt:       f.EvaluatedAt,
-			}
-		}
+	slog.Info("assessor: generating OSCAL Assessment Results output")
 
-		oscalCfg := oscal.MapConfig{
-			RunID:        manifest.RunID,
-			Organization: os.Getenv("JULA_ORGANIZATION"),
-			Framework:    os.Getenv("JULA_FRAMEWORK"),
-			Start:        start,
-			Verdict:      signedVerdict,
-		}
-
-		ar := oscal.MapToAssessmentResults(oscalFindings, oscalCfg)
-		oscalJSON, err := ar.MarshalJSON()
-		if err != nil {
-			slog.Error("assessor: failed to marshal OSCAL AR", "error", err)
-		} else {
-			if err := reader.WriteFile(ctx, "assessment-results.json", oscalJSON); err != nil {
-				slog.Error("assessor: failed to write OSCAL AR to bucket", "error", err)
-			} else {
-				slog.Info("assessor: OSCAL Assessment Results written to assessment-results.json")
-			}
+	oscalFindings := make([]oscal.ControlFindingInput, len(oc.allFindings))
+	for i, f := range oc.allFindings {
+		oscalFindings[i] = oscal.ControlFindingInput{
+			ControlID:         f.ControlID,
+			CustomerControlID: f.CustomerControlID,
+			Verdict:           string(f.Verdict),
+			Details:           f.Details,
+			Confidence:        f.Confidence,
+			AutomationStatus:  f.AutomationStatus,
+			EvaluatedAt:       f.EvaluatedAt,
 		}
 	}
+
+	oscalCfg := oscal.MapConfig{
+		RunID:        oc.manifest.RunID,
+		Organization: os.Getenv("JULA_ORGANIZATION"),
+		Framework:    os.Getenv("JULA_FRAMEWORK"),
+		Start:        oc.start,
+		Verdict:      signedVerdict,
+	}
+
+	ar := oscal.MapToAssessmentResults(oscalFindings, oscalCfg)
+	oscalJSON, err := ar.MarshalJSON()
+	if err != nil {
+		slog.Error("assessor: failed to marshal OSCAL AR", "error", err)
+		return
+	}
+
+	if err := oc.reader.WriteFile(oc.ctx, "assessment-results.json", oscalJSON); err != nil {
+		slog.Error("assessor: failed to write OSCAL AR to bucket", "error", err)
+	} else {
+		slog.Info("assessor: OSCAL Assessment Results written to assessment-results.json")
+	}
+}
+
+func (oc *outputContext) write() error {
+	slog.Info("assessor: completed compliance evaluation", "findings_count", len(oc.allFindings))
+
+	hasFailures, passed, failed := oc.calculateFindingCounts()
+
+	findingsJSON, _ := json.MarshalIndent(oc.allFindings, "", "  ")
+	oc.writeAssessorLedger(findingsJSON)
+
+	signedVerdict, err := oc.signAssessmentVerdict(findingsJSON, passed, failed)
+	if err != nil {
+		return err
+	}
+
+	oc.emitOSCALResults(signedVerdict)
 
 	fmt.Println("================================================================")
 
@@ -478,6 +560,18 @@ func writeLedgerAndVerdict(ctx context.Context, reader *ingestion.CloudReader, m
 	slog.Info("assessor: compliance audit SUCCESSFUL - system is fully secure!")
 	fmt.Println("STATUS: COMPLIANT")
 	return nil
+}
+
+func writeLedgerAndVerdict(ctx context.Context, reader *ingestion.CloudReader, manifest *types.Manifest, allFindings []evaluation.ControlFinding, opts *runOptions, start time.Time) error {
+	oc := &outputContext{
+		ctx:         ctx,
+		reader:      reader,
+		manifest:    manifest,
+		allFindings: allFindings,
+		opts:        opts,
+		start:       start,
+	}
+	return oc.write()
 }
 
 func runAssessmentPipeline(opts *runOptions, start time.Time) error {
@@ -524,6 +618,20 @@ func runAssessmentPipeline(opts *runOptions, start time.Time) error {
 	return writeLedgerAndVerdict(ctx, reader, manifest, allFindings, opts, start)
 }
 
+func isInvalidIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+}
+
+func shouldBlockIP(host string) bool {
+	if os.Getenv("JULA_TEST_ENV") == "true" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return isInvalidIP(ip)
+	}
+	return false
+}
+
 func validateMetadataURL(pathOrURL string) (*url.URL, error) {
 	u, err := url.Parse(pathOrURL)
 	if err != nil {
@@ -536,12 +644,36 @@ func validateMetadataURL(pathOrURL string) (*url.URL, error) {
 	if host == "" {
 		return nil, fmt.Errorf("metadata URL has empty host")
 	}
-	if ip := net.ParseIP(host); ip != nil && os.Getenv("JULA_TEST_ENV") != "true" {
-		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-			return nil, fmt.Errorf("metadata URL host is an invalid IP address")
-		}
+	if shouldBlockIP(host) {
+		return nil, fmt.Errorf("metadata URL host is an invalid IP address")
 	}
 	return u, nil
+}
+
+func fetchRemoteMetadata(pathOrURL string) ([]byte, error) {
+	u, err := validateMetadataURL(pathOrURL)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + IP blocking
+	if err != nil {
+		return nil, fmt.Errorf("creating metadata request: %w", err)
+	}
+	client := newSafeHTTPClient(15 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching metadata URL: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetching metadata URL returned status: %s", resp.Status)
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading metadata URL response: %w", err)
+	}
+	return data, nil
 }
 
 func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
@@ -551,27 +683,9 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	var data []byte
 	var err error
 	if strings.HasPrefix(pathOrURL, "http://") || strings.HasPrefix(pathOrURL, "https://") {
-		u, err := validateMetadataURL(pathOrURL)
+		data, err = fetchRemoteMetadata(pathOrURL)
 		if err != nil {
 			return nil, err
-		}
-
-		req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + IP blocking
-		if err != nil {
-			return nil, fmt.Errorf("creating metadata request: %w", err)
-		}
-		client := newSafeHTTPClient(15 * time.Second)
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetching metadata URL: %w", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("fetching metadata URL returned status: %s", resp.Status)
-		}
-		data, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("reading metadata URL response: %w", err)
 		}
 	} else {
 		data, err = os.ReadFile(pathOrURL)
@@ -586,14 +700,37 @@ func loadMetadata(pathOrURL string) (map[string]interface{}, error) {
 	return meta, nil
 }
 
-func extractTarEntry(tr *tar.Reader, header *tar.Header, tmpDir string) error {
-	cleanName := filepath.Clean(header.Name)
+func validateTarPath(headerName, tmpDir string) (string, error) {
+	cleanName := filepath.Clean(headerName)
 	if strings.Contains(cleanName, "..") || filepath.IsAbs(cleanName) {
-		return fmt.Errorf("invalid file path %s", header.Name)
+		return "", fmt.Errorf("invalid file path %s", headerName)
 	}
 	target := filepath.Join(tmpDir, cleanName)
 	if !strings.HasPrefix(target, filepath.Clean(tmpDir)+string(filepath.Separator)) {
-		return fmt.Errorf("invalid path: path traversal detected in %s", header.Name)
+		return "", fmt.Errorf("invalid path: path traversal detected in %s", headerName)
+	}
+	return target, nil
+}
+
+func writeTarFile(target string, mode int64, tr io.Reader) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(mode))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, tr); err != nil {
+		return err
+	}
+	return nil
+}
+
+func extractTarEntry(tr *tar.Reader, header *tar.Header, tmpDir string) error {
+	target, err := validateTarPath(header.Name, tmpDir)
+	if err != nil {
+		return err
 	}
 
 	switch header.Typeflag {
@@ -602,15 +739,7 @@ func extractTarEntry(tr *tar.Reader, header *tar.Header, tmpDir string) error {
 			return err
 		}
 	case tar.TypeReg:
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-			return err
-		}
-		f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if _, err := io.Copy(f, tr); err != nil {
+		if err := writeTarFile(target, header.Mode, tr); err != nil {
 			return err
 		}
 	}
@@ -641,14 +770,10 @@ func untarPolicyBundle(body io.Reader, tmpDir string) error {
 	return nil
 }
 
-func downloadPolicies(ctx context.Context, url string) (string, error) {
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return url, nil // Already a local path
-	}
-
+func buildPoliciesRequest(ctx context.Context, url string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
 	tokenEnvName := os.Getenv("JULA_SOURCE_TOKEN_ENV")
@@ -659,6 +784,18 @@ func downloadPolicies(ctx context.Context, url string) (string, error) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	return req, nil
+}
+
+func downloadPolicies(ctx context.Context, url string) (string, error) {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return url, nil // Already a local path
+	}
+
+	req, err := buildPoliciesRequest(ctx, url)
+	if err != nil {
+		return "", err
+	}
 
 	client := newSafeHTTPClient(30 * time.Second)
 	resp, err := client.Do(req)
