@@ -127,6 +127,37 @@ type groupKey struct {
 	sourceID   string
 }
 
+func mergeFindingsGroup(group []types.Finding) (types.Finding, error) {
+	if len(group) == 1 {
+		return group[0], nil
+	}
+
+	var mergedData []any
+	isAllJSONArrays := true
+
+	for _, f := range group {
+		var items []any
+		if err := json.Unmarshal(f.RawData, &items); err == nil {
+			mergedData = append(mergedData, items...)
+		} else {
+			isAllJSONArrays = false
+			break
+		}
+	}
+
+	if isAllJSONArrays {
+		mergedRaw, err := json.Marshal(mergedData)
+		if err != nil {
+			return types.Finding{}, fmt.Errorf("merging paginated findings: %w", err)
+		}
+		finalFinding := group[0]
+		finalFinding.RawData = mergedRaw
+		return finalFinding, nil
+	}
+
+	return group[len(group)-1], nil
+}
+
 func groupAndMergeFindings(findings []types.Finding) ([]types.Evidence, error) {
 	grouped := make(map[groupKey][]types.Finding)
 	var keysOrdered []groupKey
@@ -143,35 +174,9 @@ func groupAndMergeFindings(findings []types.Finding) ([]types.Evidence, error) {
 
 	evidenceSlice := make([]types.Evidence, 0, len(keysOrdered))
 	for _, k := range keysOrdered {
-		group := grouped[k]
-		var finalFinding types.Finding
-
-		if len(group) == 1 {
-			finalFinding = group[0]
-		} else {
-			var mergedData []any
-			isAllJSONArrays := true
-
-			for _, f := range group {
-				var items []any
-				if err := json.Unmarshal(f.RawData, &items); err == nil {
-					mergedData = append(mergedData, items...)
-				} else {
-					isAllJSONArrays = false
-					break
-				}
-			}
-
-			if isAllJSONArrays {
-				mergedRaw, err := json.Marshal(mergedData)
-				if err != nil {
-					return nil, fmt.Errorf("merging paginated findings: %w", err)
-				}
-				finalFinding = group[0]
-				finalFinding.RawData = mergedRaw
-			} else {
-				finalFinding = group[len(group)-1]
-			}
+		finalFinding, err := mergeFindingsGroup(grouped[k])
+		if err != nil {
+			return nil, err
 		}
 
 		hash := sha256.Sum256(finalFinding.RawData)
@@ -319,75 +324,95 @@ func (o *Orchestrator) executeJobs(ctx context.Context, jobs []extractionJob) ([
 	return allFindings, nil
 }
 
-func (o *Orchestrator) loadIntegrationsFromConfig(ctx context.Context) ([]*universalrest.RESTIntegration, error) {
+func loadIntegrationsFromMap(integrationMap map[string][]byte) ([]*universalrest.RESTIntegration, error) {
 	var integrations []*universalrest.RESTIntegration
+	for key, data := range integrationMap {
+		if !strings.HasSuffix(key, ".yaml") && !strings.HasSuffix(key, ".yml") {
+			continue
+		}
+		var integration universalrest.RESTIntegration
+		if err := yaml.Unmarshal(data, &integration); err != nil {
+			return nil, fmt.Errorf("malformed YAML syntax in %s: %w", key, err)
+		}
+		integrations = append(integrations, &integration)
+	}
+	return integrations, nil
+}
 
+func loadIntegrationsFromDir(dir string) ([]*universalrest.RESTIntegration, error) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("integrations directory does not exist: %s", dir)
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("reading integrations directory: %w", err)
+	}
+
+	var integrations []*universalrest.RESTIntegration
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		name := f.Name()
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+
+		path := filepath.Join(dir, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading integration %s: %w", name, err)
+		}
+
+		var integration universalrest.RESTIntegration
+		if err := yaml.Unmarshal(data, &integration); err != nil {
+			return nil, fmt.Errorf("malformed YAML syntax in %s: %w", name, err)
+		}
+		integrations = append(integrations, &integration)
+	}
+	return integrations, nil
+}
+
+func loadCloudIntegration(dir, provider string) (*universalrest.RESTIntegration, error) {
+	cloudPath := filepath.Join(dir, "cloud", provider+".yaml")
+	data, err := os.ReadFile(cloudPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Warn("buildJobs: cloud integration not found", "provider", provider, "path", cloudPath)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading cloud integration %s: %w", provider, err)
+	}
+
+	var integration universalrest.RESTIntegration
+	if err := yaml.Unmarshal(data, &integration); err != nil {
+		return nil, fmt.Errorf("malformed YAML syntax in cloud/%s.yaml: %w", provider, err)
+	}
+	return &integration, nil
+}
+
+func (o *Orchestrator) loadIntegrationsFromConfig(ctx context.Context) ([]*universalrest.RESTIntegration, error) {
 	if len(o.cfg.IntegrationMap) > 0 {
-		for key, data := range o.cfg.IntegrationMap {
-			if !strings.HasSuffix(key, ".yaml") && !strings.HasSuffix(key, ".yml") {
-				continue
-			}
-			var integration universalrest.RESTIntegration
-			if err := yaml.Unmarshal(data, &integration); err != nil {
-				return nil, fmt.Errorf("malformed YAML syntax in %s: %w", key, err)
-			}
-			integrations = append(integrations, &integration)
+		return loadIntegrationsFromMap(o.cfg.IntegrationMap)
+	}
+
+	integrations, err := loadIntegrationsFromDir(o.cfg.IntegrationDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if o.cfg.Provider != "" {
+		cloudInteg, err := loadCloudIntegration(o.cfg.IntegrationDir, o.cfg.Provider)
+		if err != nil {
+			return nil, err
+		}
+		if cloudInteg != nil {
+			integrations = append(integrations, cloudInteg)
 		}
 	} else {
-		dir := o.cfg.IntegrationDir
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return nil, fmt.Errorf("integrations directory does not exist: %s", dir)
-		}
-
-		// 1. Load external integrations from root (always loaded).
-		files, err := os.ReadDir(dir)
-		if err != nil {
-			return nil, fmt.Errorf("reading integrations directory: %w", err)
-		}
-
-		for _, f := range files {
-			if f.IsDir() {
-				continue // Skip cloud/ and any other subdirectories.
-			}
-			name := f.Name()
-			if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
-				continue
-			}
-
-			path := filepath.Join(dir, name)
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return nil, fmt.Errorf("reading integration %s: %w", name, err)
-			}
-
-			var integration universalrest.RESTIntegration
-			if err := yaml.Unmarshal(data, &integration); err != nil {
-				return nil, fmt.Errorf("malformed YAML syntax in %s: %w", name, err)
-			}
-			integrations = append(integrations, &integration)
-		}
-
-		// 2. Load cloud provider integration if JULA_PROVIDER is set.
-		if o.cfg.Provider != "" {
-			cloudPath := filepath.Join(dir, "cloud", o.cfg.Provider+".yaml")
-			data, err := os.ReadFile(cloudPath)
-			if err != nil {
-				if os.IsNotExist(err) {
-					slog.Warn("buildJobs: cloud integration not found", "provider", o.cfg.Provider, "path", cloudPath)
-				} else {
-					return nil, fmt.Errorf("reading cloud integration %s: %w", o.cfg.Provider, err)
-				}
-			} else {
-				var integration universalrest.RESTIntegration
-				if err := yaml.Unmarshal(data, &integration); err != nil {
-					return nil, fmt.Errorf("malformed YAML syntax in cloud/%s.yaml: %w", o.cfg.Provider, err)
-				}
-				integrations = append(integrations, &integration)
-			}
-		} else {
-			slog.Warn("buildJobs: JULA_PROVIDER not set, skipping cloud integrations")
-		}
+		slog.Warn("buildJobs: JULA_PROVIDER not set, skipping cloud integrations")
 	}
+
 	return integrations, nil
 }
 
