@@ -79,8 +79,8 @@ func parseCollectorFlags(args []string) (*collectorOptions, error) {
 	}, nil
 }
 
-func deliverEvidence(ctx context.Context, output string, signingKey *ecdsa.PrivateKey, evidence []types.Evidence, runID string) (*types.Manifest, error) {
-	bucketURL, pathPrefix, err := courier.ParseOutputURL(output)
+func deliverEvidence(ctx context.Context, opts *collectorOptions, evidence []types.Evidence, runID string) (*types.Manifest, error) {
+	bucketURL, pathPrefix, err := courier.ParseOutputURL(opts.output)
 	if err != nil {
 		return nil, fmt.Errorf("parsing output URL: %w", err)
 	}
@@ -92,7 +92,7 @@ func deliverEvidence(ctx context.Context, output string, signingKey *ecdsa.Priva
 
 	rep := &courier.CloudCourier{
 		Store:      store,
-		SigningKey: signingKey,
+		SigningKey: opts.signingKey,
 		PathPrefix: pathPrefix,
 	}
 
@@ -108,6 +108,10 @@ func deliverEvidence(ctx context.Context, output string, signingKey *ecdsa.Priva
 	return manifest, nil
 }
 
+func isRemoteURL(urlStr string) bool {
+	return urlStr != "" && (strings.HasPrefix(urlStr, "http://") || strings.HasPrefix(urlStr, "https://"))
+}
+
 func handleRun(args []string) error {
 	opts, err := parseCollectorFlags(args)
 	if err != nil {
@@ -117,7 +121,7 @@ func handleRun(args []string) error {
 	var integrationMap map[string][]byte
 	integrationDir := resolveConfigPath("JULA_INTEGRATION_DIR", "integrations")
 
-	if opts.integrationURL != "" && (strings.HasPrefix(opts.integrationURL, "http://") || strings.HasPrefix(opts.integrationURL, "https://")) {
+	if isRemoteURL(opts.integrationURL) {
 		slog.Info("run: fetching integrations from URL", "url", opts.integrationURL)
 		var err error
 		integrationMap, err = fetchIntegrationsMap(opts.integrationURL, opts.provider)
@@ -161,7 +165,7 @@ func handleRun(args []string) error {
 	slog.Info("run: extraction and transformation complete", "evidence_count", len(evidence))
 
 	// --- Step 3: Deliver ---
-	manifest, err := deliverEvidence(ctx, opts.output, opts.signingKey, evidence, runID)
+	manifest, err := deliverEvidence(ctx, opts, evidence, runID)
 	if err != nil {
 		return err
 	}
@@ -205,6 +209,38 @@ func resolveConfigPath(envKey, defaultPath string) string {
 	return path
 }
 
+func processTarEntryPath(name, provider string) (string, bool) {
+	// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-governor-12345/engine/integrations/...').
+	// We strip the prefix to normalize the keys to bare filenames (e.g., 'gcp.yaml').
+	parts := strings.SplitN(name, "/", 2)
+	if len(parts) != 2 {
+		return "", false
+	}
+	tail := parts[1]
+
+	// Accept files under governor/engine/integrations/ only.
+	if !strings.HasPrefix(tail, "governor/engine/integrations/") {
+		return "", false
+	}
+
+	normalizedName := strings.TrimPrefix(tail, "governor/engine/integrations/")
+
+	// Filter cloud/ provider integrations: only load the YAML matching JULA_PROVIDER.
+	// External integrations (root-level) are always loaded.
+	if strings.HasPrefix(normalizedName, "cloud/") {
+		if provider == "" {
+			return "", false // No provider set, skip all cloud integrations.
+		}
+		expected := "cloud/" + provider + ".yaml"
+		if normalizedName != expected {
+			return "", false // Skip non-matching cloud providers.
+		}
+		// Strip the cloud/ prefix so the map key is just "gcp.yaml".
+		normalizedName = strings.TrimPrefix(normalizedName, "cloud/")
+	}
+	return normalizedName, true
+}
+
 func extractIntegrationsFromTarGz(body io.Reader, provider string) (map[string][]byte, error) {
 	gzr, err := gzip.NewReader(body)
 	if err != nil {
@@ -224,48 +260,26 @@ func extractIntegrationsFromTarGz(body io.Reader, provider string) (map[string][
 			return nil, fmt.Errorf("tar reader: %w", err)
 		}
 
-		if header.Typeflag == tar.TypeReg {
-			// GitHub tarballs have a top-level directory (e.g., 'alibkaba-jula-governor-12345/engine/integrations/...').
-			// We strip the prefix to normalize the keys to bare filenames (e.g., 'gcp.yaml').
-			parts := strings.SplitN(header.Name, "/", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			tail := parts[1]
-
-			// Accept files under governor/engine/integrations/ only.
-			if !strings.HasPrefix(tail, "governor/engine/integrations/") {
-				continue
-			}
-
-			normalizedName := strings.TrimPrefix(tail, "governor/engine/integrations/")
-
-			// Filter cloud/ provider integrations: only load the YAML matching JULA_PROVIDER.
-			// External integrations (root-level) are always loaded.
-			if strings.HasPrefix(normalizedName, "cloud/") {
-				if provider == "" {
-					continue // No provider set, skip all cloud integrations.
-				}
-				expected := "cloud/" + provider + ".yaml"
-				if normalizedName != expected {
-					continue // Skip non-matching cloud providers.
-				}
-				// Strip the cloud/ prefix so the map key is just "gcp.yaml".
-				normalizedName = strings.TrimPrefix(normalizedName, "cloud/")
-			}
-
-			data, err := io.ReadAll(tr)
-			if err != nil {
-				return nil, fmt.Errorf("reading file %s: %w", header.Name, err)
-			}
-			result[normalizedName] = data
+		if header.Typeflag != tar.TypeReg {
+			continue
 		}
+
+		normalizedName, ok := processTarEntryPath(header.Name, provider)
+		if !ok {
+			continue
+		}
+
+		data, err := io.ReadAll(tr)
+		if err != nil {
+			return nil, fmt.Errorf("reading file %s: %w", header.Name, err)
+		}
+		result[normalizedName] = data
 	}
 
 	return result, nil
 }
 
-func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, error) {
+func validateIntegrationsURL(urlStr string) (*url.URL, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid integrations URL: %w", err)
@@ -280,7 +294,10 @@ func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, er
 			return nil, fmt.Errorf("integrations URL host %q is not in the allowed hosts list: %v", host, allowedHosts)
 		}
 	}
+	return u, nil
+}
 
+func buildIntegrationsRequest(u *url.URL) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil) //nolint:ssrf // URL validated above: HTTPS-only + allowlisted hosts
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -292,6 +309,19 @@ func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, er
 	}
 	if token := os.Getenv(tokenEnvName); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return req, nil
+}
+
+func fetchIntegrationsMap(urlStr string, provider string) (map[string][]byte, error) {
+	u, err := validateIntegrationsURL(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := buildIntegrationsRequest(u)
+	if err != nil {
+		return nil, err
 	}
 
 	client := newSafeClient(30 * time.Second)
