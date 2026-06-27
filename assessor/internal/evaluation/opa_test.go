@@ -2,6 +2,9 @@ package evaluation
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/open-policy-agent/opa/rego"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,9 +98,9 @@ func TestOPAEngine_EvaluateControl(t *testing.T) {
 
 	evidenceList := []types.Evidence{
 		{
-			EvidenceID:    "EVID-BCM-16",
-			ControlID: "BCD-11.4",
-			SourceID: "src-1",
+			EvidenceID: "EVID-BCM-16",
+			ControlID:  "BCD-11.4",
+			SourceID:   "src-1",
 			Finding: types.Finding{
 				Provider:  "gcp_cai",
 				Timestamp: time.Now(),
@@ -220,3 +223,261 @@ func TestOPAEngine_GetRegisteredControlIDs(t *testing.T) {
 	}
 }
 
+func TestExtractFirstEvidencePayload(t *testing.T) {
+	tests := []struct {
+		name      string
+		evidences []types.Evidence
+		wantType  string // using string representation for simplicity in checks
+	}{
+		{
+			name:      "empty slice",
+			evidences: []types.Evidence{},
+			wantType:  "nil",
+		},
+		{
+			name: "valid JSON raw data",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`{"key": "value"}`),
+					},
+				},
+			},
+			wantType: "map[string]interface {}",
+		},
+		{
+			name: "invalid JSON fallback to string",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`not-json`),
+					},
+				},
+			},
+			wantType: "string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFirstEvidencePayload(tt.evidences)
+			if tt.wantType == "nil" {
+				if got != nil {
+					t.Errorf("extractFirstEvidencePayload() = %v, want nil", got)
+				}
+				return
+			}
+
+			gotType := fmt.Sprintf("%T", got)
+			if gotType != tt.wantType {
+				t.Errorf("extractFirstEvidencePayload() type = %v, want %v", gotType, tt.wantType)
+			}
+		})
+	}
+}
+
+func TestParseConfidence(t *testing.T) {
+	tests := []struct {
+		name    string
+		evalMap map[string]interface{}
+		want    float64
+	}{
+		{
+			name: "valid json.Number",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("0.95"),
+			},
+			want: 0.95,
+		},
+		{
+			name: "invalid json.Number",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("invalid"),
+			},
+			want: 0.0, // Should fallback to 0.0 if Float64() fails and it's not a float64 either
+		},
+		{
+			name: "valid float64",
+			evalMap: map[string]interface{}{
+				"confidence": 0.85,
+			},
+			want: 0.85,
+		},
+		{
+			name:    "missing confidence",
+			evalMap: map[string]interface{}{},
+			want:    0.0,
+		},
+		{
+			name: "invalid type",
+			evalMap: map[string]interface{}{
+				"confidence": "high", // string instead of number
+			},
+			want: 0.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseConfidence(tt.evalMap)
+			if got != tt.want {
+				t.Errorf("parseConfidence() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractEvaluationMap(t *testing.T) {
+	tests := []struct {
+		name    string
+		results rego.ResultSet
+		wantOk  bool
+		wantLen int
+	}{
+		{
+			name:    "empty result set",
+			results: rego.ResultSet{},
+			wantOk:  false,
+		},
+		{
+			name: "empty expressions",
+			results: rego.ResultSet{
+				{
+					Expressions: []*rego.ExpressionValue{},
+				},
+			},
+			wantOk: false,
+		},
+		{
+			name: "invalid value type",
+			results: rego.ResultSet{
+				{
+					Expressions: []*rego.ExpressionValue{
+						{
+							Value: "not a map",
+						},
+					},
+				},
+			},
+			wantOk: false,
+		},
+		{
+			name: "missing evaluation key",
+			results: rego.ResultSet{
+				{
+					Expressions: []*rego.ExpressionValue{
+						{
+							Value: map[string]interface{}{
+								"other_key": "value",
+							},
+						},
+					},
+				},
+			},
+			wantOk: false,
+		},
+		{
+			name: "valid evaluation map",
+			results: rego.ResultSet{
+				{
+					Expressions: []*rego.ExpressionValue{
+						{
+							Value: map[string]interface{}{
+								"evaluation": map[string]interface{}{
+									"compliant": true,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantOk:  true,
+			wantLen: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMap, gotOk := extractEvaluationMap(tt.results)
+			if gotOk != tt.wantOk {
+				t.Errorf("extractEvaluationMap() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+			if gotOk && len(gotMap) != tt.wantLen {
+				t.Errorf("extractEvaluationMap() map length = %v, want %v", len(gotMap), tt.wantLen)
+			}
+		})
+	}
+}
+
+func TestOPAEngine_EvaluateControl_Errors(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("compilation error during evaluation", func(t *testing.T) {
+		engine := NewOPAEngine()
+
+		// Valid module for Compile to succeed
+		mockRego := `
+			package compliance.controls.err_1
+			import rego.v1
+			evaluation := {
+				"control_id": "ERR-1",
+				"compliant": true
+			}
+		`
+		engine.policyModules["compliance/controls/err_1.rego"] = mockRego
+
+		if err := engine.Compile(ctx); err != nil {
+			t.Fatalf("failed to compile policies: %v", err)
+		}
+
+		// Mutate policy with invalid syntax to force PrepareForEval to fail during EvaluateControl
+		engine.policyModules["compliance/controls/err_1.rego"] = `
+			package compliance.controls.err_1
+			invalid syntax here
+		`
+
+		findings, err := engine.EvaluateControl(ctx, "ERR-1", nil, nil)
+		if err != nil {
+			t.Fatalf("EvaluateControl should not return raw error for compilation failures: %v", err)
+		}
+
+		if len(findings) != 1 {
+			t.Fatalf("expected 1 finding, got %d", len(findings))
+		}
+
+		if findings[0].Verdict != VerdictFailed {
+			t.Errorf("expected FAILED verdict, got: %s", findings[0].Verdict)
+		}
+
+		if !strings.Contains(findings[0].Details, "OPA compilation error") {
+			t.Errorf("expected details to contain 'OPA compilation error', got: %s", findings[0].Details)
+		}
+	})
+
+	t.Run("empty results from OPA", func(t *testing.T) {
+		engine := NewOPAEngine()
+
+		// Map ERR-2 to a non-existent path so OPA querying returns empty results
+		if engine.controlPackageMap == nil {
+			engine.controlPackageMap = make(map[string][]string)
+		}
+		engine.controlPackageMap["ERR-2"] = []string{"data.compliance.controls.non_existent"}
+
+		findings, err := engine.EvaluateControl(ctx, "ERR-2", nil, nil)
+		if err != nil {
+			t.Fatalf("EvaluateControl should not return raw error: %v", err)
+		}
+
+		if len(findings) != 1 {
+			t.Fatalf("expected 1 finding, got %d", len(findings))
+		}
+
+		if findings[0].Verdict != VerdictFailed {
+			t.Errorf("expected FAILED verdict, got: %s", findings[0].Verdict)
+		}
+
+		if !strings.Contains(findings[0].Details, "empty evaluation result") {
+			t.Errorf("expected details to contain 'empty evaluation result', got: %s", findings[0].Details)
+		}
+	})
+}
