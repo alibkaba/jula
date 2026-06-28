@@ -2,11 +2,15 @@ package evaluation
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/open-policy-agent/opa/rego"
 
 	"github.com/alibkaba/jula-core/pkg/types"
 )
@@ -95,9 +99,9 @@ func TestOPAEngine_EvaluateControl(t *testing.T) {
 
 	evidenceList := []types.Evidence{
 		{
-			EvidenceID:    "EVID-BCM-16",
-			ControlID: "BCD-11.4",
-			SourceID: "src-1",
+			EvidenceID: "EVID-BCM-16",
+			ControlID:  "BCD-11.4",
+			SourceID:   "src-1",
 			Finding: types.Finding{
 				Provider:  "gcp_cai",
 				Timestamp: time.Now(),
@@ -220,3 +224,313 @@ func TestOPAEngine_GetRegisteredControlIDs(t *testing.T) {
 	}
 }
 
+func TestExtractFirstEvidencePayload(t *testing.T) {
+	tests := []struct {
+		name      string
+		evidences []types.Evidence
+		want      interface{}
+	}{
+		{
+			name:      "empty evidence list",
+			evidences: []types.Evidence{},
+			want:      nil,
+		},
+		{
+			name: "valid JSON raw data",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`{"key": "value"}`),
+					},
+				},
+			},
+			want: map[string]interface{}{"key": "value"},
+		},
+		{
+			name: "invalid JSON raw data fallback to string",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`invalid json`),
+					},
+				},
+			},
+			want: "invalid json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFirstEvidencePayload(tt.evidences)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractFirstEvidencePayload() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseConfidence(t *testing.T) {
+	tests := []struct {
+		name    string
+		evalMap map[string]interface{}
+		want    float64
+	}{
+		{
+			name: "confidence as float64",
+			evalMap: map[string]interface{}{
+				"confidence": 0.95,
+			},
+			want: 0.95,
+		},
+		{
+			name: "confidence as valid json.Number",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("0.85"),
+			},
+			want: 0.85,
+		},
+		{
+			name: "confidence as invalid json.Number",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("invalid"),
+			},
+			want: 0.0,
+		},
+		{
+			name:    "missing confidence",
+			evalMap: map[string]interface{}{},
+			want:    0.0,
+		},
+		{
+			name: "confidence as invalid type (string)",
+			evalMap: map[string]interface{}{
+				"confidence": "high",
+			},
+			want: 0.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseConfidence(tt.evalMap); got != tt.want {
+				t.Errorf("parseConfidence() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractEvaluationMap(t *testing.T) {
+	tests := []struct {
+		name    string
+		results rego.ResultSet
+		wantMap map[string]interface{}
+		wantOk  bool
+	}{
+		{
+			name:    "empty results",
+			results: rego.ResultSet{},
+			wantMap: nil,
+			wantOk:  false,
+		},
+		{
+			name: "empty expressions",
+			results: rego.ResultSet{
+				rego.Result{},
+			},
+			wantMap: nil,
+			wantOk:  false,
+		},
+		{
+			name: "value not map[string]interface{}",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{Value: "string value"},
+					},
+				},
+			},
+			wantMap: nil,
+			wantOk:  false,
+		},
+		{
+			name: "evaluation map missing",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{Value: map[string]interface{}{"other": "value"}},
+					},
+				},
+			},
+			wantMap: nil,
+			wantOk:  false,
+		},
+		{
+			name: "evaluation map is not map[string]interface{}",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{Value: map[string]interface{}{"evaluation": "string"}},
+					},
+				},
+			},
+			wantMap: nil,
+			wantOk:  false,
+		},
+		{
+			name: "valid evaluation map",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{Value: map[string]interface{}{"evaluation": map[string]interface{}{"key": "value"}}},
+					},
+				},
+			},
+			wantMap: map[string]interface{}{"key": "value"},
+			wantOk:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMap, gotOk := extractEvaluationMap(tt.results)
+			if gotOk != tt.wantOk {
+				t.Errorf("extractEvaluationMap() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+			if !reflect.DeepEqual(gotMap, tt.wantMap) {
+				t.Errorf("extractEvaluationMap() gotMap = %v, want %v", gotMap, tt.wantMap)
+			}
+		})
+	}
+}
+
+func TestParseControlFindingVerdict(t *testing.T) {
+	tests := []struct {
+		name               string
+		results            rego.ResultSet
+		pkgPath            string
+		evidences          []types.Evidence
+		wantVerdict        ComplianceVerdict
+		wantCustControlID  string
+		wantDetails        string
+		wantTargetService  string
+		wantAutomationStat string
+		wantConfidence     float64
+		wantRawData        interface{}
+	}{
+		{
+			name: "drift detected and dynamic details",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{
+							Value: map[string]interface{}{
+								"evaluation": map[string]interface{}{
+									"compliant":           true,
+									"drift_detected":      true,
+									"customer_control_id": "cust-1",
+									"details":             "custom drift details",
+									"service":             "aws-s3",
+									"confidence":          0.99,
+									"automation_status":   "automated",
+								},
+							},
+						},
+					},
+				},
+			},
+			pkgPath: "data.pkg.drift",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`{"drift": "yes"}`),
+					},
+				},
+			},
+			wantVerdict:        VerdictDrifted,
+			wantCustControlID:  "cust-1",
+			wantDetails:        "custom drift details",
+			wantTargetService:  "aws-s3",
+			wantAutomationStat: "automated",
+			wantConfidence:     0.99,
+			wantRawData:        map[string]interface{}{"drift": "yes"},
+		},
+		{
+			name: "compliant without dynamic details",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{
+							Value: map[string]interface{}{
+								"evaluation": map[string]interface{}{
+									"compliant": true,
+								},
+							},
+						},
+					},
+				},
+			},
+			pkgPath:            "data.pkg.comp",
+			evidences:          nil,
+			wantVerdict:        VerdictCompliant,
+			wantCustControlID:  "",
+			wantDetails:        "Evaluation successfully passed under policy package \"data.pkg.comp\"",
+			wantTargetService:  "",
+			wantAutomationStat: "",
+			wantConfidence:     0.0,
+			wantRawData:        nil,
+		},
+		{
+			name: "non-compliant without dynamic details",
+			results: rego.ResultSet{
+				rego.Result{
+					Expressions: []*rego.ExpressionValue{
+						{
+							Value: map[string]interface{}{
+								"evaluation": map[string]interface{}{
+									"compliant": false,
+								},
+							},
+						},
+					},
+				},
+			},
+			pkgPath:            "data.pkg.noncomp",
+			evidences:          nil,
+			wantVerdict:        VerdictNonCompliant,
+			wantCustControlID:  "",
+			wantDetails:        "Evaluation failed under policy package \"data.pkg.noncomp\"",
+			wantTargetService:  "",
+			wantAutomationStat: "",
+			wantConfidence:     0.0,
+			wantRawData:        nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotVerdict, gotCustControlID, gotDetails, gotTargetService, gotAutomationStat, gotConfidence, gotRawData := parseControlFindingVerdict(tt.results, tt.pkgPath, tt.evidences)
+
+			if gotVerdict != tt.wantVerdict {
+				t.Errorf("Verdict = %v, want %v", gotVerdict, tt.wantVerdict)
+			}
+			if gotCustControlID != tt.wantCustControlID {
+				t.Errorf("CustControlID = %v, want %v", gotCustControlID, tt.wantCustControlID)
+			}
+			if gotDetails != tt.wantDetails {
+				t.Errorf("Details = %v, want %v", gotDetails, tt.wantDetails)
+			}
+			if gotTargetService != tt.wantTargetService {
+				t.Errorf("TargetService = %v, want %v", gotTargetService, tt.wantTargetService)
+			}
+			if gotAutomationStat != tt.wantAutomationStat {
+				t.Errorf("AutomationStat = %v, want %v", gotAutomationStat, tt.wantAutomationStat)
+			}
+			if gotConfidence != tt.wantConfidence {
+				t.Errorf("Confidence = %v, want %v", gotConfidence, tt.wantConfidence)
+			}
+			if !reflect.DeepEqual(gotRawData, tt.wantRawData) {
+				t.Errorf("RawData = %v, want %v", gotRawData, tt.wantRawData)
+			}
+		})
+	}
+}
