@@ -128,4 +128,3 @@ func (r *CloudReader) WriteFile(ctx context.Context, fileName string, data []byt
 		bytes.NewReader(data),
 	), "application/json")
 }
-

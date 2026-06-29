@@ -2,8 +2,11 @@ package evaluation
 
 import (
 	"context"
+	"encoding/json"
+
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -95,9 +98,9 @@ func TestOPAEngine_EvaluateControl(t *testing.T) {
 
 	evidenceList := []types.Evidence{
 		{
-			EvidenceID:    "EVID-BCM-16",
-			ControlID: "BCD-11.4",
-			SourceID: "src-1",
+			EvidenceID: "EVID-BCM-16",
+			ControlID:  "BCD-11.4",
+			SourceID:   "src-1",
 			Finding: types.Finding{
 				Provider:  "gcp_cai",
 				Timestamp: time.Now(),
@@ -220,3 +223,95 @@ func TestOPAEngine_GetRegisteredControlIDs(t *testing.T) {
 	}
 }
 
+func TestExtractFirstEvidencePayload(t *testing.T) {
+	tests := []struct {
+		name      string
+		evidences []types.Evidence
+		want      interface{}
+	}{
+		{
+			name:      "empty evidences",
+			evidences: []types.Evidence{},
+			want:      nil,
+		},
+		{
+			name: "valid JSON raw data",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`{"key": "value"}`),
+					},
+				},
+			},
+			want: map[string]interface{}{"key": "value"},
+		},
+		{
+			name: "invalid JSON raw data fallback to string",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`plain text data`),
+					},
+				},
+			},
+			want: "plain text data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFirstEvidencePayload(tt.evidences)
+
+			// Simple comparison for our cases
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractFirstEvidencePayload() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseConfidence(t *testing.T) {
+	tests := []struct {
+		name    string
+		evalMap map[string]interface{}
+		want    float64
+	}{
+		{
+			name: "json.Number format",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("0.95"),
+			},
+			want: 0.95,
+		},
+		{
+			name: "invalid json.Number format",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("not_a_number"),
+			},
+			want: 0.0,
+		},
+		{
+			name: "float64 format",
+			evalMap: map[string]interface{}{
+				"confidence": 0.85,
+			},
+			want: 0.85,
+		},
+		{
+			name: "missing confidence",
+			evalMap: map[string]interface{}{
+				"other_key": "value",
+			},
+			want: 0.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseConfidence(tt.evalMap)
+			if got != tt.want {
+				t.Errorf("parseConfidence() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
