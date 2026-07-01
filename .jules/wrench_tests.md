@@ -9,3 +9,7 @@ WRENCH'S JOURNAL
 - To mock GCP credential token exchange (e.g., `google.FindDefaultCredentials`) without network calls, provide a dummy service account JSON file with a dynamically generated RSA private key and set its `token_uri` field to point to a local `httptest.NewServer`.
 
 - **Testing Oracle Cloud Infrastructure (OCI) Signatures:** The OCI signing logic `SignOCICavage` correctly expects PEM-encoded private keys, and supports both `RSA PRIVATE KEY` and `PRIVATE KEY` headers. During testing, to avoid file dependencies, generate keys in memory with `rsa.GenerateKey` and marshal them into valid PKCS#1 and PKCS#8 PEM blocks for mocking the `OCI_PRIVATE_KEY` environment variable.
+
+- In the evaluator module, passing a canceled context before calling OPA Eval() does not reliably simulate runtime errors for trivial rules (it may successfully evaluate anyway). Use invalid Rego syntax or empty results instead to test failure paths.
+- To simulate empty OPA results during evaluation tests, map a control ID to a valid package in OPAEngine.controlPackageMap but purposefully omit defining an evaluation rule in the corresponding Rego code.
+- In the evaluator module, OPA PrepareForEval compilation errors can be simulated in tests by mutating the OPAEngine.policyModules map with invalid Rego syntax after calling Compile().
