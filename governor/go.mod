@@ -3,7 +3,7 @@ module jula-governor
 go 1.25.10
 
 require (
-	github.com/open-policy-agent/opa v1.18.0
+	github.com/open-policy-agent/opa v1.18.2
 	go.yaml.in/yaml/v4 v4.0.0-rc.5
 )
 
