@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"encoding/json"
 	"time"
 
 	"github.com/alibkaba/jula-core/pkg/types"
@@ -220,3 +221,103 @@ func TestOPAEngine_GetRegisteredControlIDs(t *testing.T) {
 	}
 }
 
+
+func TestExtractFirstEvidencePayload(t *testing.T) {
+	tests := []struct {
+		name      string
+		evidences []types.Evidence
+		wantType  string
+		wantStr   string
+	}{
+		{
+			name:      "empty slice",
+			evidences: []types.Evidence{},
+			wantType:  "nil",
+		},
+		{
+			name: "valid json payload",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`{"key":"value"}`),
+					},
+				},
+			},
+			wantType: "map",
+		},
+		{
+			name: "invalid json payload fallback to string",
+			evidences: []types.Evidence{
+				{
+					Finding: types.Finding{
+						RawData: []byte(`invalid-json`),
+					},
+				},
+			},
+			wantType: "string",
+			wantStr:  "invalid-json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFirstEvidencePayload(tt.evidences)
+			if tt.wantType == "nil" {
+				if got != nil {
+					t.Errorf("extractFirstEvidencePayload() = %v, want nil", got)
+				}
+			} else if tt.wantType == "map" {
+				if _, ok := got.(map[string]interface{}); !ok {
+					t.Errorf("extractFirstEvidencePayload() returned %T, want map[string]interface{}", got)
+				}
+			} else if tt.wantType == "string" {
+				if s, ok := got.(string); !ok || s != tt.wantStr {
+					t.Errorf("extractFirstEvidencePayload() = %v (type %T), want string %q", got, got, tt.wantStr)
+				}
+			}
+		})
+	}
+}
+
+func TestParseConfidence(t *testing.T) {
+	tests := []struct {
+		name    string
+		evalMap map[string]interface{}
+		want    float64
+	}{
+		{
+			name:    "missing key",
+			evalMap: map[string]interface{}{},
+			want:    0.0,
+		},
+		{
+			name: "valid json.Number",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("0.85"),
+			},
+			want: 0.85,
+		},
+		{
+			name: "valid float64",
+			evalMap: map[string]interface{}{
+				"confidence": 0.9,
+			},
+			want: 0.9,
+		},
+		{
+			name: "invalid json.Number",
+			evalMap: map[string]interface{}{
+				"confidence": json.Number("not-a-number"),
+			},
+			want: 0.0, // fallback handles this, but since it's not float64 either it will return 0.0
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseConfidence(tt.evalMap); got != tt.want {
+				t.Errorf("parseConfidence() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
