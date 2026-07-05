@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -442,5 +444,135 @@ endpoints:
 	}
 	if string(e.Finding.RawData) != `{"status":"ok","data":"some-evidence"}` {
 		t.Errorf("unexpected raw data: %s", string(e.Finding.RawData))
+	}
+}
+
+func TestMergeFindingsGroup(t *testing.T) {
+	tests := []struct {
+		name    string
+		group   []types.Finding
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "single finding",
+			group: []types.Finding{
+				{RawData: []byte(`{"id": 1}`)},
+			},
+			want: `{"id": 1}`,
+		},
+		{
+			name: "multiple findings with valid JSON arrays",
+			group: []types.Finding{
+				{RawData: []byte(`[{"id": 1}]`)},
+				{RawData: []byte(`[{"id": 2}]`)},
+			},
+			want: `[{"id":1},{"id":2}]`,
+		},
+		{
+			name: "multiple findings with non-array JSON",
+			group: []types.Finding{
+				{RawData: []byte(`{"id": 1}`)},
+				{RawData: []byte(`{"id": 2}`)},
+			},
+			want: `{"id": 2}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := mergeFindingsGroup(tt.group)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("mergeFindingsGroup() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if string(got.RawData) != tt.want {
+				t.Errorf("mergeFindingsGroup() = %s, want %s", string(got.RawData), tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadCloudIntegration(t *testing.T) {
+	tempDir := t.TempDir()
+	cloudDir := filepath.Join(tempDir, "cloud")
+	if err := os.MkdirAll(cloudDir, 0755); err != nil {
+		t.Fatalf("failed to create cloud dir: %v", err)
+	}
+
+	validYAMLPath := filepath.Join(cloudDir, "aws.yaml")
+	validYAMLContent := `
+name: "aws-test"
+`
+	if err := os.WriteFile(validYAMLPath, []byte(validYAMLContent), 0644); err != nil {
+		t.Fatalf("failed to write valid YAML: %v", err)
+	}
+
+	invalidYAMLPath := filepath.Join(cloudDir, "gcp.yaml")
+	invalidYAMLContent := `
+name: "gcp-test"
+  invalid: yaml: formatting:
+`
+	if err := os.WriteFile(invalidYAMLPath, []byte(invalidYAMLContent), 0644); err != nil {
+		t.Fatalf("failed to write invalid YAML: %v", err)
+	}
+
+	// For read error test, we create a directory named `error_provider.yaml`
+	errorProviderPath := filepath.Join(cloudDir, "error_provider.yaml")
+	if err := os.MkdirAll(errorProviderPath, 0755); err != nil {
+		t.Fatalf("failed to create directory for read error test: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		dir      string
+		provider string
+		wantErr  bool
+		wantNil  bool
+	}{
+		{
+			name:     "file not found",
+			dir:      tempDir,
+			provider: "azure",
+			wantErr:  false,
+			wantNil:  true,
+		},
+		{
+			name:     "valid YAML file",
+			dir:      tempDir,
+			provider: "aws",
+			wantErr:  false,
+			wantNil:  false,
+		},
+		{
+			name:     "malformed YAML file",
+			dir:      tempDir,
+			provider: "gcp",
+			wantErr:  true,
+			wantNil:  true,
+		},
+		{
+			name:     "read error",
+			dir:      tempDir,
+			provider: "error_provider",
+			wantErr:  true,
+			wantNil:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := loadCloudIntegration(tt.dir, tt.provider)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("loadCloudIntegration() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantNil && got != nil {
+				t.Errorf("loadCloudIntegration() got = %v, want nil", got)
+			}
+			if !tt.wantNil && got == nil {
+				t.Errorf("loadCloudIntegration() got nil, want non-nil")
+			}
+		})
 	}
 }

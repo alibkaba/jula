@@ -13,3 +13,4 @@ WRENCH'S JOURNAL
 ## OPA Evaluation Engine Tests
 - **Simulating Compilation Errors**: Simulated OPA `PrepareForEval` compilation errors by mutating the `OPAEngine.policyModules` map with invalid Rego syntax after calling `Compile()`.
 - **Simulating Empty Results**: Simulated empty OPA results by mapping a control ID to a valid package in `OPAEngine.controlPackageMap`, but purposefully omitting the evaluation rule in the corresponding Rego code.
+- When simulating file system errors deterministically in Go tests (like read/write failures), create a directory where a file is expected (e.g., using `os.MkdirAll`) or use `os.CreateTemp` to create a file and treat it as a directory path, instead of relying on hardcoded invalid paths.
