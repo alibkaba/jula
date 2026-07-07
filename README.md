@@ -61,8 +61,8 @@ flowchart TB
     %%   ⬛ Core      = Dark Zinc       (Shared Low-Level Utilities)
     %%   🌹 Data      = Rose            (Intermediate Artifacts)
     %%   🔷 Output    = Cyan            (Final Deliverables)
-    %%   🔑 Keys      = Owner-tinted    (Crypto Primitives, 2.5px stroke)
-    %%   ✅ Verify    = Mid-tone        (Check-gate Bridges)
+    %%   🔑 Keys      = Owner-tinted    (Crypto Primitives, 3px stroke)
+    %%   ✅ Verify    = Mid-tone        (Check-gate Bridges, 3px stroke)
     %% ══════════════════════════════════════════════════
 
     %% 🏗️ Module Node Styles
@@ -77,15 +77,15 @@ flowchart TB
     classDef dataBundle fill:#fff1f2,stroke:#f43f5e,stroke-width:2px,color:#4c0519;
     classDef finalOutput fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63;
 
-    %% 🔑 Cryptographic Key Primitives (owner-tinted)
-    classDef keyA fill:#dbeafe,stroke:#2563eb,stroke-width:2.5px,color:#1e3a8a;
-    classDef keyB fill:#fed7aa,stroke:#ea580c,stroke-width:2.5px,color:#431407;
-    classDef keyC fill:#dcfce7,stroke:#16a34a,stroke-width:2.5px,color:#14532d;
-
+    %% 🔑 Cryptographic Key Primitives (owner-tinted, thick border)
+    classDef keyA fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+    classDef keyB fill:#ffebd8,stroke:#ea580c,stroke-width:3px,color:#431407;
+    classDef keyC fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#14532d;
+ 
     %% ✅ Verification Check-gates
-    classDef verifyA fill:#eff6ff,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a;
-    classDef verifyB fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#431407;
-    classDef verifyC fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#14532d;
+    classDef verifyA fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
+    classDef verifyB fill:#ffebd8,stroke:#ea580c,stroke-width:3px,color:#431407;
+    classDef verifyC fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#14532d;
     classDef verifyInteg fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59;
 
     subgraph ClientLocal ["💻 Client Local & GitOps Space"]
@@ -103,7 +103,7 @@ flowchart TB
 
         subgraph Phase5 ["5. Posture Insights (reporter/) 🚧"]
             direction TB
-            VerdictGate["🔑 Verdict Verify<br>(Key C Public)"]
+            VerdictGate["✅ Verdict Verify<br>(Key C Public)"]
             DB["📊 Posture Reporter<br>(jula-posture CLI)"]
 
             subgraph Analysis ["Analysis"]
@@ -143,9 +143,6 @@ flowchart TB
             APIs["☁️ Target Provider Scopes<br>(AWS, GCP, SaaS APIs)"]
         end
 
-        subgraph ComplianceVPC ["🔒 Dedicated Compliance Account (Isolated Jula VPC)"]
-            direction TB
-            
             subgraph Phase2 ["2. Attestation Layer (collector/)"]
                 direction TB
                 JIE["Collector Engine<br>(Stateless Go CLI)"] -->|2a. Output Payloads| H["📄 Evidence Payloads<br>(Raw JSON / CSV / Text)"]
@@ -170,10 +167,10 @@ flowchart TB
 
                 subgraph GK ["Gatekeeper Verification"]
                     direction LR
-                    SigCheck["🔑 Manifest Verify<br>(Key A Public)"]
+                    SigCheck["✅ Manifest Verify<br>(Key A Public)"]
                     HashCheck["✅ Integrity Check<br>(Hash Comparison)"]
                     ProvCheck["🛡️ Provenance Verify<br>(Sidecar Check)"]
-                    PolicyCheck["🔑 Bundle Verify<br>(Key B Public)"]
+                    PolicyCheck["✅ Bundle Verify<br>(Key B Public)"]
                 end
 
                 OPA["⚙️ Embedded OPA Engine<br>(Dynamic Rego Execution)"]
@@ -188,7 +185,6 @@ flowchart TB
                 Findings["🏆 Compliance Findings<br>(assessor_ledger.json + OSCAL AR)"]
                 SignedVerdict["🛡️ Signed Verdict<br>(verdict.json)"]
             end
-        end
     end
 
     %% Core Data Relationships
@@ -251,7 +247,6 @@ flowchart TB
     style ClientLocal fill:#fafaf9,stroke:#0f172a,stroke-width:3px;
     style ClientCloud fill:#f8fafc,stroke:#334155,stroke-width:3px;
     style ClientTargetEnv fill:#fffbeb,stroke:#d97706,stroke-width:2px,stroke-dasharray: 5 5;
-    style ComplianceVPC fill:#f8fafc,stroke:#334155,stroke-width:2px,stroke-dasharray: 10 5;
 ```
 
 ---
