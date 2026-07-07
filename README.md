@@ -83,9 +83,9 @@ flowchart TB
     classDef keyC fill:#dcfce7,stroke:#16a34a,stroke-width:2.5px,color:#14532d;
 
     %% ✅ Verification Check-gates
-    classDef verifyA fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0c4a6e;
-    classDef verifyB fill:#ffe4e6,stroke:#f43f5e,stroke-width:1.5px,color:#4c0519;
-    classDef verifyC fill:#fae8ff,stroke:#c084fc,stroke-width:1.5px,color:#6b21a8;
+    classDef verifyA fill:#eff6ff,stroke:#2563eb,stroke-width:1.5px,color:#1e3a8a;
+    classDef verifyB fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#431407;
+    classDef verifyC fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px,color:#14532d;
     classDef verifyInteg fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59;
 
     subgraph ClientLocal ["💻 Client Local & GitOps Space"]
