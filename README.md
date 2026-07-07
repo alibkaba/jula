@@ -66,27 +66,27 @@ flowchart TB
     %% ══════════════════════════════════════════════════
 
     %% 🏗️ Module Node Styles
-    classDef governor fill:#ffebd8,stroke:#ea580c,stroke-width:2px,color:#431407;
-    classDef collector fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a;
-    classDef assessor fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d;
-    classDef reporter fill:#faf5ff,stroke:#7c3aed,stroke-width:2px,color:#581c87;
-    classDef ledger fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a;
-    classDef core fill:#f4f4f5,stroke:#27272a,stroke-width:2px,color:#09090b;
-
+    classDef governor fill:#ffebd8,stroke:#ea580c,stroke-width:2px,color:#431407,font-family:system-ui,sans-serif;
+    classDef collector fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a,font-family:system-ui,sans-serif;
+    classDef assessor fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d,font-family:system-ui,sans-serif;
+    classDef reporter fill:#faf5ff,stroke:#7c3aed,stroke-width:2px,color:#581c87,font-family:system-ui,sans-serif;
+    classDef ledger fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#0f172a,font-family:system-ui,sans-serif;
+    classDef core fill:#f4f4f5,stroke:#27272a,stroke-width:2px,color:#09090b,font-family:system-ui,sans-serif;
+ 
     %% 📦 Data / Deliverable Artifact Styles (Separated from Engines)
-    classDef dataBundle fill:#fff1f2,stroke:#f43f5e,stroke-width:2px,color:#4c0519;
-    classDef finalOutput fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63;
-
+    classDef dataBundle fill:#fff1f2,stroke:#f43f5e,stroke-width:2px,color:#4c0519,font-family:system-ui,sans-serif;
+    classDef finalOutput fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63,font-family:system-ui,sans-serif;
+ 
     %% 🔑 Cryptographic Key Primitives (owner-tinted, thick border)
-    classDef keyA fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
-    classDef keyB fill:#ffebd8,stroke:#ea580c,stroke-width:3px,color:#431407;
-    classDef keyC fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#14532d;
+    classDef keyA fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#1e3a8a,font-family:system-ui,sans-serif;
+    classDef keyB fill:#ffebd8,stroke:#ea580c,stroke-width:3px,color:#431407,font-family:system-ui,sans-serif;
+    classDef keyC fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#14532d,font-family:system-ui,sans-serif;
  
     %% ✅ Verification Check-gates
-    classDef verifyA fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;
-    classDef verifyB fill:#ffebd8,stroke:#ea580c,stroke-width:3px,color:#431407;
-    classDef verifyC fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#14532d;
-    classDef verifyInteg fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59;
+    classDef verifyA fill:#eff6ff,stroke:#2563eb,stroke-width:3px,color:#1e3a8a,font-family:system-ui,sans-serif;
+    classDef verifyB fill:#ffebd8,stroke:#ea580c,stroke-width:3px,color:#431407,font-family:system-ui,sans-serif;
+    classDef verifyC fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#14532d,font-family:system-ui,sans-serif;
+    classDef verifyInteg fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#115e59,font-family:system-ui,sans-serif;
 
     subgraph ClientLocal ["💻 Client Local & GitOps Space"]
         direction TB
@@ -138,10 +138,13 @@ flowchart TB
     subgraph ClientCloud ["☁️ Client Cloud Infrastructure (AWS / GCP)"]
         direction LR
 
-        subgraph ClientTargetEnv ["☁️ Target Workloads (In-Scope)"]
+        subgraph TargetEnv ["☁️ Target Environment (Production, Staging, etc.)"]
             direction LR
             APIs["☁️ Target Provider Scopes<br>(AWS, GCP, SaaS APIs)"]
         end
+
+        subgraph ComplianceEnv ["🔒 Dedicated Compliance Account / Project (Isolated VPC)"]
+            direction TB
 
             subgraph Phase2 ["2. Attestation Layer (collector/)"]
                 direction TB
@@ -185,6 +188,7 @@ flowchart TB
                 Findings["🏆 Compliance Findings<br>(assessor_ledger.json + OSCAL AR)"]
                 SignedVerdict["🛡️ Signed Verdict<br>(verdict.json)"]
             end
+        end
     end
 
     %% Core Data Relationships
@@ -193,11 +197,11 @@ flowchart TB
     JC -.->|Shared Schema + Crypto| DB
 
     %% Governor injections (Crossing into Client Cloud)
-    PR_Int -->|Remote Streaming| JIE
-    Meta -->|--metadata-url| EE
-    PR_Norm -->|Stream Translators| OPA
-    PR_Pol -->|Stream Policies| OPA
-    BundleManifest -->|Verify Before Load| PolicyCheck
+    PR_Int -.->|Stream Integrations| JIE
+    Meta -.->|Publish Scopes| EE
+    PR_Norm -.->|Stream Adapters| OPA
+    PR_Pol -.->|Stream Rego Policies| OPA
+    BundleManifest -.->|Deploy Signed Bundle| PolicyCheck
 
     %% Execution flow (Inside Client Cloud)
     GCS -->|Pull Signed Ledger Run| SigCheck
@@ -206,10 +210,10 @@ flowchart TB
     Findings --> SignedVerdict
     
     %% Connection from external workloads into compliance environment
-    APIs -->|1. Extract Configs| JIE
+    APIs <-->|1. Extract Configuration| JIE
 
     %% Execution flow (Exiting Client Cloud via VPN/IAM)
-    SignedVerdict -->|Secure VPN / IAM Pull| VerdictGate
+    SignedVerdict -.->|Pull Verdicts| VerdictGate
 
     %% ══ Apply Styling Assignments ══
     class Cat,Req,PR_Int,PR_Norm,PR_Pol,Meta governor;
@@ -245,8 +249,13 @@ flowchart TB
     
     %% NEW: Client boundaries & background styling
     style ClientLocal fill:#fafaf9,stroke:#0f172a,stroke-width:3px;
-    style ClientCloud fill:#f8fafc,stroke:#334155,stroke-width:3px;
-    style ClientTargetEnv fill:#fffbeb,stroke:#d97706,stroke-width:2px,stroke-dasharray: 5 5;
+    style ClientCloud fill:#fafaf9,stroke:#0f172a,stroke-width:3px;
+    style TargetEnv fill:#fffbeb,stroke:#d97706,stroke-width:2px,stroke-dasharray: 5 5;
+    style ComplianceEnv fill:#f8fafc,stroke:#334155,stroke-width:2px,stroke-dasharray: 10 5;
+
+    linkStyle 24,25,26,27,28 stroke:#ea580c,stroke-width:2px;
+    linkStyle 33 stroke:#2563eb,stroke-width:2px;
+    linkStyle 34 stroke:#7c3aed,stroke-width:2px;
 ```
 
 ---
