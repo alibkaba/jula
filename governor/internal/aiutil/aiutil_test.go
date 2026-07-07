@@ -448,3 +448,112 @@ func TestProcessWithRetriesAndFailover_RateLimitHeaders(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Additional table-driven error path coverage tests
+// ---------------------------------------------------------------------------
+
+func TestParseWorkspace_TableDriven(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"non_existent_file", "non_existent_file_that_does_not_exist.yaml", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseWorkspace(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseWorkspace() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCallAIEndpoint_TableDriven(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         AIConfig
+		req         ChatRequest
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "invalid url parse",
+			cfg:         AIConfig{Endpoint: "http://example.com\x00/path", Key: "k", Model: "m", Timeout: 5 * time.Second},
+			req:         ChatRequest{Model: "m", Messages: []ChatMessage{{Role: "user", Content: "t"}}},
+			wantErr:     true,
+			errContains: "invalid endpoint URL",
+		},
+		{
+			name:        "network connection refused",
+			cfg:         AIConfig{Endpoint: "http://127.0.0.1:0", Key: "k", Model: "m", Timeout: 5 * time.Second},
+			req:         ChatRequest{Model: "m", Messages: []ChatMessage{{Role: "user", Content: "t"}}},
+			wantErr:     true,
+			errContains: "http request failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, err := CallAIEndpoint(tt.cfg, tt.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CallAIEndpoint() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+				t.Errorf("CallAIEndpoint() error = %v, want err to contain %q", err, tt.errContains)
+			}
+		})
+	}
+}
+
+func TestProcessWithRetriesAndFailover_TableDrivenHeaders(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupServer func(w http.ResponseWriter, r *http.Request)
+		wantContent string
+		wantErr     bool
+	}{
+		{
+			name: "retry with rate limit headers without limit",
+			setupServer: func() func(w http.ResponseWriter, r *http.Request) {
+				callCount := 0
+				return func(w http.ResponseWriter, r *http.Request) {
+					callCount++
+					if callCount == 1 {
+						w.Header().Set("Retry-After", "0")
+						w.WriteHeader(429)
+						fmt.Fprint(w, `{"error":"rate limited"}`)
+						return
+					}
+					w.Header().Set("X-RateLimit-Remaining", "50")
+					w.Header().Set("X-RateLimit-Reset", "1234567")
+					// intentionally missing X-RateLimit-Limit
+					w.Header().Set("Content-Type", "application/json")
+					fmt.Fprint(w, `{"choices":[{"message":{"content":"success on retry"}}]}`)
+				}
+			}(),
+			wantContent: "success on retry",
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(tt.setupServer))
+			defer srv.Close()
+
+			primary := AIConfig{Endpoint: srv.URL, Key: "k", Model: "m", Timeout: 5 * time.Second}
+			req := ChatRequest{Model: "m", Messages: []ChatMessage{{Role: "user", Content: "t"}}}
+
+			content, _, err := ProcessWithRetriesAndFailover(primary, AIConfig{}, 2, req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ProcessWithRetriesAndFailover() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if content != tt.wantContent {
+				t.Errorf("ProcessWithRetriesAndFailover() content = %q, want %q", content, tt.wantContent)
+			}
+		})
+	}
+}

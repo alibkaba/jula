@@ -13,3 +13,4 @@ WRENCH'S JOURNAL
 ## OPA Evaluation Engine Tests
 - **Simulating Compilation Errors**: Simulated OPA `PrepareForEval` compilation errors by mutating the `OPAEngine.policyModules` map with invalid Rego syntax after calling `Compile()`.
 - **Simulating Empty Results**: Simulated empty OPA results by mapping a control ID to a valid package in `OPAEngine.controlPackageMap`, but purposefully omitting the evaluation rule in the corresponding Rego code.
+- To deterministically simulate `url.Parse` failures in Go tests without external mocking, inject unescaped control characters (such as `\x00`) into the raw URL string.
