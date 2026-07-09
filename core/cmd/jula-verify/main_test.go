@@ -260,3 +260,71 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+func TestResolveRelativeTo(t *testing.T) {
+	// Create a temporary directory structure for the local filesystem fallback test.
+	tempDir := t.TempDir()
+
+	// Create a dummy file structure to simulate the manifest base and evidence file.
+	// Manifest is at tempDir/output/deploy-abc/2026-06-23/manifest.json
+	// Evidence is at tempDir/output/deploy-abc/2026-06-23/evidence/file.json
+	// The path in manifest is deploy-abc/2026-06-23/evidence/file.json
+
+	outputDir := filepath.Join(tempDir, "output")
+	manifestDir := filepath.Join(outputDir, "deploy-abc", "2026-06-23")
+	evidenceDir := filepath.Join(manifestDir, "evidence")
+
+	err := os.MkdirAll(evidenceDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create test directories: %v", err)
+	}
+
+	// Create the evidence file to ensure os.Stat finds it
+	evidenceFile := filepath.Join(evidenceDir, "file.json")
+	err = os.WriteFile(evidenceFile, []byte("{}"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		baseDir      string
+		evidencePath string
+		expected     string
+	}{
+		{
+			name:         "gs:// cloud URL",
+			baseDir:      "gs://my-bucket/path/to/manifest",
+			evidencePath: "evidence/file.json",
+			expected:     "gs://my-bucket/evidence/file.json",
+		},
+		{
+			name:         "s3:// cloud URL",
+			baseDir:      "s3://my-bucket/path/to/manifest",
+			evidencePath: "evidence/file.json",
+			expected:     "s3://my-bucket/evidence/file.json",
+		},
+		{
+			name:         "local fallback",
+			baseDir:      "/tmp/nonexistent",
+			evidencePath: "evidence/file.json",
+			expected:     filepath.Join("/tmp/nonexistent", "evidence/file.json"),
+		},
+		{
+			name:         "local walk up to find file",
+			baseDir:      manifestDir,
+			evidencePath: "deploy-abc/2026-06-23/evidence/file.json",
+			// It will walk up to outputDir, join it with evidencePath, and find the file
+			expected: filepath.Join(outputDir, "deploy-abc/2026-06-23/evidence/file.json"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveRelativeTo(tt.baseDir, tt.evidencePath)
+			if got != tt.expected {
+				t.Errorf("resolveRelativeTo(%q, %q) = %q, want %q", tt.baseDir, tt.evidencePath, got, tt.expected)
+			}
+		})
+	}
+}
