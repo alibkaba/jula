@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+	"strings"
 
 	"github.com/alibkaba/jula-core/pkg/crypto"
 )
@@ -243,5 +245,277 @@ func TestWrongKeyFails(t *testing.T) {
 	}
 	if ok {
 		t.Fatal("expected verification to fail with wrong key, but it passed")
+	}
+}
+
+func TestSignDirectory_SchemaValidation(t *testing.T) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate test key: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		file       string
+		content    string
+		wantError  bool
+		errMessage string
+	}{
+		{
+			name:      "Valid JSON schema",
+			file:      "valid.json",
+			content:   `{"control_id":"CTL-1","evidence_id":"EVID-1","source_id":"SRC-1","finding":{"control_id":"CTL-1","evidence_id":"EVID-1","source_id":"SRC-1","provider":"prov","raw_data":{"key":"val"},"timestamp":"2023-10-10T10:00:00Z","run_id":"run-1"},"payload_hash":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`,
+			wantError: false,
+		},
+		{
+			name:       "Invalid JSON schema",
+			file:       "invalid.json",
+			content:    `{"missing":"required_fields"}`,
+			wantError:  true,
+			errMessage: "schema validation failed for",
+		},
+		{
+			name:      "Non-JSON file skipped",
+			file:      "ignored.txt",
+			content:   "just some text",
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inputDir := t.TempDir()
+			outputDir := t.TempDir()
+
+			fullPath := filepath.Join(inputDir, tt.file)
+			if err := os.WriteFile(fullPath, []byte(tt.content), 0644); err != nil {
+				t.Fatalf("failed to write file %s: %v", tt.file, err)
+			}
+
+			_, err := signDirectory(context.Background(), signConfig{
+				inputDir:   inputDir,
+				outputURL:  outputDir,
+				signingKey: privKey,
+				runID:      "schema-test",
+				provider:   "test",
+				noSchema:   false, // Explicitly enable schema validation
+			})
+
+			if tt.wantError {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.errMessage)
+				}
+				if !strings.Contains(err.Error(), tt.errMessage) {
+					t.Errorf("expected error containing %q, got %v", tt.errMessage, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestSignDirectory_ObjectStoreError(t *testing.T) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate test key: %v", err)
+	}
+	inputDir := t.TempDir()
+
+	// Need at least one file so we don't fail the length check
+	if err := os.WriteFile(filepath.Join(inputDir, "test.txt"), []byte("test"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	invalidURL := string([]byte{0x00}) + "://invalid-url"
+
+	_, err = signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  invalidURL,
+		signingKey: privKey,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error from invalid output URL, got nil")
+	}
+	if !strings.Contains(err.Error(), "creating object store") && !strings.Contains(err.Error(), "uploading evidence") {
+		t.Errorf("expected error containing 'creating object store', got %v", err)
+	}
+}
+
+func TestSignDirectory_UploadProvenanceError(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	inputDir := t.TempDir()
+
+	// Create a dummy file
+	os.WriteFile(filepath.Join(inputDir, "test.json"), []byte(`{}`), 0644)
+
+	// To cause upload error for provenance, we can create a fake read-only directory
+	// and use it as the output URL
+	outputDir := t.TempDir()
+
+	// Pre-create the provenance file as a directory so it fails when trying to create a file
+	provPath := filepath.Join(outputDir, time.Now().UTC().Format("2006-01-02"), "evidence", "test.json.prov.json")
+	os.MkdirAll(provPath, 0755)
+
+	_, err := signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  outputDir,
+		signingKey: privKey,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "uploading provenance") {
+		t.Errorf("expected error to contain 'uploading provenance', got: %v", err)
+	}
+}
+
+func TestSignDirectory_UploadEvidenceError(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	inputDir := t.TempDir()
+
+	// Create a dummy file
+	os.WriteFile(filepath.Join(inputDir, "test.txt"), []byte(`test`), 0644)
+
+	outputDir := t.TempDir()
+
+	// Pre-create the evidence file as a directory so it fails when trying to create a file
+	evidencePath := filepath.Join(outputDir, time.Now().UTC().Format("2006-01-02"), "evidence", "test.txt")
+	os.MkdirAll(evidencePath, 0755)
+
+	_, err := signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  outputDir,
+		signingKey: privKey,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "uploading evidence") {
+		t.Errorf("expected error to contain 'uploading evidence', got: %v", err)
+	}
+}
+
+func TestSignDirectory_UploadManifestError(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	inputDir := t.TempDir()
+
+	// Create a dummy file
+	os.WriteFile(filepath.Join(inputDir, "test.json"), []byte(`{}`), 0644)
+
+	outputDir := t.TempDir()
+
+	// Pre-create the manifest file as a directory so it fails when trying to create a file
+	manifestPath := filepath.Join(outputDir, time.Now().UTC().Format("2006-01-02"), "manifest.json")
+	os.MkdirAll(manifestPath, 0755)
+
+	_, err := signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  outputDir,
+		signingKey: privKey,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "uploading manifest") {
+		t.Errorf("expected error to contain 'uploading manifest', got: %v", err)
+	}
+}
+
+func TestSignDirectory_UnreadableFile(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	inputDir := t.TempDir()
+	outputDir := t.TempDir()
+
+	unreadableFile := filepath.Join(inputDir, "unreadable.txt")
+	// creating directory instead of file will cause read error on some systems
+	// on linux, os.ReadFile on a directory returns an error
+	os.WriteFile(unreadableFile, []byte("test"), 0000)
+
+	_, err := signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  outputDir,
+		signingKey: privKey,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error reading file, got nil")
+	}
+	if !strings.Contains(err.Error(), "reading file") {
+		t.Errorf("expected error containing 'reading file', got %v", err)
+	}
+}
+
+func TestSignDirectory_WalkDirError(t *testing.T) {
+	privKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	inputDir := t.TempDir()
+
+	// Create a subdirectory with no execute permissions to trigger walkErr
+	subDir := filepath.Join(inputDir, "restricted")
+	os.MkdirAll(subDir, 0000)
+
+	_, err := signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  t.TempDir(),
+		signingKey: privKey,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error reading restricted directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "walking input directory") {
+		t.Errorf("expected error containing 'walking input directory', got %v", err)
+	}
+
+	// Cleanup so t.TempDir can be removed
+	os.Chmod(subDir, 0755)
+}
+
+func TestSignDirectory_NilKeyError(t *testing.T) {
+	inputDir := t.TempDir()
+
+	// Create a dummy file
+	os.WriteFile(filepath.Join(inputDir, "test.txt"), []byte(`test`), 0644)
+
+	outputDir := t.TempDir()
+
+	_, err := signDirectory(context.Background(), signConfig{
+		inputDir:   inputDir,
+		outputURL:  outputDir,
+		signingKey: nil,
+		runID:      "test",
+		provider:   "test",
+		noSchema:   true,
+	})
+
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "signing provenance for") {
+		t.Errorf("expected error to contain 'signing provenance for', got: %v", err)
 	}
 }
