@@ -260,3 +260,107 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+func TestResolveRelativeTo(t *testing.T) {
+	// Create a temp directory to test local file walking
+	tmpDir := t.TempDir()
+
+	// Set up a directory structure:
+	// tmpDir/output/deploy-abc/2026-06-23/manifest.json (dir: tmpDir/output/deploy-abc/2026-06-23)
+	// tmpDir/output/deploy-abc/2026-06-23/evidence/file.json
+
+	manifestDir := filepath.Join(tmpDir, "output", "deploy-abc", "2026-06-23")
+	if err := os.MkdirAll(filepath.Join(manifestDir, "evidence"), 0755); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	// Create the evidence file so os.Stat finds it
+	evidencePathLocal := filepath.Join(manifestDir, "evidence", "file.json")
+	if err := os.WriteFile(evidencePathLocal, []byte("test"), 0644); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		baseDir      string
+		evidencePath string
+		want         string
+	}{
+		{
+			name:         "GCS URL",
+			baseDir:      "gs://my-bucket/prefix/deploy-abc/2026-06-23",
+			evidencePath: "deploy-abc/2026-06-23/evidence/file.json",
+			want:         "gs://my-bucket/deploy-abc/2026-06-23/evidence/file.json",
+		},
+		{
+			name:         "S3 URL",
+			baseDir:      "s3://my-bucket/prefix/deploy-abc/2026-06-23",
+			evidencePath: "deploy-abc/2026-06-23/evidence/file.json",
+			want:         "s3://my-bucket/deploy-abc/2026-06-23/evidence/file.json",
+		},
+		{
+			name:         "Local path found by walking up",
+			baseDir:      manifestDir,
+			evidencePath: "deploy-abc/2026-06-23/evidence/file.json",
+			want:         evidencePathLocal,
+		},
+		{
+			name:         "Local path fallback (not found)",
+			baseDir:      manifestDir,
+			evidencePath: "does-not-exist/evidence.json",
+			want:         filepath.Join(manifestDir, "does-not-exist/evidence.json"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveRelativeTo(tt.baseDir, tt.evidencePath)
+			if got != tt.want {
+				t.Errorf("resolveRelativeTo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestReadArtifact(t *testing.T) {
+	tmpDir := t.TempDir()
+	validFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(validFile, []byte("hello world"), 0644); err != nil {
+		t.Fatalf("setup failed: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "Local file success",
+			path:    validFile,
+			wantErr: false,
+		},
+		{
+			name:    "Local file not found",
+			path:    filepath.Join(tmpDir, "nonexistent.txt"),
+			wantErr: true,
+		},
+		{
+			name:    "Cloud URL parsing failure",
+			path:    "gs://my-bucket/prefix/\x00/invalid",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := readArtifact(context.Background(), tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("readArtifact() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && len(data) == 0 {
+				t.Errorf("readArtifact() returned empty data for valid path")
+			}
+		})
+	}
+}

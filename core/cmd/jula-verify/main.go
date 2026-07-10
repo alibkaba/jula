@@ -92,11 +92,11 @@ type verifyConfig struct {
 
 // verifyResult captures what was verified.
 type verifyResult struct {
-	runID                string
-	filesVerified        int
-	provenanceVerified   int
-	bundleVerified       bool
-	verdictVerified      bool
+	runID              string
+	filesVerified      int
+	provenanceVerified int
+	bundleVerified     bool
+	verdictVerified    bool
 }
 
 // verifyChain runs the full verification sequence.
@@ -338,5 +338,3 @@ func resolveRelativeTo(baseDir, evidencePath string) string {
 	// Fallback: try the evidence path relative to the manifest directory.
 	return filepath.Join(baseDir, evidencePath)
 }
-
-
