@@ -284,7 +284,7 @@ func TestDetermineSourceID(t *testing.T) {
 			name:       "fallback to GCP",
 			vendorName: "gcp",
 			evidenceID: "EVID-1",
-			env:        map[string]string{"AWS_ACCOUNT_ID": "", "GCP_PROJECT_ID": "456"},
+			env:        map[string]string{"AWS_ACCOUNT_ID": "", "AWS_REGION": "", "GCP_PROJECT_ID": "456"},
 			want:       "456",
 		},
 	}
