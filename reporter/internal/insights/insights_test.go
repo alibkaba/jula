@@ -501,3 +501,73 @@ func TestComputeTrend_MissingDir(t *testing.T) {
 	}
 }
 
+// --- LoadRiskConfig ---
+
+func TestLoadRiskConfig(t *testing.T) {
+	dir := t.TempDir()
+
+	validConfigJSON := `{
+		"profiles": [
+			{
+				"family": "AC",
+				"annual_frequency_min": 1.0,
+				"annual_frequency_max": 5.0,
+				"loss_min": 10000.0,
+				"loss_max": 500000.0,
+				"mitigation_cost": 25000.0
+			}
+		]
+	}`
+
+	validFile := filepath.Join(dir, "valid.json")
+	if err := os.WriteFile(validFile, []byte(validConfigJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	invalidFile := filepath.Join(dir, "invalid.json")
+	if err := os.WriteFile(invalidFile, []byte("invalid json"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "valid config",
+			path:    validFile,
+			wantErr: false,
+		},
+		{
+			name:    "missing file",
+			path:    filepath.Join(dir, "nonexistent.json"),
+			wantErr: true,
+		},
+		{
+			name:    "invalid json",
+			path:    invalidFile,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := LoadRiskConfig(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadRiskConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && cfg == nil {
+				t.Errorf("LoadRiskConfig() returned nil config without error")
+			}
+			if !tt.wantErr && cfg != nil {
+				if len(cfg.Profiles) != 1 {
+					t.Errorf("expected 1 profile, got %d", len(cfg.Profiles))
+				} else if cfg.Profiles[0].Family != "AC" {
+					t.Errorf("expected family AC, got %s", cfg.Profiles[0].Family)
+				}
+			}
+		})
+	}
+}
