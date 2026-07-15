@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,8 +38,6 @@ func generateMockKeyPair() (*ecdsa.PrivateKey, string, error) {
 	}
 	return privKey, string(pem.EncodeToMemory(block)), nil
 }
-
-
 
 func TestRunApp_MissingBucketURL(t *testing.T) {
 	t.Setenv("JULA_BUCKET_URL", "")
@@ -120,17 +119,17 @@ func TestRunApp_FullIntegration(t *testing.T) {
 
 	rawHash := pkgCrypto.HashFile(rawFindingData)
 	evidenceObj := &types.Evidence{
-		ControlID:    "BCD-11.4",
-		EvidenceID:    "EVID-BCM-16",
-		SourceID: "src-1",
+		ControlID:  "BCD-11.4",
+		EvidenceID: "EVID-BCM-16",
+		SourceID:   "src-1",
 		Finding: types.Finding{
-			ControlID:     "BCD-11.4",
-			EvidenceID:     "EVID-BCM-16",
-			SourceID:  "src-1",
-			Provider:  "gcp_cai",
-			RawData:   rawFindingData,
-			Timestamp: time.Now().UTC(),
-			RunID:     "test-run-1",
+			ControlID:  "BCD-11.4",
+			EvidenceID: "EVID-BCM-16",
+			SourceID:   "src-1",
+			Provider:   "gcp_cai",
+			RawData:    rawFindingData,
+			Timestamp:  time.Now().UTC(),
+			RunID:      "test-run-1",
 		},
 		PayloadHash: rawHash,
 	}
@@ -148,7 +147,7 @@ func TestRunApp_FullIntegration(t *testing.T) {
 
 	// 4. Create signed provenance sidecar.
 	prov := &pkgCrypto.Provenance{
-		EvidenceID:       "EVID-BCM-16",
+		EvidenceID:  "EVID-BCM-16",
 		Provider:    "gcp_cai",
 		SourceID:    "src-1",
 		PayloadHash: rawHash,
@@ -395,3 +394,76 @@ evaluation := {"control_id": "TEST-1", "compliant": true}`
 	}
 }
 
+func TestIsInvalidIP(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   string
+		want bool
+	}{
+		{"loopback ipv4", "127.0.0.1", true},
+		{"loopback ipv6", "::1", true},
+		{"link local unicast", "169.254.1.1", true},
+		{"link local multicast", "224.0.0.251", true},
+		{"valid internal", "10.0.0.1", false},
+		{"valid external", "8.8.8.8", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip := net.ParseIP(tt.ip)
+			if got := isInvalidIP(ip); got != tt.want {
+				t.Errorf("isInvalidIP() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldBlockIP(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		testEnv string
+		want    bool
+	}{
+		{"test env true", "127.0.0.1", "true", false},
+		{"invalid ip, test env false", "127.0.0.1", "false", true},
+		{"invalid ip, test env empty", "169.254.169.254", "", true},
+		{"valid ip", "8.8.8.8", "", false},
+		{"non-ip host", "example.com", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("JULA_TEST_ENV", tt.testEnv)
+			if got := shouldBlockIP(tt.host); got != tt.want {
+				t.Errorf("shouldBlockIP() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateMetadataURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		pathOrURL string
+		testEnv   string
+		wantErr   bool
+	}{
+		{"valid url", "https://metadata.example.com", "", false},
+		{"invalid scheme", "http://metadata.example.com", "", true},
+		{"empty host", "https://", "", true},
+		{"blocked ip", "https://169.254.169.254", "", true},
+		{"blocked ip allowed in test env", "https://169.254.169.254", "true", false},
+		{"unparseable url", "https://user:password@meta\x00data.example.com", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("JULA_TEST_ENV", tt.testEnv)
+			_, err := validateMetadataURL(tt.pathOrURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateMetadataURL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
