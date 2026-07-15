@@ -14,3 +14,4 @@ WRENCH'S JOURNAL
 - **Simulating Compilation Errors**: Simulated OPA `PrepareForEval` compilation errors by mutating the `OPAEngine.policyModules` map with invalid Rego syntax after calling `Compile()`.
 - **Simulating Empty Results**: Simulated empty OPA results by mapping a control ID to a valid package in `OPAEngine.controlPackageMap`, but purposefully omitting the evaluation rule in the corresponding Rego code.
 - To deterministically simulate `url.Parse` failures in Go tests without external mocking, inject unescaped control characters (such as `\x00`) into the raw URL string.
+- When testing file loading and parsing behaviors, like `loadCloudIntegration` or `loadIntegrationsFromConfig` in the collector engine, use `t.TempDir()` to cleanly create isolated valid, malformed, and non-existent configuration files or directories (e.g. creating a directory where a file is expected to simulate a read error deterministically).

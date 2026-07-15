@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -442,5 +444,279 @@ endpoints:
 	}
 	if string(e.Finding.RawData) != `{"status":"ok","data":"some-evidence"}` {
 		t.Errorf("unexpected raw data: %s", string(e.Finding.RawData))
+	}
+}
+
+func TestMergeFindingsGroup(t *testing.T) {
+	tests := []struct {
+		name    string
+		group   []types.Finding
+		wantRaw string
+		wantErr bool
+	}{
+		{
+			name: "single finding",
+			group: []types.Finding{
+				{EvidenceID: "EVID-1", RawData: []byte(`{"a": 1}`)},
+			},
+			wantRaw: `{"a": 1}`,
+			wantErr: false,
+		},
+		{
+			name: "all JSON arrays (merged)",
+			group: []types.Finding{
+				{EvidenceID: "EVID-1", RawData: []byte(`[{"a": 1}]`)},
+				{EvidenceID: "EVID-1", RawData: []byte(`[{"b": 2}]`)},
+			},
+			wantRaw: `[{"a":1},{"b":2}]`,
+			wantErr: false,
+		},
+		{
+			name: "mixed JSON types (fallback to last)",
+			group: []types.Finding{
+				{EvidenceID: "EVID-1", RawData: []byte(`[{"a": 1}]`)},
+				{EvidenceID: "EVID-1", RawData: []byte(`{"b": 2}`)},
+			},
+			wantRaw: `{"b": 2}`,
+			wantErr: false,
+		},
+		{
+			name: "invalid JSON arrays (fallback to last)",
+			group: []types.Finding{
+				{EvidenceID: "EVID-1", RawData: []byte(`invalid`)},
+				{EvidenceID: "EVID-1", RawData: []byte(`[{"b": 2}]`)},
+			},
+			wantRaw: `[{"b": 2}]`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := mergeFindingsGroup(tt.group)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("mergeFindingsGroup() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if string(got.RawData) != tt.wantRaw {
+				t.Errorf("mergeFindingsGroup() = %v, want %v", string(got.RawData), tt.wantRaw)
+			}
+		})
+	}
+}
+
+func TestLoadCloudIntegration(t *testing.T) {
+	tempDir := t.TempDir()
+	cloudDir := filepath.Join(tempDir, "cloud")
+	err := os.MkdirAll(cloudDir, 0755)
+	if err != nil {
+		t.Fatalf("failed to create cloud dir: %v", err)
+	}
+
+	validYAML := []byte(`
+vendor_name: "aws"
+base_url: "https://api.aws.amazon.com"
+`)
+	err = os.WriteFile(filepath.Join(cloudDir, "aws.yaml"), validYAML, 0644)
+	if err != nil {
+		t.Fatalf("failed to write valid yaml: %v", err)
+	}
+
+	invalidYAML := []byte(`
+vendor_name: "azure
+base_url: [invalid
+`)
+	err = os.WriteFile(filepath.Join(cloudDir, "azure.yaml"), invalidYAML, 0644)
+	if err != nil {
+		t.Fatalf("failed to write invalid yaml: %v", err)
+	}
+
+	// Create a directory where a file is expected to simulate read error
+	err = os.MkdirAll(filepath.Join(cloudDir, "gcp.yaml"), 0755)
+	if err != nil {
+		t.Fatalf("failed to create gcp dir: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		dir      string
+		provider string
+		wantErr  bool
+		wantNil  bool
+	}{
+		{
+			name:     "valid cloud integration",
+			dir:      tempDir,
+			provider: "aws",
+			wantErr:  false,
+			wantNil:  false,
+		},
+		{
+			name:     "non-existent cloud integration",
+			dir:      tempDir,
+			provider: "nonexistent",
+			wantErr:  false,
+			wantNil:  true,
+		},
+		{
+			name:     "malformed yaml syntax",
+			dir:      tempDir,
+			provider: "azure",
+			wantErr:  true,
+			wantNil:  true,
+		},
+		{
+			name:     "read error (directory instead of file)",
+			dir:      tempDir,
+			provider: "gcp",
+			wantErr:  true,
+			wantNil:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := loadCloudIntegration(tt.dir, tt.provider)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("loadCloudIntegration() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantNil && got != nil {
+				t.Errorf("loadCloudIntegration() got = %v, want nil", got)
+			}
+			if !tt.wantNil && got == nil {
+				t.Errorf("loadCloudIntegration() got nil, want non-nil")
+			}
+			if got != nil && got.VendorName != tt.provider {
+				t.Errorf("loadCloudIntegration() got VendorName %v, want %v", got.VendorName, tt.provider)
+			}
+		})
+	}
+}
+
+func TestLoadIntegrationsFromConfig(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create base integration
+	validBaseYAML := []byte(`
+vendor_name: "base"
+base_url: "https://api.base.com"
+`)
+	err := os.WriteFile(filepath.Join(tempDir, "base.yaml"), validBaseYAML, 0644)
+	if err != nil {
+		t.Fatalf("failed to write base yaml: %v", err)
+	}
+
+	// Create cloud integration
+	cloudDir := filepath.Join(tempDir, "cloud")
+	err = os.MkdirAll(cloudDir, 0755)
+	if err != nil {
+		t.Fatalf("failed to create cloud dir: %v", err)
+	}
+	validCloudYAML := []byte(`
+vendor_name: "aws"
+base_url: "https://api.aws.amazon.com"
+`)
+	err = os.WriteFile(filepath.Join(cloudDir, "aws.yaml"), validCloudYAML, 0644)
+	if err != nil {
+		t.Fatalf("failed to write cloud yaml: %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		config       RunConfig
+		wantCount    int
+		wantProvider string
+		wantErr      bool
+	}{
+		{
+			name: "IntegrationMap has precedence",
+			config: RunConfig{
+				IntegrationMap: map[string][]byte{
+					"inline.yaml": []byte(`vendor_name: "inline"`),
+				},
+				IntegrationDir: tempDir, // Should be ignored
+			},
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
+			name: "IntegrationDir without Provider",
+			config: RunConfig{
+				IntegrationDir: tempDir,
+				Provider:       "",
+			},
+			wantCount: 1, // Only base.yaml
+			wantErr:   false,
+		},
+		{
+			name: "IntegrationDir with valid Provider",
+			config: RunConfig{
+				IntegrationDir: tempDir,
+				Provider:       "aws",
+			},
+			wantCount:    2, // base.yaml + cloud/aws.yaml
+			wantProvider: "aws",
+			wantErr:      false,
+		},
+		{
+			name: "IntegrationDir with non-existent Provider",
+			config: RunConfig{
+				IntegrationDir: tempDir,
+				Provider:       "gcp",
+			},
+			wantCount: 1, // Only base.yaml, missing cloud is logged and ignored
+			wantErr:   false,
+		},
+		{
+			name: "IntegrationDir missing directory",
+			config: RunConfig{
+				IntegrationDir: filepath.Join(tempDir, "missing"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "IntegrationDir with malformed Cloud Provider",
+			config: RunConfig{
+				IntegrationDir: tempDir,
+				Provider:       "malformed",
+			},
+			wantErr: true,
+		},
+	}
+
+	// Add malformed cloud provider file for the last test
+	malformedYAML := []byte(`vendor_name: "malformed\nbase_url: [invalid`)
+	err = os.WriteFile(filepath.Join(cloudDir, "malformed.yaml"), malformedYAML, 0644)
+	if err != nil {
+		t.Fatalf("failed to write malformed yaml: %v", err)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := New(tt.config)
+			got, err := o.loadIntegrationsFromConfig(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("loadIntegrationsFromConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if len(got) != tt.wantCount {
+					t.Errorf("loadIntegrationsFromConfig() got count = %v, want %v", len(got), tt.wantCount)
+				}
+				if tt.wantProvider != "" {
+					found := false
+					for _, integ := range got {
+						if integ.VendorName == tt.wantProvider {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("loadIntegrationsFromConfig() expected provider %v not found", tt.wantProvider)
+					}
+				}
+			}
+		})
 	}
 }
