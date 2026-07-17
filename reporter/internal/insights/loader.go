@@ -67,4 +67,3 @@ func VerifyVerdictSignature(v *Verdict, publicKeyPEM string) (bool, error) {
 	}
 	return crypto.VerifyVerdict(v, pubKey)
 }
-

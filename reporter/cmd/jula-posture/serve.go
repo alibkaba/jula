@@ -24,10 +24,10 @@ import (
 
 // serveConfig holds paths loaded from CLI flags.
 type serveConfig struct {
-	ledgerPath     string
-	verdictPath    string
-	historyDir     string
-	verdictKeyPEM  string
+	ledgerPath    string
+	verdictPath   string
+	historyDir    string
+	verdictKeyPEM string
 }
 
 func runServe(args []string) error {
@@ -406,4 +406,3 @@ func toolError(err error) (*mcp.CallToolResult, error) {
 		IsError: true,
 	}, nil
 }
-

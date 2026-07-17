@@ -1,11 +1,18 @@
 package insights
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/alibkaba/jula-core/pkg/crypto"
 )
 
 // --- ComputeSummary ---
@@ -567,6 +574,107 @@ func TestLoadRiskConfig(t *testing.T) {
 				} else if cfg.Profiles[0].Family != "AC" {
 					t.Errorf("expected family AC, got %s", cfg.Profiles[0].Family)
 				}
+			}
+		})
+	}
+}
+
+// --- VerifyVerdictSignature ---
+
+func TestVerifyVerdictSignature(t *testing.T) {
+	// Generate a test ECDSA key pair
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
+	}
+
+	// Generate another key pair for negative testing
+	otherPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate second private key: %v", err)
+	}
+
+	// Helper to marshal public key to PEM
+	pubKeyToPEM := func(pubKey *ecdsa.PublicKey) string {
+		der, err := x509.MarshalPKIXPublicKey(pubKey)
+		if err != nil {
+			t.Fatalf("failed to marshal public key: %v", err)
+		}
+		block := &pem.Block{
+			Type:  "PUBLIC KEY",
+			Bytes: der,
+		}
+		return string(pem.EncodeToMemory(block))
+	}
+
+	validPEM := pubKeyToPEM(&privKey.PublicKey)
+	otherPEM := pubKeyToPEM(&otherPrivKey.PublicKey)
+
+	tests := []struct {
+		name      string
+		setupFunc func() (*Verdict, string)
+		wantValid bool
+		wantErr   bool
+	}{
+		{
+			name: "valid signature",
+			setupFunc: func() (*Verdict, string) {
+				v := &Verdict{
+					RunID:      "run-123",
+					LedgerHash: "hash-456",
+					Timestamp:  time.Now(),
+				}
+				if err := crypto.SignVerdict(v, privKey); err != nil {
+					t.Fatalf("failed to sign verdict: %v", err)
+				}
+				return v, validPEM
+			},
+			wantValid: true,
+			wantErr:   false,
+		},
+		{
+			name: "invalid PEM public key",
+			setupFunc: func() (*Verdict, string) {
+				v := &Verdict{
+					RunID:      "run-123",
+					LedgerHash: "hash-456",
+				}
+				if err := crypto.SignVerdict(v, privKey); err != nil {
+					t.Fatalf("failed to sign verdict: %v", err)
+				}
+				return v, "invalid-pem-data"
+			},
+			wantValid: false,
+			wantErr:   true,
+		},
+		{
+			name: "invalid signature (cryptographically invalid)",
+			setupFunc: func() (*Verdict, string) {
+				v := &Verdict{
+					RunID:      "run-123",
+					LedgerHash: "hash-456",
+				}
+				if err := crypto.SignVerdict(v, privKey); err != nil {
+					t.Fatalf("failed to sign verdict: %v", err)
+				}
+				// Use a different public key to verify
+				return v, otherPEM
+			},
+			wantValid: false,
+			wantErr:   false, // crypto.VerifyVerdict returns (false, nil) for invalid signatures
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v, pemStr := tt.setupFunc()
+			valid, err := VerifyVerdictSignature(v, pemStr)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyVerdictSignature() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if valid != tt.wantValid {
+				t.Errorf("VerifyVerdictSignature() valid = %v, wantValid %v", valid, tt.wantValid)
 			}
 		})
 	}

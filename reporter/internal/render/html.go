@@ -9,18 +9,18 @@ import (
 
 // HTMLData holds all data needed to render the HTML posture report.
 type HTMLData struct {
-	Title        string
-	GeneratedAt  string
-	Summary      *HTMLSummary
-	Coverage     *HTMLCoverage
-	Maturity     *HTMLMaturity
-	Risk         *HTMLRisk
+	Title       string
+	GeneratedAt string
+	Summary     *HTMLSummary
+	Coverage    *HTMLCoverage
+	Maturity    *HTMLMaturity
+	Risk        *HTMLRisk
 }
 
 // HTMLSummary is the summary section data.
 type HTMLSummary struct {
-	RunID          string
-	Timestamp      string
+	RunID           string
+	Timestamp       string
 	TotalControls   int
 	Passed          int
 	Failed          int
@@ -74,9 +74,9 @@ type HTMLCSFFunction struct {
 
 // HTMLRisk is the risk section data.
 type HTMLRisk struct {
-	Results    []HTMLRiskResult
-	TotalALE   float64
-	TotalLoss95 float64
+	Results      []HTMLRiskResult
+	TotalALE     float64
+	TotalLoss95  float64
 	TotalMitCost float64
 }
 
@@ -110,8 +110,12 @@ func RenderHTML(w io.Writer, data *HTMLData) error {
 			return fmt.Sprintf("%.0f%%", v)
 		},
 		"rateClass": func(v float64) string {
-			if v >= 90 { return "rate-good" }
-			if v >= 70 { return "rate-warn" }
+			if v >= 90 {
+				return "rate-good"
+			}
+			if v >= 70 {
+				return "rate-warn"
+			}
 			return "rate-bad"
 		},
 		"scoreWidth": func(v float64) string {

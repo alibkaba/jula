@@ -668,8 +668,6 @@ func renderROI(risk *insights.RiskSummary) {
 		render.Dim(formatMoney(risk.TotalMitCost)))
 }
 
-
-
 // --- Export ---
 
 func runExport(args []string) error {

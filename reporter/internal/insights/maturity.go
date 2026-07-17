@@ -2,12 +2,12 @@ package insights
 
 // CSFFunction represents a NIST Cybersecurity Framework function.
 type CSFFunction struct {
-	ID       string
-	Name     string
-	Passed   int
-	Failed   int
-	Total    int
-	Score    float64 // 0.0 - 1.0
+	ID     string
+	Name   string
+	Passed int
+	Failed int
+	Total  int
+	Score  float64 // 0.0 - 1.0
 }
 
 // MaturitySummary holds CSF maturity scores across all five functions.
