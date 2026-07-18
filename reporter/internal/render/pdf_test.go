@@ -183,8 +183,8 @@ func TestFmtMoneyPDF(t *testing.T) {
 		want  string
 	}{
 		{500, "$500"},
-		{1500, "$2K"},       // rounds to nearest K
-		{1500000, "$1.5M"},  // millions
+		{1500, "$2K"},      // rounds to nearest K
+		{1500000, "$1.5M"}, // millions
 		{250000, "$250K"},
 		{0, "$0"},
 	}

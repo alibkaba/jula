@@ -658,12 +658,12 @@ func TestRenderFunctions(t *testing.T) {
 func TestServeFormatFunctions(t *testing.T) {
 	// 1. formatComplianceSummary
 	summary := &insights.PostureSummary{
-		RunID:           "run-456",
-		TotalControls:   10,
-		Passed:          9,
-		Failed:          1,
-		PassRate:        90.0,
-		Timestamp:       "2026-06-26 13:00 UTC",
+		RunID:         "run-456",
+		TotalControls: 10,
+		Passed:        9,
+		Failed:        1,
+		PassRate:      90.0,
+		Timestamp:     "2026-06-26 13:00 UTC",
 		Families: []insights.FamilySummary{
 			{FamilyID: "AC", Family: "Access Control", Passed: 9, Failed: 1, Total: 10, PassRate: 90.0},
 		},

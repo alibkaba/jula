@@ -11,12 +11,12 @@ import (
 
 // RiskProfile defines the FAIR risk parameters for a control family.
 type RiskProfile struct {
-	Family          string  `json:"family"`
-	AnnualFreqMin   float64 `json:"annual_frequency_min"`
-	AnnualFreqMax   float64 `json:"annual_frequency_max"`
-	LossMin         float64 `json:"loss_min"`
-	LossMax         float64 `json:"loss_max"`
-	MitigationCost  float64 `json:"mitigation_cost,omitempty"`
+	Family         string  `json:"family"`
+	AnnualFreqMin  float64 `json:"annual_frequency_min"`
+	AnnualFreqMax  float64 `json:"annual_frequency_max"`
+	LossMin        float64 `json:"loss_min"`
+	LossMax        float64 `json:"loss_max"`
+	MitigationCost float64 `json:"mitigation_cost,omitempty"`
 }
 
 // RiskConfig holds the FAIR risk parameters loaded from a config file.
@@ -36,11 +36,11 @@ type RiskResult struct {
 
 // RiskSummary holds the aggregate FAIR simulation output.
 type RiskSummary struct {
-	Results        []RiskResult
-	TotalALE       float64
-	TotalLoss95th  float64
-	TotalMitCost   float64
-	Simulations    int
+	Results       []RiskResult
+	TotalALE      float64
+	TotalLoss95th float64
+	TotalMitCost  float64
+	Simulations   int
 }
 
 // DefaultRiskConfig returns a baseline FAIR risk profile for common control families.
