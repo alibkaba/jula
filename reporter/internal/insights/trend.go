@@ -10,7 +10,7 @@ import (
 
 // TrendPoint represents a single assessment run in the trend timeline.
 type TrendPoint struct {
-	RunDate time.Time
+	RunDate  time.Time
 	PassRate float64
 	Passed   int
 	Failed   int
