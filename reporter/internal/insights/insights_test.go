@@ -1,11 +1,18 @@
 package insights
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/alibkaba/jula-core/pkg/crypto"
 )
 
 // --- ComputeSummary ---
@@ -567,6 +574,104 @@ func TestLoadRiskConfig(t *testing.T) {
 				} else if cfg.Profiles[0].Family != "AC" {
 					t.Errorf("expected family AC, got %s", cfg.Profiles[0].Family)
 				}
+			}
+		})
+	}
+}
+
+// --- VerifyVerdictSignature ---
+
+func TestVerifyVerdictSignature(t *testing.T) {
+	// Generate real key for testing
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	pubBytes, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
+	if err != nil {
+		t.Fatalf("failed to marshal public key: %v", err)
+	}
+	pubPEM := string(pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: pubBytes,
+	}))
+
+	v := &Verdict{
+		RunID:          "run-123",
+		LedgerHash:     "deadbeef",
+		ControlsPassed: 10,
+		ControlsFailed: 0,
+		ControlsTotal:  10,
+		Timestamp:      time.Now().UTC(),
+	}
+
+	// Sign the verdict
+	if err := crypto.SignVerdict(v, privKey); err != nil {
+		t.Fatalf("failed to sign verdict: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		verdict   *Verdict
+		pubKeyPEM string
+		wantValid bool
+		wantErr   bool
+	}{
+		{
+			name:      "valid signature",
+			verdict:   v,
+			pubKeyPEM: pubPEM,
+			wantValid: true,
+			wantErr:   false,
+		},
+		{
+			name:      "invalid public key PEM",
+			verdict:   v,
+			pubKeyPEM: "not-a-pem",
+			wantValid: false,
+			wantErr:   true,
+		},
+		{
+			name: "tampered verdict",
+			verdict: &Verdict{
+				RunID:          "run-123",
+				LedgerHash:     "tampered",
+				ControlsPassed: 10,
+				ControlsFailed: 0,
+				ControlsTotal:  10,
+				Timestamp:      v.Timestamp,
+				Signature:      v.Signature,
+			},
+			pubKeyPEM: pubPEM,
+			wantValid: false,
+			wantErr:   false,
+		},
+		{
+			name: "wrong signature format",
+			verdict: &Verdict{
+				RunID:          v.RunID,
+				LedgerHash:     v.LedgerHash,
+				ControlsPassed: v.ControlsPassed,
+				ControlsFailed: v.ControlsFailed,
+				ControlsTotal:  v.ControlsTotal,
+				Timestamp:      v.Timestamp,
+				Signature:      "invalid-hex",
+			},
+			pubKeyPEM: pubPEM,
+			wantValid: false,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valid, err := VerifyVerdictSignature(tt.verdict, tt.pubKeyPEM)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyVerdictSignature() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if valid != tt.wantValid {
+				t.Errorf("VerifyVerdictSignature() valid = %v, wantValid %v", valid, tt.wantValid)
 			}
 		})
 	}

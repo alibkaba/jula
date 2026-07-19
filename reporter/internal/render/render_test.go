@@ -2,6 +2,8 @@ package render
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"strings"
 	"testing"
 )
@@ -304,5 +306,107 @@ func TestTable_BorderLine(t *testing.T) {
 	expected := "┌─────┬───────┐"
 	if border != expected {
 		t.Errorf("expected %q, got %q", expected, border)
+	}
+}
+
+func TestTable_Print(t *testing.T) {
+	tests := []struct {
+		name     string
+		table    *Table
+		contains []string
+	}{
+		{
+			name: "empty table",
+			table: &Table{
+				Columns: []Column{
+					{Header: "ID", Width: 5, Align: AlignLeft},
+				},
+				Rows: [][]string{},
+			},
+			contains: []string{
+				"┌───────┐",
+				"ID",
+				"├───────┤",
+				"└───────┘",
+			},
+		},
+		{
+			name: "table with data",
+			table: &Table{
+				Columns: []Column{
+					{Header: "ID", Width: 4, Align: AlignLeft},
+					{Header: "Score", Width: 5, Align: AlignRight},
+				},
+				Rows: [][]string{
+					{"C-1", "100"},
+					{"C-2", "80"},
+				},
+			},
+			contains: []string{
+				"┌──────┬───────┐",
+				"ID",
+				"Score",
+				"├──────┼───────┤",
+				"│ C-1  │   100 │",
+				"│ C-2  │    80 │",
+				"└──────┴───────┘",
+			},
+		},
+		{
+			name: "row with fewer columns than header",
+			table: &Table{
+				Columns: []Column{
+					{Header: "A", Width: 2, Align: AlignLeft},
+					{Header: "B", Width: 2, Align: AlignLeft},
+				},
+				Rows: [][]string{
+					{"1"}, // Missing column B
+				},
+			},
+			contains: []string{
+				"│ 1  │    │",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Disable ANSI colors for testing
+			origNoColor := noColor
+			noColor = true
+			defer func() { noColor = origNoColor }()
+
+			// Redirect stdout
+			oldStdout := os.Stdout
+			r, w, err := os.Pipe()
+			if err != nil {
+				t.Fatalf("failed to create pipe: %v", err)
+			}
+			os.Stdout = w
+			defer func() {
+				w.Close()
+				os.Stdout = oldStdout
+			}()
+
+			tt.table.Print()
+
+			// Restore stdout manually to allow reading from pipe immediately
+			w.Close()
+			os.Stdout = oldStdout
+
+			var buf bytes.Buffer
+			_, err = io.Copy(&buf, r)
+			if err != nil {
+				t.Fatalf("failed to copy output: %v", err)
+			}
+
+			output := buf.String()
+
+			for _, str := range tt.contains {
+				if !strings.Contains(output, str) {
+					t.Errorf("expected output to contain %q, but it didn't.\nOutput:\n%s", str, output)
+				}
+			}
+		})
 	}
 }
