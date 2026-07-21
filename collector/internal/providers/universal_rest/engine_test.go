@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -414,6 +415,12 @@ func TestEngine_Execute_StrictPaginationEnforcement(t *testing.T) {
 }
 
 func TestAzureIdentity_TokenCache(t *testing.T) {
+	defer func() {
+		globalAzureCache.mu.Lock()
+		globalAzureCache.token = ""
+		globalAzureCache.expiresAt = time.Time{}
+		globalAzureCache.mu.Unlock()
+	}()
 	t.Setenv("AZURE_TENANT_ID", "tenant")
 	t.Setenv("AZURE_CLIENT_ID", "client")
 	t.Setenv("AZURE_CLIENT_SECRET", "secret")
@@ -562,5 +569,106 @@ func TestEngine_Execute_RateLimitAndRetries(t *testing.T) {
 	// Assert that backoff caused a delay (at least 1 second from the Retry-After, plus the base backoff logic)
 	if elapsed < 1*time.Second {
 		t.Errorf("expected execution time > 1s due to retries, got %s", elapsed)
+	}
+}
+
+func TestEngine_applyAuth(t *testing.T) {
+	t.Setenv("TEST_BEARER_TOKEN", "my-bearer-token")
+	engine := NewEngine(http.DefaultClient)
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		authType  string
+		tokenEnv  string
+		wantErr   bool
+		errTarget error
+		validate  func(t *testing.T, req *http.Request)
+	}{
+		{
+			name:     "Unknown Auth Type",
+			authType: "unknown_type",
+			wantErr:  false,
+		},
+		{
+			name:     "Bearer Auth - Happy Path",
+			authType: "bearer",
+			tokenEnv: "TEST_BEARER_TOKEN",
+			wantErr:  false,
+			validate: func(t *testing.T, req *http.Request) {
+				if auth := req.Header.Get("Authorization"); auth != "Bearer my-bearer-token" {
+					t.Errorf("expected Bearer my-bearer-token, got %q", auth)
+				}
+			},
+		},
+		{
+			name:     "OAuth2 - Missing Credentials",
+			authType: "oauth2",
+			wantErr:  true,
+		},
+		{
+			name:      "AWS SigV4 - Missing Credentials",
+			authType:  "aws_sigv4",
+			wantErr:   true,
+			errTarget: nil,
+		},
+		{
+			name:      "GCP ADC - Missing Credentials",
+			authType:  "gcp_adc",
+			wantErr:   true,
+			errTarget: nil,
+		},
+		{
+			name:      "Azure Identity - Missing Credentials",
+			authType:  "azure_identity",
+			wantErr:   true,
+			errTarget: nil,
+		},
+		{
+			name:      "OCI Cavage - Missing Credentials",
+			authType:  "oci_cavage",
+			wantErr:   true,
+			errTarget: nil,
+		},
+		{
+			name:      "Ali/Tencent HMAC - Missing Credentials",
+			authType:  "ali_tencent_hmac",
+			wantErr:   true,
+			errTarget: nil,
+		},
+		{
+			name:      "JWS Financial - Missing Credentials",
+			authType:  "jws_financial",
+			wantErr:   true,
+			errTarget: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, "GET", "https://api.example.com", nil)
+			if err != nil {
+				t.Fatalf("failed to create request: %v", err)
+			}
+
+			authConfig := &AuthFlowConfig{
+				Type:     tt.authType,
+				TokenEnv: tt.tokenEnv,
+			}
+
+			err = engine.applyAuth(ctx, req, authConfig, []byte{})
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("applyAuth() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.errTarget != nil && !errors.Is(err, tt.errTarget) {
+				t.Errorf("expected error to target %v, got %v", tt.errTarget, err)
+			}
+
+			if tt.validate != nil && err == nil {
+				tt.validate(t, req)
+			}
+		})
 	}
 }
