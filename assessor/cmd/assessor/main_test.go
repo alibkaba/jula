@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -466,4 +467,117 @@ func TestValidateMetadataURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVerifyPolicyBundleSignature(t *testing.T) {
+	privKey1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+	privKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+
+	pubKeyPEM1 := string(exportPublicKeyPEM(t, &privKey1.PublicKey))
+	pubKeyPEM2 := string(exportPublicKeyPEM(t, &privKey2.PublicKey))
+
+	tests := []struct {
+		name        string
+		setup       func(dir string) string // returns the pubKeyPEM to use
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "happy path",
+			setup: func(dir string) string {
+				bundle := &pkgCrypto.PolicyBundle{
+					BundleHash: "test-hash",
+					Timestamp:  time.Now().UTC(),
+				}
+				if err := pkgCrypto.SignBundle(bundle, privKey1); err != nil {
+					t.Fatalf("failed to sign bundle: %v", err)
+				}
+				data, _ := json.Marshal(bundle)
+				os.WriteFile(filepath.Join(dir, "bundle-manifest.json"), data, 0644)
+				return pubKeyPEM1
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid PEM",
+			setup: func(dir string) string {
+				return "invalid-pem"
+			},
+			wantErr:     true,
+			errContains: "parse policy public key PEM",
+		},
+		{
+			name: "missing bundle manifest",
+			setup: func(dir string) string {
+				return pubKeyPEM1
+			},
+			wantErr:     true,
+			errContains: "bundle-manifest.json not found",
+		},
+		{
+			name: "invalid JSON",
+			setup: func(dir string) string {
+				os.WriteFile(filepath.Join(dir, "bundle-manifest.json"), []byte("invalid json"), 0644)
+				return pubKeyPEM1
+			},
+			wantErr:     true,
+			errContains: "parse bundle-manifest.json",
+		},
+		{
+			name: "invalid signature - wrong key",
+			setup: func(dir string) string {
+				bundle := &pkgCrypto.PolicyBundle{
+					BundleHash: "test-hash",
+					Timestamp:  time.Now().UTC(),
+				}
+				// Sign with key 1
+				if err := pkgCrypto.SignBundle(bundle, privKey1); err != nil {
+					t.Fatalf("failed to sign bundle: %v", err)
+				}
+				data, _ := json.Marshal(bundle)
+				os.WriteFile(filepath.Join(dir, "bundle-manifest.json"), data, 0644)
+				// Try to verify with key 2
+				return pubKeyPEM2
+			},
+			wantErr:     true,
+			errContains: "POLICY GATE FAILURE",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			pem := tt.setup(dir)
+
+			err := verifyPolicyBundleSignature(dir, pem)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				} else if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error containing %q, got %v", tt.errContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func exportPublicKeyPEM(t *testing.T, pub *ecdsa.PublicKey) string {
+	t.Helper()
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		t.Fatalf("marshaling public key: %v", err)
+	}
+	block := &pem.Block{Type: "PUBLIC KEY", Bytes: der}
+	return string(pem.EncodeToMemory(block))
 }
