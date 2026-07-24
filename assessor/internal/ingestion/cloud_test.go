@@ -150,3 +150,34 @@ func TestCloudReader_ReadPayloads_MissingFile(t *testing.T) {
 		t.Fatal("expected error for missing payload file")
 	}
 }
+
+func TestCloudReader_ReadManifest_InvalidJSON(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte("{invalid"), 0644); err != nil {
+		t.Fatalf("failed to write manifest: %v", err)
+	}
+
+	reader, _ := NewCloudReader(dir)
+
+	_, err := reader.ReadManifest(context.Background())
+	if err == nil {
+		t.Fatal("expected error for invalid json manifest")
+	}
+}
+
+func TestCloudReader_ReadPayloads_CancelContext(t *testing.T) {
+	reader, _ := NewCloudReader("http://127.0.0.1:0")
+
+	files := []types.FileChecksum{
+		{Path: "f1.json", SHA256: "abc"},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	_, err := reader.ReadPayloads(ctx, files)
+	if err == nil {
+		t.Fatal("expected error for canceled context")
+	}
+}

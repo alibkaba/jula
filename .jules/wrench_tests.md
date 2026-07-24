@@ -15,3 +15,5 @@ WRENCH'S JOURNAL
 - **Simulating Empty Results**: Simulated empty OPA results by mapping a control ID to a valid package in `OPAEngine.controlPackageMap`, but purposefully omitting the evaluation rule in the corresponding Rego code.
 - To deterministically simulate `url.Parse` failures in Go tests without external mocking, inject unescaped control characters (such as `\x00`) into the raw URL string.
 - For testing `engine` package in `collector`, mocking `json.Marshal` failure is difficult because `json.Unmarshal` outputs an `interface{}` that doesn't usually fail serialization. Coverage can be increased by testing other failure scenarios such as invalid YAML configurations, non-existent directories, and context cancellations during single extraction job executions.
+- Tested `assessor` package `verifyPolicyBundleSignature` function logic by generating real mock keys `ecdsa.GenerateKey(elliptic.P256(), rand.Reader)`.
+- Tested `ReadPayloads` logic in `internal/ingestion/cloud.go` with context cancellation by using `http://127.0.0.1:0`.
