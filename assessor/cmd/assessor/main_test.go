@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -463,6 +464,118 @@ func TestValidateMetadataURL(t *testing.T) {
 			_, err := validateMetadataURL(tt.pathOrURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateMetadataURL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestVerifyPolicyBundleSignature(t *testing.T) {
+	privKey, pubKeyPEM, err := generateMockKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate key pair: %v", err)
+	}
+
+	validBundle := &pkgCrypto.PolicyBundle{
+		BundleHash: "dummy-hash",
+		Timestamp:  time.Now(),
+	}
+
+	err = pkgCrypto.SignBundle(validBundle, privKey)
+	if err != nil {
+		t.Fatalf("failed to sign bundle: %v", err)
+	}
+
+	validBundleJSON, err := json.Marshal(validBundle)
+	if err != nil {
+		t.Fatalf("failed to marshal bundle: %v", err)
+	}
+
+	invalidSigBundle := &pkgCrypto.PolicyBundle{
+		BundleHash: "dummy-hash",
+		Timestamp:  time.Now(),
+		Signature:  "invalid-hex",
+	}
+	invalidSigBundleJSON, _ := json.Marshal(invalidSigBundle)
+
+	tests := []struct {
+		name        string
+		setupDir    func(t *testing.T) string
+		pubKeyPEM   string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "success",
+			setupDir: func(t *testing.T) string {
+				dir := t.TempDir()
+				err := os.WriteFile(filepath.Join(dir, "bundle-manifest.json"), validBundleJSON, 0644)
+				if err != nil {
+					t.Fatalf("failed to write bundle-manifest.json: %v", err)
+				}
+				return dir
+			},
+			pubKeyPEM: pubKeyPEM,
+			wantErr:   false,
+		},
+		{
+			name: "invalid public key",
+			setupDir: func(t *testing.T) string {
+				return t.TempDir()
+			},
+			pubKeyPEM:   "invalid-pem",
+			wantErr:     true,
+			errContains: "parse policy public key PEM",
+		},
+		{
+			name: "missing bundle manifest",
+			setupDir: func(t *testing.T) string {
+				return t.TempDir() // empty dir
+			},
+			pubKeyPEM:   pubKeyPEM,
+			wantErr:     true,
+			errContains: "bundle-manifest.json not found",
+		},
+		{
+			name: "invalid json in bundle manifest",
+			setupDir: func(t *testing.T) string {
+				dir := t.TempDir()
+				err := os.WriteFile(filepath.Join(dir, "bundle-manifest.json"), []byte("{invalid-json"), 0644)
+				if err != nil {
+					t.Fatalf("failed to write bundle-manifest.json: %v", err)
+				}
+				return dir
+			},
+			pubKeyPEM:   pubKeyPEM,
+			wantErr:     true,
+			errContains: "parse bundle-manifest.json",
+		},
+		{
+			name: "invalid signature",
+			setupDir: func(t *testing.T) string {
+				dir := t.TempDir()
+				err := os.WriteFile(filepath.Join(dir, "bundle-manifest.json"), invalidSigBundleJSON, 0644)
+				if err != nil {
+					t.Fatalf("failed to write bundle-manifest.json: %v", err)
+				}
+				return dir
+			},
+			pubKeyPEM:   pubKeyPEM,
+			wantErr:     true,
+			errContains: "POLICY GATE FAILURE",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := tt.setupDir(t)
+			err := verifyPolicyBundleSignature(dir, tt.pubKeyPEM)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("verifyPolicyBundleSignature() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr && err != nil && tt.errContains != "" {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("expected error to contain %q, got %q", tt.errContains, err.Error())
+				}
 			}
 		})
 	}
