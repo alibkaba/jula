@@ -79,14 +79,14 @@ type DispatchPayload struct {
 func dispatchDriftAlert(provider, service string, rawPayload interface{}) {
 	governorRepo := os.Getenv("JULA_GOVERNOR_REPO")   // e.g., "alibkaba/jula-governor"
 	dispatchToken := os.Getenv("JULA_DISPATCH_TOKEN") // Fine-grained personal access token
-	
+
 	if governorRepo == "" || dispatchToken == "" {
 		slog.Warn("gitops: automated telemetry alert skipped; environmental variables are unconfigured")
 		return
 	}
 
 	url := fmt.Sprintf("https://api.github.com/repos/%s/dispatches", governorRepo)
-	
+
 	payload := DispatchPayload{
 		EventType: "schema_drift_detected",
 		ClientPayload: map[string]interface{}{
@@ -124,6 +124,7 @@ type runOptions struct {
 	metadataURL  string
 	outputFormat string
 }
+
 func resolveBucketURL(bucketURL string) (string, error) {
 	if bucketURL == "" {
 		bucketURL = os.Getenv("JULA_BUCKET_URL")
