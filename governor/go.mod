@@ -1,9 +1,9 @@
 module jula-governor
 
-go 1.25.10
+go 1.26.0
 
 require (
-	github.com/open-policy-agent/opa v1.18.2
+	github.com/open-policy-agent/opa v1.20.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.5
 )
 
@@ -14,6 +14,5 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
