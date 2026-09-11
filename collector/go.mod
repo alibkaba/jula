@@ -1,11 +1,11 @@
 module github.com/alibkaba/jula-collector
 
-go 1.25.10
+go 1.26.0
 
 require (
 	github.com/alibkaba/jula-core v0.0.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
-	golang.org/x/oauth2 v0.36.0
+	golang.org/x/oauth2 v0.37.0
 )
 
 require (
